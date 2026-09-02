@@ -24,12 +24,18 @@
     "build": "esbuild src/buster-whack.js --bundle --format=esm --outfile=dist/buster-whack.js",
     "test": "npm run test:unit && npm run test:smoke",
     "test:unit": "node --test \"test/*.test.mjs\"",
-    "test:smoke": "node test/smoke.mjs"
+    "test:smoke": "node test/smoke.mjs",
+    "visual": "node tools/visual-check.mjs",
+    "visual:update": "node tools/visual-check.mjs --update",
+    "visual:proof": "node tools/visual/font-proof.mjs",
+    "frames": "node tools/frames.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.53",
     "esbuild": "^0.28.2",
-    "jsdom": "^24.0.0"
+    "jsdom": "^24.0.0",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0"
   },
   "keywords": [
     "game",

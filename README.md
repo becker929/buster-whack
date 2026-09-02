@@ -89,6 +89,8 @@ mountBusterWhack(container: HTMLElement, options?: {
 npm install
 npm test          # unit tests + the jsdom smoke test
 npm run test:unit # node:test suites over src/core
+npm run visual    # canvas golden frames (see "Visual regression" below)
+npm run frames    # render scenario PNGs to look at
 npm run build     # -> dist/buster-whack.js (single-file ESM bundle, gitignored)
 npm start         # serve the repo; open index.html
 ```
@@ -117,6 +119,18 @@ src/
 test/
   *.test.mjs       node:test unit tests over src/core (+ a headless render test)
   smoke.mjs        mounts the whole module in jsdom + @napi-rs/canvas
+  visual/golden/   committed golden frames (see "Visual regression")
+tools/
+  frames.mjs       render scenarios to PNGs + contact sheets, for looking at
+  visual-check.mjs the golden check and the "accept the new look" button
+  visual/
+    scenarios.js   the scenario records: seed, size, cues, frames to capture
+    harness.js     scenario -> PNG frames (core + render.js + @napi-rs/canvas)
+    fonts.js       pins the typeface so goldens don't depend on the machine
+    font-proof.mjs evidence that the pinning works
+    compare.js     golden vs actual, and the diff image
+    contact-sheet.js  a scenario's frames tiled into one labelled PNG
+    fonts/         JetBrains Mono (OFL-1.1), the only font the harness can use
 ```
 
 `step()` mutates the state in place (it runs at 60fps) and returns the list of
@@ -134,6 +148,106 @@ carries its own geometry in `state.G`, computed from width/height/dpr) and a
 time — so frames can be drawn headlessly against `@napi-rs/canvas` with no DOM
 at all. `test/render.test.mjs` does exactly that.
 
+### Visual regression
+
+Because the core is deterministic and `render.js` is a pure function of state,
+a frame can be reproduced exactly from a seed and a frame number. The visual
+harness leans on that: it replays scripted scenarios at a fixed 60fps step,
+rasterizes chosen frames with `@napi-rs/canvas`, and compares them byte-for-byte
+with goldens committed in `test/visual/golden/`. No browser, no jsdom, no
+Playwright — just the core, the renderer and a canvas.
+
+#### Looking at the game without a browser
+
+```bash
+npm run frames -- --list                # what scenarios exist and why
+npm run frames                          # every scenario
+npm run frames -- --scenario=player-hit # just one (comma-separated for several)
+npm run frames -- --scenario=charged-shot --all-frames   # every simulated frame
+```
+
+Output lands in `.visual/frames/` (gitignored). Each scenario gets a directory
+of numbered PNGs *and* a `<scenario>.sheet.png` contact sheet with every
+captured frame tiled and labelled — open that one first.
+
+#### Checking and updating the goldens
+
+```bash
+npm run visual            # compare against the committed goldens
+npm run visual -- --scenario=paused     # just one
+npm run visual:update     # ACCEPT the current rendering as the new goldens
+```
+
+`npm run visual` fails with the scenario, the frame, the pixel count and the
+reason each scenario exists, and writes `golden` / `actual` / `diff` PNGs for
+every changed frame into `.visual/diff/` (gitignored). CI uploads that directory
+as a workflow artifact on failure, so a reviewer can see what moved.
+
+**`npm run visual:update` is the "accept the new look" button.** It overwrites
+the goldens with whatever renders now and deletes goldens no scenario produces
+any more. Run it deliberately, after you have looked at the diff images, and let
+the golden changes show up in the pull request as the visual part of the review.
+
+#### Scenarios
+
+Scenarios are records in `tools/visual/scenarios.js`, not scripts: each names a
+seed, a canvas size, a timeline of cues keyed by frame index, and the frames to
+capture. A cue can push intents, but it can also place enemies, inject incoming
+fire, arm a full charge or set core fields directly — because waiting for the
+RNG to produce a charged kill on a steel guard while a heavy bolt is in flight
+would make the goldens hostage to unrelated tuning changes. Adding a scenario
+means adding a record; the harness needs no new code.
+
+The fourteen scenarios cover an empty board, mid-combat with every enemy type,
+the counterattack telegraph mid-charge, bolts in flight, the player-hit flash
+and screen shake, the charged shot's muzzle flash / tracer / impact ring, the
+charge ring filling, popups and sparks, shooting a friendly prog, the pause
+overlay, the high-chain multiplier HUD, the overclock HUD and its low-time bar,
+and two off-aspect stages (420x740 and 700x360) that exercise both branches of
+the layout clamp.
+
+#### Fonts
+
+Text is the usual reason a canvas golden suite rots: `render.js` asks for
+`ui-monospace, Menlo, Consolas, monospace`, every machine answers differently,
+and one runner-image bump turns the suite permanently red. So the harness does
+not negotiate with the system font set — it deletes it. `GlobalFonts.removeAll()`
+drops every face the machine has, and the two [JetBrains Mono][jbm] faces in
+`tools/visual/fonts/` (OFL-1.1) are registered under *every* family name in the
+renderer's stack. After that the process knows about exactly two font files;
+there is nothing else to fall back to, for a family name or for a single glyph.
+
+`npm run visual:proof` demonstrates it, and CI runs it too: it renders the same
+frame against the machine's own fonts in a child process and shows the result
+differs (so the bundled font really is deciding the typeface), asserts that zero
+system families survive registration, and checks that every character the
+renderer can emit has a real glyph rather than a `.notdef` box.
+
+There is deliberately **no pixel tolerance**: the comparison is byte-exact.
+
+#### What the goldens do not cover
+
+- **Only the playfield and the HUD.** The start screen, the interlevel card and
+  the game-over card are HTML and CSS in the shadow DOM, not canvas drawing.
+  Nothing here can see them; that would need a real browser.
+- **Not what a browser draws.** The goldens are how `@napi-rs/canvas` rasterizes
+  these frames, which is not pixel-for-pixel what Chrome or Safari produce, and
+  is not meant to be. They catch *changes* to the drawing code, not
+  cross-browser fidelity. The two engines genuinely disagree in places — the
+  `charge-telegraph/full` golden is one: a 100% charge sweeps exactly 2π, which
+  browsers draw as a closed ring and `@napi-rs/canvas` draws as nothing at all.
+- **Not layout in a real page**, DPR scaling, input handling, audio, or
+  `localStorage`. Those live in the shell around `render.js`.
+- **Not a substitute for playing it.** The goldens pin fourteen moments. The
+  feel of the ramp between them is still yours to judge.
+
+[jbm]: https://github.com/JetBrains/JetBrainsMono
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+The two JetBrains Mono font files under `tools/visual/fonts/` are used only by
+the visual-test harness and are licensed separately under the SIL Open Font
+License 1.1 — see [tools/visual/fonts/OFL.txt](./tools/visual/fonts/OFL.txt).
+They are not part of the published package.
