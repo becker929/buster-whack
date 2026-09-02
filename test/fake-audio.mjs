@@ -133,6 +133,11 @@ export class FakeAudioContext {
     n.gain = n._param("gain", 1);
     return n;
   }
+  createStereoPanner() {
+    const n = new FakeNode(this, "panner");
+    n.pan = n._param("pan", 0);
+    return n;
+  }
   createBiquadFilter() {
     const n = new FakeNode(this, "filter");
     n.type = "lowpass";

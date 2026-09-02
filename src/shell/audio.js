@@ -39,7 +39,18 @@ const MUSIC_GAIN = 0.34;
 const LOOKAHEAD = 0.14;   // seconds of music scheduled ahead of the audio clock
 const PUMP_MS = 25;       // how often the scheduler wakes to top that back up
 const STEPS = 16;         // sixteenths per bar
-const BARS = 4;
+const BARS = 4;           // bars per chord cycle
+// Four bars is a ringtone. The form is four chord cycles: A A' B A'', so the
+// same material comes back changed rather than merely repeating, and the last
+// bar of every cycle takes a fill. At 128bpm that is a 30s form -- long enough
+// that a two-minute run never hears the same bar twice in a row.
+const PHRASES = 4;
+const FORM_BARS = BARS * PHRASES;
+// Per phrase: does the lead sit an octave up, do the stabs double, is the bass
+// pushed. Phrase 2 is the B section -- lead up, stabs on, a different arp.
+const PH_LEAD_OCT = [0, 0, 12, 0];
+const PH_STABS    = [false, true, true, true];
+const PH_BSECTION = [false, false, true, false];
 
 // ---------- misc ----------
 
@@ -688,6 +699,32 @@ export function createAudio(win) {
       if (heavy) tone({ wave: "sine", freq: 110, to: 50, dur: 0.2, gain: 0.1, pan });
     },
 
+    /**
+     * A wave wiped out. Short and bright — it lands in the lull that follows,
+     * so it has room, but it must not compete with the next wave arriving.
+     * Scaled by how big the wave was.
+     */
+    waveClear(n) {
+      const size = Math.min(1, (n || 1) / 5);
+      duckMusic(0.3, 0.3);
+      seq([76, 81, 88], { step: 0.05, dur: 0.07, gain: 0.09 + 0.04 * size, octave: size > 0.6 });
+      tone({ wave: "sine", freq: hz(57), dur: 0.3, gain: 0.1, attack: 0.006 });
+    },
+
+    /**
+     * The interlevel card used to be about 1.4s of dead air after the sting's
+     * tail. A quiet held pad under it: the run has not ended, it is holding.
+     */
+    cardPad() {
+      for (const n of [45, 57, 64]) {
+        tone({
+          wave: "sawtooth", freq: hz(n), detune: n === 57 ? 7 : -5,
+          dur: 2.6, gain: 0.035, attack: 0.35, delay: 0.5,
+          filter: "lowpass", cutoff: 1400, q: 0.8,
+        });
+      }
+    },
+
     /** Credit accepted. Also the proof that audio unlocked on the gesture. */
     boot() {
       seq([57, 64, 69], { step: 0.07, dur: 0.06, gain: 0.11 });
@@ -936,14 +973,20 @@ export function createAudio(win) {
     const tier = music.tier;
     const oc = tier === 3;
     const s = i % STEPS;
-    const bar = Math.floor(i / STEPS) % BARS;
-    const root = (oc ? PROG_OC : PROG_MAIN)[bar];
-    const arp = oc ? ARP_DIM : ARP_MIN;
+    const absBar = Math.floor(i / STEPS) % FORM_BARS;
+    const bar = absBar % BARS;
+    const phrase = Math.floor(absBar / BARS);
+    const bSection = PH_BSECTION[phrase];
+    // the B section leans on the relative major, so it lifts without modulating
+    const root = (oc ? PROG_OC : PROG_MAIN)[bar] + (bSection && !oc ? 3 : 0);
+    const arp = oc || bSection ? ARP_DIM : ARP_MIN;
     const sd = stepDur();
+    // last bar of a phrase, second half: the fill
+    const fill = bar === BARS - 1 && s >= 8;
 
     if ((music.lowTime ? KICK_LOW_TIME : KICK[tier])[s] === "x") kick(t);
-    if (SNARE[tier][s] === "x") snare(t);
-    if (HAT[tier][s] === "x") hat(t, s % 8 === 6);
+    if (SNARE[tier][s] === "x" || (fill && tier >= 1 && s % 2 === 0)) snare(t);
+    if (HAT[tier][s] === "x" || (fill && s % 2 === 1)) hat(t, s % 8 === 6 || (fill && s === 15));
 
     // bass: a continuous eighth-note floor, with sixteenth pickups from tier 2
     if (s % 2 === 0 || (tier >= 2 && s % 4 === 3)) {
@@ -952,10 +995,13 @@ export function createAudio(win) {
 
     // lead: silent when the clock is nearly out — the alarm owns that space
     if (!music.lowTime && LEAD[tier][s] === "x") {
-      lead(t, root + 24 + arp[(i + bar) % arp.length], sd * 1.6, oc);
+      lead(t, root + 24 + PH_LEAD_OCT[phrase] + arp[(i + bar + phrase) % arp.length],
+           sd * 1.6, oc);
     }
 
-    if (STAB[tier][s] === "x") stab(t, root, oc);
+    if (STAB[tier][s] === "x" || (PH_STABS[phrase] && tier >= 1 && s === 10)) {
+      stab(t, root, oc);
+    }
   }
 
   /**
@@ -974,7 +1020,7 @@ export function createAudio(win) {
       if (on && music.playing && music.nextAt >= music.startAfter) {
         scheduleStep(music.step, music.nextAt);
       }
-      music.step = (music.step + 1) % (STEPS * BARS);
+      music.step = (music.step + 1) % (STEPS * FORM_BARS);
       music.nextAt += stepDur();
     }
     schedulePump();
@@ -1099,7 +1145,15 @@ export function createAudio(win) {
         break;
       case "paused":        sfx.pauseBlip(true); break;
       case "unpaused":      sfx.pauseBlip(false); break;
-      case "stageGate":     sfx.stageSting(); break;
+      case "stageGate":
+        sfx.stageSting();
+        sfx.cardPad();     // the card is a hold, not an ending — fill the air
+        break;
+      case "waveEnded":
+        // only a wave the player actually wiped: a lapsed wave ends too, and
+        // rewarding that would be rewarding nothing
+        if (ev.cleared) sfx.waveClear(ev.virusCount || ev.size || 1);
+        break;
       case "gameOver":
         musicStop();
         sfx.over();

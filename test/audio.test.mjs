@@ -467,3 +467,117 @@ test("the shell survives a browser with no Web Audio at all", () => {
   audio.toggleMute();
   audio.close();
 });
+
+// ---------------------------------------------------------------------------
+// Detonation, damage, stereo, and the extended form.
+// ---------------------------------------------------------------------------
+
+/** Every pan value set by `fn`, in creation order. */
+function pans(ac, fn) {
+  const before = ac.nodes.length;
+  fn();
+  return ac.nodes.slice(before)
+    .filter((n) => n.kind === "panner")
+    .map((n) => n.pan.events[0].value);
+}
+
+test("a deletion is panned to the column it happened in", () => {
+  const { audio, ac } = boot();
+  const at = (col) =>
+    pans(ac, () => audio.handle({ type: "hit", enemyType: "mett", tier: "normal", chain: 1, col }));
+  const left = at(0), right = at(5), mid = at(3);
+  assert.ok(left.length > 0, "the delete should place at least one panned voice");
+  assert.ok(Math.max(...left) < 0, "column 0 belongs on the left");
+  assert.ok(Math.min(...right) > 0, "column 5 belongs on the right");
+  // never hard-panned: a voice pushed all the way over vanishes on one earbud
+  assert.ok(Math.max(...right) <= 0.63, "keep it short of hard-panned");
+  assert.ok(Math.abs(mid[0]) < Math.abs(left[0]), "the middle of the board is near centre");
+  audio.close();
+});
+
+test("the aim cue is panned hardest, because the lane is the information", () => {
+  const { audio, ac } = boot();
+  const aim = pans(ac, () => audio.handle({ type: "enemyAim", col: 5 }));
+  const hit = pans(ac, () => audio.handle({ type: "hit", enemyType: "mett", chain: 1, col: 5 }));
+  assert.ok(aim.length > 0 && hit.length > 0);
+  assert.ok(Math.max(...aim) >= Math.max(...hit), "the telegraph must be at least as placed");
+  audio.close();
+});
+
+test("taking a hit is a bigger event than any kill", () => {
+  const { audio, ac } = boot();
+  const size = (ev) => spawned(ac, () => audio.handle(ev)).length;
+  const hurt = size({ type: "playerHit", col: 1 });
+  const charged = size({ type: "hit", enemyType: "mett", tier: "charged", chain: 8, col: 3 });
+  assert.ok(hurt >= charged, `damage (${hurt} voices) should not be smaller than a charged kill (${charged})`);
+  audio.close();
+});
+
+test("a mett pop stays short even though it now detonates", () => {
+  const { audio, ac } = boot();
+  const s = spawned(ac, () => audio.handle({ type: "hit", enemyType: "mett", tier: "normal", chain: 1, col: 2 }));
+  const tail = Math.max(...s.map((x) => x.stopped)) - ac.currentTime;
+  // at wave density you hear a lot of these; a long tail on each smears
+  assert.ok(tail < 0.3, `bread-and-butter delete tail ${tail.toFixed(3)}s must stay under 0.3s`);
+  audio.close();
+});
+
+test("only a wave the player actually cleared gets the fanfare", () => {
+  const { audio, ac } = boot();
+  const cleared = spawned(ac, () => audio.handle({ type: "waveEnded", cleared: true, virusCount: 4 })).length;
+  const lapsed = spawned(ac, () => audio.handle({ type: "waveEnded", cleared: false, virusCount: 4 })).length;
+  assert.ok(cleared > 0, "clearing a wave should sound");
+  assert.equal(lapsed, 0, "a wave that merely expired is not an achievement");
+  audio.close();
+});
+
+test("the stage card gets a pad instead of dead air", () => {
+  const { audio, ac } = boot();
+  const s = spawned(ac, () => audio.handle({ type: "stageGate", index: 0, title: "T", desc: "d" }));
+  const tail = Math.max(...s.map((x) => x.stopped)) - ac.currentTime;
+  assert.ok(tail > 1.4, `the card should still be sounding at 1.4s, got ${tail.toFixed(2)}s`);
+  audio.close();
+});
+
+test("the music form is longer than four bars, and comes back changed", () => {
+  const { audio, ac, win } = boot();
+  audio.handle({ type: "runStarted" });
+
+  // Bars must be sampled on the transport's own grid or the fingerprints drift
+  // and always differ, which would make this test pass for the wrong reason.
+  // Tier 0 is 128bpm: a sixteenth is 60/(128*4)s, a bar is sixteen of them.
+  const STEP = 60 / (128 * 4);
+  const bars = [];
+  let seen = 0;
+  for (let b = 0; b < 22; b++) {
+    for (let k = 0; k < 16; k++) { ac.currentTime += STEP; win.runTimers(2); }
+    const fresh = ac.sources.slice(seen);
+    seen = ac.sources.length;
+    bars.push(
+      fresh
+        .filter((x) => x.kind === "oscillator" && x.frequency.events.length)
+        .map((x) => Math.round(x.frequency.events[0].value))
+        .sort((p, q) => p - q)
+        .join(","),
+    );
+  }
+
+  // Skip the lead-in: the run jingle holds the downbeat for half a second.
+  const usable = bars.slice(3).filter((x) => x.length);
+  assert.ok(usable.length >= 12, `expected a filled transport, got ${usable.length} bars`);
+
+  // A four-bar loop makes every bar identical to the one four bars later.
+  let same = 0, pairs = 0;
+  for (let b = 3; b + 4 < bars.length; b++) {
+    if (!bars[b].length || !bars[b + 4].length) continue;
+    pairs++;
+    if (bars[b] === bars[b + 4]) same++;
+  }
+  assert.ok(pairs >= 8, `not enough comparable bars (${pairs})`);
+  // Allow some repetition — A and A'' share material by design — but not all.
+  assert.ok(
+    same <= pairs * 0.5,
+    `${same}/${pairs} bars repeat at a four-bar period: the form is still a 4-bar loop`,
+  );
+  audio.close();
+});
