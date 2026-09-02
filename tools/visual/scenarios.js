@@ -186,7 +186,7 @@ export const scenarios = [
   {
     name: "charge-telegraph",
     title: "Holding fire: the charge ring filling",
-    why: "The charge arc only appears after 120ms of hold and sweeps clockwise. An empty field keeps the ring unobstructed. NB the `full` frame shows no ring at all: at 100% the sweep is exactly 2*PI, which @napi-rs/canvas renders as an empty path where a browser draws a closed circle. That is a genuine harness-vs-browser divergence, and pinning it means a change to it gets noticed.",
+    why: "The charge arc appears after 120ms of hold and sweeps clockwise, thickening and dragging converging motes in as it fills; at full it gains an outer pulse ring and four crackle spikes. The sweep tops out at 2*PI - RING_GAP rather than a closed circle, so a full ring is never an exact-2*PI arc — a shape some canvas backends drop entirely. An empty field keeps it unobstructed.",
     seed: 23,
     width: W,
     height: H,
@@ -306,6 +306,152 @@ export const scenarios = [
     cues: [
       { at: 0, set: { deletions: 64, score: 250800, chain: 3, bestChain: 18, timeLeft: 12.4 } },
       { at: 20, set: { timeLeft: 4.2 } },
+    ],
+  },
+
+  {
+    name: "hit-stop",
+    title: "Hit-stop: the frame freezes on a rare deletion",
+    why: "A rare is the loudest thing in the game, so it buys the longest freeze (HITSTOP.rare). The delete animation is dated to the *impact*, not the trigger pull, so `inbound` still shows an intact virus with the tracer crossing toward it. `freeze-in` and `freeze-hold` are captured four frames apart and differ only in the HUD time bar: the simulation clock is frozen but the run clock deliberately is not, so juice can never hand a kill-spammer a slower countdown.",
+    seed: 61,
+    width: W,
+    height: H,
+    frames: 24,
+    capture: [
+      { at: 6, as: "inbound" },
+      { at: 8, as: "freeze-in" },
+      { at: 12, as: "freeze-hold" },
+      { at: 20, as: "resumed" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 52, score: 174300, chain: 6, bestChain: 12, timeLeft: 19.5 },
+        place: [{ col: 5, row: 1, type: "rare", state: "up" }],
+      },
+      { at: 2, charge: "full", actions: [{ type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "deletion-debris",
+    title: "Deletion debris, tinted per skin",
+    why: "A charged delete throws BIT_COUNT.charged bits in the victim's own colours, under gravity, plus an impact ripple in the struck panel and an answering one under the player. Catches the spawn burst, the arc and the fade — and the cap, since every bit is authored from the seeded rng in the core.",
+    seed: 67,
+    width: W,
+    height: H,
+    frames: 40,
+    capture: [
+      { at: 8, as: "burst" },
+      { at: 16, as: "arc" },
+      { at: 30, as: "settling" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 34, score: 96400, chain: 3, bestChain: 11, timeLeft: 23.2 },
+        place: [{ col: 4, row: 1, type: "guard", state: "up" }],
+      },
+      { at: 2, charge: "full", actions: [{ type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "chain-flourish",
+    title: "Multiplier flourish at x2 and x4",
+    why: "Every multiplier step gets a hexagonal shockwave, spokes and the new multiplier punching out of the panel, colour-coded cyan / gold / orange by tier — plus a swell on the HUD chain line. Two kills in one run so both the low and the top tier are pinned; the second is the one that has to read as an event.",
+    seed: 71,
+    width: W,
+    height: H,
+    frames: 40,
+    capture: [
+      { at: 6, as: "x2-burst" },
+      { at: 12, as: "x2-spread" },
+      { at: 28, as: "x4-burst" },
+      { at: 34, as: "x4-spread" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 40, score: 118200, chain: 4, bestChain: 9, timeLeft: 22.8 },
+        place: [{ col: 3, row: 1, type: "mett", state: "up" }],
+      },
+      { at: 2, actions: [{ type: "firePressed" }, { type: "fireReleased" }] },
+      {
+        at: 22,
+        set: { chain: 19 },
+        place: [{ col: 3, row: 1, type: "mett", state: "up" }],
+      },
+      { at: 24, actions: [{ type: "firePressed" }, { type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "chain-loss",
+    title: "Losing a chain",
+    why: "The counterweight to the flourish: a whiff at nine dumps the count out of the board in warn red and drops the links out from under it. Dated to the tracer reaching the far wall, so the loss lands when the miss is visible rather than on the trigger pull.",
+    seed: 73,
+    width: W,
+    height: H,
+    frames: 44,
+    capture: [
+      { at: 10, as: "snap" },
+      { at: 22, as: "falling" },
+      { at: 38, as: "gone" },
+    ],
+    cues: [
+      { at: 0, set: { deletions: 26, score: 71500, chain: 9, bestChain: 14, timeLeft: 17.3 } },
+      { at: 2, actions: [{ type: "firePressed" }, { type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "overclock-field",
+    title: "Overclock: the whole field runs hot",
+    why: "Past OC_START the panels themselves shift to the overclock palette and a slow orange tide crosses the grid. The two captures are far enough apart that the tide has visibly moved, which is the only way a regression in its phase would show up.",
+    seed: 79,
+    width: W,
+    height: H,
+    frames: 46,
+    capture: [
+      { at: 4, as: "hot" },
+      { at: 44, as: "tide" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 92, score: 402100, chain: 7, bestChain: 24, timeLeft: 16.8 },
+        place: [
+          { col: 3, row: 0, type: "mett", state: "up" },
+          { col: 5, row: 1, type: "guard", state: "up" },
+          { col: 4, row: 2, type: "hopper", state: "up" },
+        ],
+      },
+    ],
+  },
+
+  {
+    name: "reduced-motion",
+    title: "reducedMotion: the damped path",
+    why: "The accessibility contract. Same beat as `player-hit` — a bolt lands on the player — but with `state.reducedMotion` set: screen shake is damped to RM.shake, the full-screen hurt flash to RM.flash, the i-frame strobe becomes a steady dim, and the low-time frame holds instead of pulsing. Diff this against `player-hit` and `overclock-hud` to see exactly what the flag buys.",
+    seed: 83,
+    width: W,
+    height: H,
+    frames: 46,
+    capture: [
+      { at: 18, as: "impact" },
+      { at: 23, as: "damped-shake" },
+      { at: 44, as: "steady-iframes" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: {
+          reducedMotion: true,
+          deletions: 20, score: 30100, chain: 6, bestChain: 6, timeLeft: 5.2,
+        },
+        bolt: [{ col: 3, row: 1, heavy: false }],
+      },
     ],
   },
 

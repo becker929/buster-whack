@@ -152,7 +152,10 @@ test("the press/charge/release cycle still works, repeatedly", () => {
     assert.equal(typesOf(down).filter((t) => t === "shot").length, 1, "press fires immediately");
     assert.equal(s.canFire, false);
 
-    const held = step(s, C.CHARGE_MS + 20, []);
+    // the previous iteration's kill leaves a hit-stop freeze pending, and a
+    // freeze eats the front of a frame's dt, so hold for long enough to outlast
+    // the worst case as well as the charge itself
+    const held = step(s, C.CHARGE_MS + 20 + C.MAX_HITSTOP, []);
     assert.ok(typesOf(held).includes("chargeReady"), "the charge announces itself once");
 
     const up = step(s, 16, [{ type: "fireReleased" }]);
