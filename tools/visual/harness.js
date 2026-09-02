@@ -51,7 +51,7 @@ function placeEnemy(state, o) {
     // the newer per-virus fields, passed through when a scenario names them
     // (defaults match what the spawner would give a plain mett)
     tier: o.tier || 0,
-    aimMs: o.aimMs === undefined ? 600 : o.aimMs,
+    aimMs: o.aimMs,          // undefined unless named: the core then falls back exactly as before
     persistent: !!o.persistent,
     boltKind: o.boltKind || "slow",
     refireAt: Infinity,
