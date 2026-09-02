@@ -21,10 +21,14 @@
   ],
   "scripts": {
     "start": "npx serve .",
-    "test": "node test/smoke.mjs"
+    "build": "esbuild src/buster-whack.js --bundle --format=esm --outfile=dist/buster-whack.js",
+    "test": "npm run test:unit && npm run test:smoke",
+    "test:unit": "node --test \"test/*.test.mjs\"",
+    "test:smoke": "node test/smoke.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.53",
+    "esbuild": "^0.28.2",
     "jsdom": "^24.0.0"
   },
   "keywords": [

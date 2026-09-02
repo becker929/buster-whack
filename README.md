@@ -85,13 +85,54 @@ mountBusterWhack(container: HTMLElement, options?: {
 
 ## Development
 
-`test/smoke.mjs` mounts the module in a headless DOM (jsdom + `@napi-rs/canvas`)
-and drives a few frames of input to catch regressions before you push:
-
 ```bash
 npm install
-npm test
+npm test          # unit tests + the jsdom smoke test
+npm run test:unit # node:test suites over src/core
+npm run build     # -> dist/buster-whack.js (single-file ESM bundle, gitignored)
+npm start         # serve the repo; open index.html
 ```
+
+### Layout
+
+The game is a pure core plus an effectful shell. The core is deterministic —
+no DOM, no Web Audio, no `Math.random`, no `Date.now`/`performance.now` — so it
+can be unit-tested and replayed frame-for-frame from a seed.
+
+```
+src/
+  core/            deterministic simulation, zero side effects
+    constants.js   tuning tables, difficulty ramps, easing/impulse math, layout
+    rng.js         mulberry32; the core only ever draws from state.rng
+    state.js       createState({ seed, best }) -> state; setLayout(state, w, h)
+    step.js        step(state, dtMs, intents) -> events[]
+    select.js      pure selectors (HUD, footer, overlay view models)
+  shell/           everything with a side effect
+    audio.js       Web Audio sfx bank, driven by core events
+    render.js      draw(ctx, state, now) — canvas only, never touches the DOM
+    input.js       pointer / keyboard / analog-ring -> intents
+    dom.js         TEMPLATE (styles + markup), shadow root, overlays, splash
+    mount.js       mountBusterWhack: owns the rAF loop and wires it together
+  buster-whack.js  public entry, re-exports mountBusterWhack (named + default)
+test/
+  *.test.mjs       node:test unit tests over src/core (+ a headless render test)
+  smoke.mjs        mounts the whole module in jsdom + @napi-rs/canvas
+```
+
+`step()` mutates the state in place (it runs at 60fps) and returns the list of
+things that happened: `shot`, `hit`, `whiff`, `guardBlocked`, `hopperStagger`,
+`hopperHop`, `progHit`, `playerHit`, `playerMoved`, `chainBroken`,
+`multiplierUp`, `chargeReady`, `enemySpawned`, `enemyAim`, `enemyFired`,
+`enemyEscaped`, `allySpared`, `stageGate`, `runStarted`, `resumed`, `paused`,
+`unpaused`, `gameOver`, `statsChanged`. The shell drains that list: `audio.js`
+turns events into sounds, `mount.js` turns them into DOM updates and storage
+writes. New audio or visual juice hangs off these events rather than off the
+simulation.
+
+`render.js` takes a `CanvasRenderingContext2D`, a plain state object (which
+carries its own geometry in `state.G`, computed from width/height/dpr) and a
+time — so frames can be drawn headlessly against `@napi-rs/canvas` with no DOM
+at all. `test/render.test.mjs` does exactly that.
 
 ## License
 
