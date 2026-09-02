@@ -41,10 +41,16 @@ export function createState(opts = {}) {
     bestChain: 0,
     timeLeft: START_TIME,
     player: { col: 1, row: 1 },
-    enemies: [],               // { col,row,type,state,t0,hp, lastHop,hopT0, fx?,tier?, willAttack,fired }
-    bolts: [],                 // incoming fire: { row, x, speed, heavy }
+    // { col,row,type,state,t0,hp, lastHop,hopT0, fx?,tier?, wave,
+    //   willAttack,fired, boltKind,aimMs }
+    enemies: [],
+    // incoming fire: { row, x, speed, kind, radius, heavy }
+    bolts: [],
     hurtUntil: -1e9,           // i-frames, so one volley can't drain the clock
-    nextSpawnAt: 0,
+    nextSpawnAt: 0,            // clock at which the next wave lands (Infinity = never)
+    waveIdx: 0,                // how many waves have started this run
+    waveState: "lull",         // lull | active
+    wave: null,                // the live formation, see planWave() in step.js
     stageIdx: 0,
     charge: { downAt: null, full: false },
     lastMoveAt: -1e9,
@@ -101,6 +107,7 @@ function remap(state, a, b) {
   for (const bolt of state.bolts) {
     bolt.x = mx(bolt.x);
     bolt.speed *= kx;
+    if (bolt.radius) bolt.radius *= kx;
   }
   for (const pp of state.fx.popups) { pp.x = mx(pp.x); pp.y = my(pp.y); }
   for (const sp of state.fx.sparks) { sp.x = mx(sp.x); sp.y = my(sp.y); }

@@ -141,14 +141,15 @@ export const scenarios = [
     seed: 17,
     width: W,
     height: H,
-    frames: 46,
-    // the bolt lands on frame 18: shake peaks there, the spark lives 140ms and
-    // the flash 190ms, and the i-frame flicker outlasts both by half a second
+    frames: 60,
+    // the bolt lands on frame 30 (the slow shell crosses the board at its own
+    // pace now): shake peaks there, the spark lives 140ms and the flash 190ms,
+    // and the i-frame flicker outlasts both by half a second
     capture: [
-      { at: 18, as: "impact" },
-      { at: 23, as: "shake" },
-      { at: 29, as: "flash-out" },
-      { at: 44, as: "iframes" },
+      { at: 30, as: "impact" },
+      { at: 35, as: "shake" },
+      { at: 41, as: "flash-out" },
+      { at: 56, as: "iframes" },
     ],
     cues: [
       {
@@ -294,7 +295,7 @@ export const scenarios = [
   {
     name: "overclock-hud",
     title: "Overclock HUD and the low-time bar",
-    why: "Past 60 deletions the HUD gains the OVERCLOCK readout and the time bar turns orange; under 6 seconds it turns red instead. Both branches of the same colour expression.",
+    why: "Past OC_START deletions the HUD gains the OVERCLOCK readout and the time bar turns orange; under 6 seconds it turns red instead. Both branches of the same colour expression.",
     seed: 43,
     width: W,
     height: H,
@@ -304,7 +305,7 @@ export const scenarios = [
       { at: 22, as: "overclock-lowtime" },
     ],
     cues: [
-      { at: 0, set: { deletions: 64, score: 250800, chain: 3, bestChain: 18, timeLeft: 12.4 } },
+      { at: 0, set: { deletions: 190, score: 250800, chain: 3, bestChain: 18, timeLeft: 12.4 } },
       { at: 20, set: { timeLeft: 4.2 } },
     ],
   },
@@ -420,7 +421,7 @@ export const scenarios = [
     cues: [
       {
         at: 0,
-        set: { deletions: 92, score: 402100, chain: 7, bestChain: 24, timeLeft: 16.8 },
+        set: { deletions: 190, score: 402100, chain: 7, bestChain: 24, timeLeft: 16.8 },
         place: [
           { col: 3, row: 0, type: "mett", state: "up" },
           { col: 5, row: 1, type: "guard", state: "up" },
@@ -437,11 +438,11 @@ export const scenarios = [
     seed: 83,
     width: W,
     height: H,
-    frames: 46,
+    frames: 60,
     capture: [
-      { at: 18, as: "impact" },
-      { at: 23, as: "damped-shake" },
-      { at: 44, as: "steady-iframes" },
+      { at: 30, as: "impact" },
+      { at: 35, as: "damped-shake" },
+      { at: 56, as: "steady-iframes" },
     ],
     cues: [
       {
@@ -495,7 +496,7 @@ export const scenarios = [
     cues: [
       {
         at: 0,
-        set: { deletions: 64, score: 190400, chain: 6, bestChain: 21, timeLeft: 9.3 },
+        set: { deletions: 190, score: 190400, chain: 6, bestChain: 21, timeLeft: 9.3 },
         place: [
           { col: 3, row: 0, type: "rare", state: "up" },
           { col: 5, row: 1, type: "mett", state: "up", willAttack: true },

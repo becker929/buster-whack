@@ -78,9 +78,14 @@ mountBusterWhack(container: HTMLElement, options?: {
 
 - Move: on-screen analog ring, arrow keys, or WASD
 - Fire: tap / click / Space — hold to charge a stronger shot
-- Dodge: from 12 deletions on, viruses shoot back. A virus about to fire
-  marks its row with a dashed line and a chevron at your edge of the field —
-  move off that row. A hit costs 2.5s off the clock and breaks your chain.
+- Dodge: once the RETALIATION card has been shown, viruses shoot back. A virus
+  about to fire marks its row with a dashed line and a chevron at your edge of
+  the field — move off that row. A hit costs 2.5s off the clock and breaks your
+  chain. There are two bolts and the difference is the mechanic: a **mett**
+  fires a huge slow shell you can still dodge after it launches; a **hopper**
+  plants itself, telegraphs for much longer, then fires a bolt that crosses the
+  board in a blink — that one has to be dodged during the telegraph. A steel
+  guard never fires; it is the anchor of a formation.
 - `P` or `Esc`: pause · `M`: mute (a crossed-speaker badge sits by the pause
   button while sound is off)
 
@@ -138,8 +143,8 @@ tools/
 things that happened: `shot`, `hit`, `whiff`, `guardBlocked`, `hopperStagger`,
 `hopperHop`, `progHit`, `playerHit`, `playerMoved`, `chainBroken`,
 `multiplierUp`, `chargeReady`, `enemySpawned`, `enemyAim`, `enemyFired`,
-`enemyEscaped`, `allySpared`, `stageGate`, `runStarted`, `resumed`, `paused`,
-`unpaused`, `gameOver`, `statsChanged`. The shell drains that list: `audio.js`
+`enemyEscaped`, `allySpared`, `waveStart`, `waveEnded`, `stageGate`,
+`runStarted`, `resumed`, `paused`, `unpaused`, `gameOver`, `statsChanged`. The shell drains that list: `audio.js`
 turns events into sounds, `mount.js` turns them into DOM updates and storage
 writes. New audio or visual juice hangs off these events rather than off the
 simulation.
@@ -148,6 +153,33 @@ simulation.
 carries its own geometry in `state.G`, computed from width/height/dpr) and a
 time — so frames can be drawn headlessly against `@napi-rs/canvas` with no DOM
 at all. `test/render.test.mjs` does exactly that.
+
+### Pacing: waves, lulls and stage gates
+
+Enemies arrive as **waves**, not on a rolling timer. One formation lands (a
+column, a rank, a diagonal, a pincer — rows rotated by the rng, arrivals
+staggered), you clear it or it expires, and then there is a real **lull** with
+nothing on the board. That lull is where the game breathes: it is when you
+reposition and charge. Clearing every virus in a wave cuts the next lull to
+`WAVE_CLEAR_LULL` of its length and pays time and points, so pressure is
+something you earn back. A lull never outstays a nearly-dead clock — under
+`LOW_TIME` seconds it collapses to `LOW_TIME_LULL_MS`.
+
+Three counters drive the ramp, deliberately kept apart:
+
+| counter | governs |
+| --- | --- |
+| `deletions` | how hard an individual enemy is: up-time, aim window, bolt speed |
+| `stageIdx` | what may appear at all: wave size, and every skin's unlock |
+| `waveIdx` | the rhythm only: arrival stagger and lull length |
+
+A **stage gate** needs two floors — `STAGES[i].wave` waves started *and*
+`STAGES[i].at` deletions banked. The wave floor stops a strong player being
+handed the whole syllabus in the first minute; the deletion floor stops a
+struggling one being taught a mechanic they have not earned. Composition keys
+on `stageIdx`, so a mechanic can never appear before the card that explains it,
+and the OVERCLOCK card stamps `state.ocFrom` with the live deletion count — the
+decay and its announcement are the same moment.
 
 ### Visual regression
 

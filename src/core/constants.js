@@ -35,49 +35,183 @@ export const HOPPER_LIFE = 2200, RARE_LIFE = 650;
 export const ALLY_RISE_MS = 460;  // progs surface slowly and can't be hit until fully up
 
 // ---------- difficulty ramps ----------
+//
+// Two clocks drive difficulty, deliberately:
+//
+//   `deletions` — how much the player has actually killed. Everything about
+//                 how *hard* an individual enemy is (how long it stays up, how
+//                 fast its bolt travels, how long it aims) reads from here, so
+//                 a player who is not killing anything is not being punished
+//                 with a faster game.
+//   `stageIdx`  — how much the player has been *taught*. Every composition
+//                 decision (which skins can appear, how big a wave is) reads
+//                 from here, so a mechanic can never appear before the card
+//                 that explains it.
+//
+// Waves add a third, `waveIdx`, but it only tightens the rhythm (stagger and
+// lull), never the content.
 
-export const upMs  = (del) => Math.max(450, 1150 - del * 55);
-export const gapMs = (del) => Math.max(160, 520 - del * 22);
-export const level = (del) => 1 + Math.floor(del / 5);
-export const maxConcurrent = (del) => (del >= 150 ? 4 : del >= 75 ? 3 : del >= 20 ? 2 : 1);
-export const guardChance  = (del) => (del < 8 ? 0 : Math.min(0.35, 0.15 + del * 0.002));
-export const hopperChance = (del) => (del < 30 ? 0 : Math.min(0.25, 0.1 + del * 0.001));
-export const allyChance   = (del) => (del < 20 ? 0 : Math.min(0.20, 0.08 + del * 0.0004));
-export const rareChance   = (del, timeLeft) => (del < 50 ? 0 : 0.04 * (timeLeft < 10 ? 3 : 1));
+export const upMs  = (del) => Math.max(520, 1250 - del * 18);
+export const level = (del) => 1 + Math.floor(del / 6);
 
-// counterattack: a virus marks its row, then fires back down it. The mark
-// plus the bolt's travel time is the whole dodge window, so both tighten
-// with level rather than the attack simply becoming more frequent.
-export const ATTACK_START = 12;
+// ---------- waves ----------
+//
+// Enemies arrive as a formation, are cleared (or expire), and are followed by
+// a real lull. The lull is the game breathing: it is where you reposition,
+// charge, and read the board. It is short enough that the clock never drains
+// alarmingly, and it collapses further when the clock is genuinely low.
+
+export const MAX_ALIVE = 6;              // hard ceiling: wave + prog + rare
+export const WAVE_SIZE = [2, 2, 3, 3, 3, 4, 4, 4, 5];
+/** How many viruses a wave holds, by how many stage cards have been shown. */
+export const waveSize = (stageIdx) =>
+  WAVE_SIZE[Math.max(0, Math.min(WAVE_SIZE.length - 1, stageIdx))];
+
+/** Gap between arrivals inside one wave: a formation lands, it does not blink in. */
+export const waveStaggerMs = (w) => Math.max(170, 420 - w * 4);
+/**
+ * The pause between waves. It tightens slowly as the run goes on, and takes a
+ * real step down at the SWARM card — which is the card that promises exactly
+ * that, so the promise is kept in the numbers and not just in the copy.
+ */
+export const LULL_TIGHTEN_STAGE = 7;     // stageIdx once the SWARM card is shown
+export const waveLullMs = (w, stage = 0) =>
+  Math.max(620, (1900 - w * 10) * (stage >= LULL_TIGHTEN_STAGE ? 0.7 : 1));
+/** Clearing every virus in a wave cuts the lull — pressure is a reward. */
+export const WAVE_CLEAR_LULL = 0.62;
+/** …but a lull never outstays a nearly-dead clock. */
+export const LOW_TIME_LULL_MS = 420;
+/** Time paid for a perfect clear, before overclock decay. */
+export const waveClearBonus = (n) => 0.55 + 0.3 * n;
+/** Points paid for a perfect clear, per virus, times the live multiplier. */
+export const WAVE_CLEAR_PTS = 60;
+/** A wave gives up and starts its lull once every member has had its chance. */
+export const WAVE_GRACE_MS = 900;
+
+// Formations. Each is five slots in *arrival order*, so a small wave is the
+// head of the same shape and a big one completes it. `anchor` names the slot
+// that becomes the heavy (a steel guard) once guards are unlocked. Rows are
+// rotated by the rng at spawn time, so the same six shapes read differently
+// every time without becoming a random scatter.
+export const FORMATIONS = [
+  { name: "spine",   anchor: 0, slots: [[4, 1], [4, 0], [4, 2], [3, 1], [5, 1]] },
+  { name: "rank",    anchor: 2, slots: [[5, 1], [4, 1], [3, 1], [5, 0], [5, 2]] },
+  { name: "stagger", anchor: 4, slots: [[3, 0], [4, 1], [5, 2], [5, 0], [3, 2]] },
+  { name: "pincer",  anchor: 2, slots: [[3, 0], [3, 2], [4, 1], [5, 0], [5, 2]] },
+  { name: "wall",    anchor: 1, slots: [[5, 0], [5, 1], [5, 2], [4, 0], [4, 2]] },
+  { name: "wedge",   anchor: 0, slots: [[5, 1], [4, 0], [4, 2], [3, 1], [3, 0]] },
+];
+
+// ---------- composition ----------
+//
+// Which skins a wave may contain is keyed on `stageIdx`: the index of the next
+// card the player has *not* seen. UNLOCK.guard === 1 means "guards may appear
+// once one card has been shown", and STAGES[0] is the guard card. So the card
+// always comes first.
+
+export const UNLOCK = { guard: 1, retaliate: 2, ally: 3, hopper: 4, rare: 5 };
+
+/** Per-wave chance the anchor slot is a steel guard. */
+export const guardWaveChance  = (stage) => Math.min(0.8, 0.4 + (stage - UNLOCK.guard) * 0.08);
+/** Per-wave chance one non-anchor slot is a hopper (two once waves are big). */
+export const hopperWaveChance = (stage) => Math.min(0.65, 0.35 + (stage - UNLOCK.hopper) * 0.08);
+/** Per-wave chance a prog tags along as an extra body. */
+export const allyWaveChance   = (stage) => Math.min(0.45, 0.25 + (stage - UNLOCK.ally) * 0.05);
+/** Per-wave chance a rare leads the wave in. Desperation raises it. */
+export const rareWaveChance   = (stage, timeLeft) =>
+  (0.05 + (stage - UNLOCK.rare) * 0.01) * (timeLeft < LOW_TIME * 2 ? 2.5 : 1);
+
+// ---------- counterattack ----------
+//
+// A virus marks its row, then fires back down it. The mark plus the bolt's
+// travel is the whole dodge window, so both tighten with level rather than the
+// attack simply becoming more frequent.
+//
+// There are two bolts and they are a real mechanic, not a sprite swap:
+//
+//   slow — the mett's. Huge, heavy, lumbering. Its travel is long enough that
+//          you can still leave the row after it launches.
+//   fast — the hopper's. Smaller but still large, and it crosses the board in
+//          a blink, so it must be dodged during the telegraph. It pays for
+//          that with the longest aim in the game.
+//
+// `radiusFrac` is a fraction of panel width, so the head scales with the board
+// and the renderer never has to know the difficulty.
+
+export const ATTACK_START = 12;          // deletions; the earliest anything shoots
 export const HIT_TIME_PENALTY = 2.5;
 export const HIT_IFRAME_MS = 800;
 export const HURT_SHAKE_MS = 260;
-export const aimMs = (del) => Math.max(280, 620 - (del - ATTACK_START) * 6);
-export const boltPanelMs = (del) => Math.max(95, 190 - (del - ATTACK_START) * 0.8);
-export const attackChance = (del) =>
-  (del < ATTACK_START ? 0 : Math.min(0.55, 0.22 + (del - ATTACK_START) * 0.004));
+export const BOLT_HIT_R = 0.28;          // fraction of panel width
+export const ATTACK_FOLLOW_MS = 300;     // an attacker outlives its own aim by this
+
+export const BOLT = {
+  slow: {
+    radiusFrac: 0.19,
+    aimMs:   (del) => Math.max(340, 560 - Math.max(0, del - ATTACK_START) * 0.8),
+    panelMs: (del) => Math.max(175, 300 - Math.max(0, del - ATTACK_START) * 0.45),
+  },
+  fast: {
+    radiusFrac: 0.135,
+    aimMs:   (del) => Math.max(480, 780 - Math.max(0, del - ATTACK_START) * 1.1),
+    panelMs: (del) => Math.max(72, 130 - Math.max(0, del - ATTACK_START) * 0.2),
+  },
+};
+
+/**
+ * The whole dodge window for one bolt, in ms: the telegraph plus the time the
+ * bolt spends crossing `panels` panels to reach the player. This is the number
+ * the fairness of the counterattack lives or dies by, so it is one function
+ * rather than something each caller re-derives.
+ */
+export const dodgeWindowMs = (del, kind, panels = 3) =>
+  BOLT[kind].aimMs(del) + Math.max(0, panels - BOLT_HIT_R) * BOLT[kind].panelMs(del);
+
+/** Which bolt a skin fires. Guards are anchors and never shoot. */
+export const boltKindFor = (type) => (type === "hopper" ? "fast" : "slow");
+export const aimMs = (del, kind = "slow") => BOLT[kind].aimMs(del);
+export const boltPanelMs = (del, kind = "slow") => BOLT[kind].panelMs(del);
+
+/** Per-enemy chance it will retaliate at all. Hoppers snipe less often. */
+export const attackChance = (del, type = "mett") => {
+  if (del < ATTACK_START) return 0;
+  const t = Math.max(0, del - ATTACK_START);
+  return type === "hopper"
+    ? Math.min(0.45, 0.18 + t * 0.003)
+    : Math.min(0.55, 0.24 + t * 0.004);
+};
 
 // OVERCLOCK: past OC_START deletions, time rewards decay forever (no floor),
-// so every run mathematically ends. 0.995 sets the slope; rares decay at
+// so every run mathematically ends. OC_SLOPE sets the slope; rares decay at
 // sqrt of the factor — half the exponential rate — so late-game survival
 // becomes rare-hunting rather than a fixed death spiral.
-export const OC_START = 60;
-export const bonusFactor = (del) => (del < OC_START ? 1 : Math.pow(0.995, del - OC_START));
+//
+// OC_START is also the deletion floor on the OVERCLOCK gate, so the decay and
+// the card that announces it are the same moment by construction.
+export const OC_START = 170;
+export const OC_SLOPE = 0.988;
+export const bonusFactor = (del) => (del < OC_START ? 1 : Math.pow(OC_SLOPE, del - OC_START));
 
 export const multOf = (chain) => (chain >= 20 ? 4 : chain >= 10 ? 3 : chain >= 5 ? 2 : 1);
 
-// stage gates: each new mechanic pauses the run for a splash + continue/end choice
+// Stage gates: each new mechanic pauses the run for a splash + continue/end
+// choice. A gate needs BOTH floors — `wave` waves must have started AND `at`
+// deletions must be on the board — so a strong player cannot rush the whole
+// syllabus in the first minute (waves arrive at their own pace) and a weak one
+// is never handed a mechanic they have not earned. Both sequences ascend, so
+// the gates stay strictly ordered.
 export const STAGES = [
-  { at: 8,   title: "STEEL GUARDS", desc: "armored viruses — charged shots only" },
-  { at: 12,  title: "RETALIATION",  desc: "viruses shoot back — a marked row is\nabout to fire; move off it" },
-  { at: 20,  title: "PROGS ONLINE", desc: "blue friendlies join — hold fire\ntwo viruses at once" },
-  { at: 30,  title: "HOPPERS",      desc: "green hoppers flee — 2 taps or 1 charge" },
-  { at: 50,  title: "RARE VIRUS",   desc: "gold jackpot spawns — bust it fast" },
-  { at: 60,  title: "OVERCLOCK",    desc: "time rewards decay from here on" },
-  { at: 75,  title: "×3 VIRUSES",   desc: "three at once — keep the chain" },
-  { at: 150, title: "×4 VIRUSES",   desc: "maximum pressure" },
+  { wave: 16,  at: 26,       title: "STEEL GUARDS", desc: "armored viruses — charged shots only" },
+  { wave: 28,  at: 52,       title: "RETALIATION",  desc: "viruses shoot back — a marked row is\nabout to fire; move off it" },
+  { wave: 40,  at: 78,       title: "PROGS ONLINE", desc: "blue friendlies join — hold fire" },
+  { wave: 52,  at: 105,      title: "HOPPERS",      desc: "green hoppers flee, then plant and\nsnipe — their bolt is fast" },
+  { wave: 64,  at: 130,      title: "RARE VIRUS",   desc: "gold jackpot leads a wave in —\nbust it fast" },
+  { wave: 76,  at: OC_START, title: "OVERCLOCK",    desc: "time rewards decay from here on" },
+  { wave: 90,  at: 195,      title: "SWARM",        desc: "the board stops breathing —\nshorter lulls from here" },
+  { wave: 106, at: 235,      title: "MAXIMUM LOAD", desc: "five at once — keep the chain" },
 ];
 export const STAGE_BONUS = 2.0;
+
 
 // ---------- fx lifetimes (core owns the data, the renderer only reads it) ----------
 

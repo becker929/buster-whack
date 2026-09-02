@@ -71,44 +71,126 @@ test("an attacker telegraphs on surfacing, fires after aimMs, then sticks around
   assert.ok(find(rise, "enemyAim"));
   assert.equal(e.state, "up");
 
-  const aim = C.aimMs(s.deletions);
+  const aim = C.aimMs(s.deletions, "slow");
   step(s, aim - 1, []);
   assert.equal(s.bolts.length, 0);
   const ev = step(s, 2, []);
   assert.equal(s.bolts.length, 1);
   assert.equal(e.fired, true);
 
+  // a mett fires the slow shell: heavy, and `heavy` is its legacy alias
   const shot = find(ev, "enemyFired");
-  assert.equal(shot.heavy, false);
+  assert.equal(shot.kind, "slow");
+  assert.equal(shot.heavy, true);
   const b = s.bolts[0];
   assert.equal(b.row, 2);
-  assert.equal(b.speed, s.G.pw / C.boltPanelMs(s.deletions));
+  assert.equal(b.kind, "slow");
+  assert.equal(b.speed, s.G.pw / C.boltPanelMs(s.deletions, "slow"));
 
-  // it outlives a plain enemy so the follow-through is visible
-  const life = Math.max(C.upMs(s.deletions), aim + 300);
-  assert.ok(life > C.upMs(s.deletions));
+  // it outlives its own aim, so the follow-through is always visible
+  const life = Math.max(C.upMs(s.deletions), aim + C.ATTACK_FOLLOW_MS);
+  assert.ok(life >= aim + C.ATTACK_FOLLOW_MS);
   step(s, life - aim - 2, []);
   assert.equal(e.state, "up", "still up past a passive enemy's lifetime");
   step(s, 2, []);
   assert.equal(e.state, "sinking");
 });
 
-test("a guard's bolt is heavy", () => {
+// Was "a guard's bolt is heavy". Guards no longer shoot at all: the guard is
+// the anchor of a formation and already demands a held charge, which is the
+// one thing that pins the player in place. The heavy bolt moved to the mett,
+// where dodging it does not fight the mechanic the guard exists to teach.
+test("a steel guard is an anchor and never fires", () => {
   const s = newGame();
   s.deletions = C.ATTACK_START + 5;
-  addEnemy(s, { type: "guard", state: "up", willAttack: true });
-  const ev = step(s, C.aimMs(s.deletions) + 1, []);
-  assert.equal(find(ev, "enemyFired").heavy, true);
-  assert.equal(s.bolts[0].heavy, true);
+  const g = addEnemy(s, { type: "guard", state: "up", willAttack: true });
+  step(s, C.aimMs(s.deletions, "slow") + C.aimMs(s.deletions, "fast") + 200, []);
+  assert.equal(s.bolts.length, 0, "nothing left the guard");
+  assert.equal(C.boltKindFor("guard"), "slow", "and if one ever did it would be a shell");
+  assert.ok(g);
 });
 
-test("only metts and guards retaliate", () => {
+test("the two bolts differ in size and speed, and both are large", () => {
+  const s = newGame();
+  s.deletions = C.ATTACK_START + 5;
+  addEnemy(s, { type: "mett", col: 4, row: 0, state: "up", willAttack: true });
+  addEnemy(s, { type: "hopper", col: 4, row: 2, state: "up", willAttack: true });
+  // one frame at a time: the fast bolt crosses the whole board in well under
+  // the slow one's aim window, which is the point of the pair
+  for (let i = 0; i < 60 && s.bolts.length < 2; i++) step(s, 16, []);
+
+  const slow = s.bolts.find((b) => b.kind === "slow");
+  const fast = s.bolts.find((b) => b.kind === "fast");
+  assert.equal(slow.kind, "slow");
+  assert.equal(fast.kind, "fast");
+  assert.ok(fast.speed > slow.speed * 1.5, "the hopper's bolt is genuinely faster");
+  assert.ok(slow.radius > fast.radius, "and the mett's is genuinely bigger");
+  // both read as large projectiles: the old sprite was a flat 8px / 11px
+  assert.ok(fast.radius > 11, "even the small one is larger than the old heavy bolt");
+  assert.equal(slow.radius, s.G.pw * C.BOLT.slow.radiusFrac, "radius scales with the board");
+});
+
+test("only metts and hoppers retaliate", () => {
   const s = newGame({ spawn: true, seed: 7 });
   s.deletions = 200;                       // attackChance is maxed here
-  for (let i = 0; i < 400; i++) step(s, 16, []);
+  s.stageIdx = C.STAGES.length;            // and everything has been unlocked
+  for (let i = 0; i < 900; i++) step(s, 16, []);
+  let armed = 0;
   for (const e of s.enemies) {
-    if (e.willAttack) assert.ok(e.type === "mett" || e.type === "guard", e.type);
+    if (!e.willAttack) continue;
+    armed++;
+    assert.ok(e.type === "mett" || e.type === "hopper", e.type);
   }
+  assert.ok(armed >= 0);
+});
+
+// The fairness budget, pinned. Both bolts are dodgeable at every level; the
+// fast one buys its speed with the longest telegraph in the game, so it is
+// dodged during the aim rather than after the launch.
+test("telegraph + travel is the whole dodge window, and it stays fair", () => {
+  const REACTION = 420;              // ms; a generous human reaction floor
+  for (const del of [C.ATTACK_START, 52, 150, 300, 600]) {
+    const slowAim = C.aimMs(del, "slow"), fastAim = C.aimMs(del, "fast");
+    assert.ok(fastAim > slowAim,
+      `the fast bolt telegraphs longer (del ${del}: ${fastAim} vs ${slowAim})`);
+    assert.ok(C.boltPanelMs(del, "fast") < C.boltPanelMs(del, "slow") * 0.6,
+      "and it really is much faster in flight");
+
+    for (const kind of ["slow", "fast"]) {
+      // one panel apart is the tightest engagement the board allows
+      const tightest = C.dodgeWindowMs(del, kind, 1);
+      assert.ok(tightest >= REACTION,
+        `${kind} at ${del} deletions leaves ${tightest.toFixed(0)}ms — under the floor`);
+      assert.equal(
+        C.dodgeWindowMs(del, kind, 3),
+        C.aimMs(del, kind) + (3 - C.BOLT_HIT_R) * C.boltPanelMs(del, kind),
+        "the window is exactly telegraph + travel, nothing else");
+      // the window shrinks with difficulty but never inverts
+      assert.ok(C.dodgeWindowMs(del, kind, 3) <= C.dodgeWindowMs(C.ATTACK_START, kind, 3));
+    }
+    // the fast bolt is the one you must read early: after it launches there is
+    // less than a reaction's worth of time left
+    assert.ok(C.dodgeWindowMs(del, "fast", 3) - fastAim < REACTION);
+    // the slow one can still be left after it launches
+    assert.ok(C.dodgeWindowMs(del, "slow", 3) - slowAim > REACTION);
+  }
+});
+
+test("a hopper plants itself while it aims, then goes back to fleeing", () => {
+  const s = newGame();
+  s.deletions = C.ATTACK_START + 5;
+  const h = addEnemy(s, { type: "hopper", col: 4, row: 1, state: "up", willAttack: true });
+  const aim = C.aimMs(s.deletions, "fast");
+  assert.ok(aim > C.HOP_MS, "the aim outlasts a hop, so planting is observable");
+
+  step(s, C.HOP_MS + 1, []);
+  assert.equal(h.col + "," + h.row, "4,1", "it does not hop mid-telegraph");
+
+  step(s, aim - C.HOP_MS + 1, []);
+  assert.equal(s.bolts.length, 1);
+  assert.equal(s.bolts[0].kind, "fast");
+  step(s, C.HOP_MS + 1, []);
+  assert.notEqual(h.col + "," + h.row, "4,1", "and it bolts again once it has fired");
 });
 
 test("a bolt travelling into the player's panel costs time and the chain", () => {
@@ -184,22 +266,101 @@ test("hoppers flee on the hop timer while they are up", () => {
   assert.ok(h.col >= C.PCOLS, "never onto the player's half");
 });
 
-test("spawning respects the concurrency ramp and the spawn gap", () => {
+// Was "spawning respects the concurrency ramp and the spawn gap". There is no
+// rolling gap any more: enemies arrive as waves, so what has to hold is the
+// wave's own size contract and the hard ceiling on bodies.
+test("a wave is bounded by its size, and the board by MAX_ALIVE", () => {
   const s = newGame({ spawn: true, seed: 3 });
-  assert.equal(C.maxConcurrent(0), 1);
-  for (let i = 0; i < 200; i++) {
-    step(s, 16, []);
-    assert.ok(s.enemies.length <= C.maxConcurrent(s.deletions));
+  assert.equal(C.waveSize(0), 2, "the opening wave is two viruses");
+  let peak = 0, waves = 0;
+  for (let i = 0; i < 600; i++) {
+    for (const ev of step(s, 16, [])) if (ev.type === "waveStart") waves++;
+    peak = Math.max(peak, s.enemies.length);
+    assert.ok(s.enemies.length <= C.MAX_ALIVE, "over the ceiling: " + s.enemies.length);
   }
-  assert.ok(s.enemies.length >= 1, "something did spawn");
+  assert.ok(waves >= 2, "waves kept coming");
+  assert.ok(peak >= 2, "and a whole formation was on the board at once");
 
   const s2 = newGame({ spawn: true, seed: 3 });
-  s2.deletions = 160;
-  for (let i = 0; i < 400; i++) {
+  s2.stageIdx = C.STAGES.length;           // everything taught: the biggest waves
+  let peak2 = 0;
+  for (let i = 0; i < 900; i++) {
     step(s2, 16, []);
-    assert.ok(s2.enemies.length <= 4);
+    peak2 = Math.max(peak2, s2.enemies.length);
+    assert.ok(s2.enemies.length <= C.MAX_ALIVE);
   }
-  assert.ok(s2.enemies.length > 1, "the late game stacks enemies");
+  assert.ok(peak2 > 2, "the late game stacks enemies");
+});
+
+test("waves arrive as a formation, with a readable lull between them", () => {
+  const s = newGame({ spawn: true, seed: 12 });
+  s.timeLeft = 1e6;                        // measure the rhythm, not the clock
+  const marks = [];
+  for (let i = 0; i < 1200; i++) {
+    for (const ev of step(s, 16, [])) {
+      if (ev.type === "waveStart" || ev.type === "waveEnded") {
+        marks.push({ type: ev.type, at: s.clock, ev });
+      }
+    }
+  }
+  assert.ok(marks.length >= 6, "several waves ran");
+  // strictly alternating: one wave at a time, always followed by its lull
+  for (let i = 0; i < marks.length; i++) {
+    assert.equal(marks[i].type, i % 2 === 0 ? "waveStart" : "waveEnded");
+  }
+  for (let i = 1; i + 1 < marks.length; i += 2) {
+    const lull = marks[i + 1].at - marks[i].at;
+    assert.ok(lull >= C.LOW_TIME_LULL_MS - 20, "the lull is real: " + lull + "ms");
+    assert.ok(lull <= C.waveLullMs(0) + 40, "and bounded: " + lull + "ms");
+  }
+  // arrivals inside a wave are staggered, not simultaneous
+  const staggered = marks.some((m) => m.type === "waveStart" && m.ev.size >= 2);
+  assert.ok(staggered);
+});
+
+test("clearing every virus in a wave shortens the lull and pays time", () => {
+  const s = newGame({ spawn: true, seed: 4 });
+  s.timeLeft = 20;
+  let cleared = null, lapsed = null;
+  for (let i = 0; i < 2000 && (!cleared || !lapsed); i++) {
+    // delete whatever is up, on alternating waves, so both outcomes happen
+    const e = s.enemies.find((x) => x.state === "up" && x.type !== "ally");
+    const evs = [];
+    if (e && s.waveIdx % 2 === 1) {
+      s.player.row = e.row;
+      e.hp = 1;
+      // the killing blow can end the wave in the very same step
+      evs.push(...step(s, 0, [{ type: "firePressed" }, { type: "fireReleased" }]));
+    }
+    evs.push(...step(s, 16, []));
+    for (const ev of evs) {
+      if (ev.type !== "waveEnded") continue;
+      if (ev.cleared) cleared = ev; else lapsed = ev;
+    }
+  }
+  assert.ok(cleared, "a wave was wiped out");
+  assert.ok(lapsed, "and one was left to expire");
+  assert.ok(cleared.timeBonus > 0, "a clear pays time back");
+  assert.equal(lapsed.timeBonus, 0, "letting one expire pays nothing");
+  assert.ok(cleared.points > 0);
+  assert.ok(cleared.lullMs < C.waveLullMs(cleared.index),
+    "and the next wave comes sooner");
+});
+
+test("a lull never becomes dead air while the clock is low", () => {
+  const s = newGame({ spawn: true, seed: 8 });
+  s.timeLeft = C.LOW_TIME - 1;
+  let seen = 0;
+  for (let i = 0; i < 900; i++) {
+    s.timeLeft = C.LOW_TIME - 1;           // hold it at the panic threshold
+    for (const ev of step(s, 16, [])) {
+      if (ev.type === "waveEnded") {
+        seen++;
+        assert.ok(ev.lullMs <= C.LOW_TIME_LULL_MS, "lull " + ev.lullMs + "ms");
+      }
+    }
+  }
+  assert.ok(seen > 0, "waves ended while the clock was low");
 });
 
 test("enemies only ever occupy the far half, one per panel", () => {

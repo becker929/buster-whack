@@ -11,6 +11,7 @@ const VOCABULARY = new Set([
   "chargeReady", "shot", "whiff", "hit", "guardBlocked", "hopperStagger", "hopperHop",
   "progHit", "chainBroken", "multiplierUp", "playerHit", "playerMoved",
   "enemySpawned", "enemyAim", "enemyFired", "enemyEscaped", "allySpared",
+  "waveStart", "waveEnded",
 ]);
 
 test("a long random run only ever emits known event types", () => {
@@ -30,7 +31,7 @@ test("a long random run only ever emits known event types", () => {
   }
   // the run is long enough to exercise most of the vocabulary
   for (const t of ["shot", "hit", "whiff", "enemySpawned", "enemyEscaped", "statsChanged",
-                   "stageGate", "chainBroken"]) {
+                   "waveStart", "waveEnded", "chainBroken"]) {
     assert.ok(seen.has(t), "expected a " + t + " event somewhere in the run");
   }
 });
@@ -67,22 +68,28 @@ test("every audible moment has an event", () => {
   step(c, 0, [{ type: "firePressed" }]);
   assert.ok(find(step(c, C.CHARGE_MS, []), "chargeReady"));
 
-  // aim / bolt / hurt
-  const a = newGame();
-  a.deletions = C.ATTACK_START + 4;
-  addEnemy(a, { type: "mett", state: "rising", t0: a.clock, willAttack: true });
-  assert.ok(find(step(a, C.RISE_MS, []), "enemyAim"));
-  assert.ok(find(step(a, C.aimMs(a.deletions) + 1, []), "enemyFired"));
-  a.bolts[0].row = a.player.row;
-  a.bolts[0].x = C.panelRect(a.G, a.player.col, a.player.row).x + a.G.pw / 2;
-  assert.ok(find(step(a, 16, []), "playerHit"));
+  // aim / bolt / hurt, for both bolts
+  for (const [type, kind] of [["mett", "slow"], ["hopper", "fast"]]) {
+    const a = newGame();
+    a.deletions = C.ATTACK_START + 4;
+    addEnemy(a, { type, state: "rising", t0: a.clock, willAttack: true });
+    assert.ok(find(step(a, C.RISE_MS, []), "enemyAim"), type);
+    let fired = null;
+    for (let i = 0; i < 120 && !fired; i++) fired = find(step(a, 16, []), "enemyFired");
+    assert.ok(fired, type + " fired");
+    assert.equal(fired.kind, kind);
+    a.bolts[0].row = a.player.row;
+    a.bolts[0].x = C.panelRect(a.G, a.player.col, a.player.row).x + a.G.pw / 2;
+    assert.ok(find(step(a, 16, []), "playerHit"), type + " connected");
+  }
 
-  // rare spawn is announced as it surfaces
+  // rare spawn is announced as it leads a wave in
   const r = newGame({ spawn: true, seed: 4 });
-  r.deletions = 55;
-  r.timeLeft = 5;                            // triples the rare chance
+  r.stageIdx = C.UNLOCK.rare;                // the jackpot card has been shown
+  r.deletions = 130;
+  r.timeLeft = 5;                            // desperation raises the odds
   let sawRare = false;
-  for (let i = 0; i < 3000 && !sawRare; i++) {
+  for (let i = 0; i < 6000 && !sawRare; i++) {
     for (const ev of step(r, 16, [])) {
       if (ev.type === "enemySpawned" && ev.enemyType === "rare") sawRare = true;
     }
@@ -97,6 +104,7 @@ test("every audible moment has an event", () => {
   assert.ok(find(fire(p), "progHit"));
   const st = newGame();
   st.deletions = C.STAGES[0].at - 1;
+  st.waveIdx = C.STAGES[0].wave;
   addEnemy(st, { type: "mett" });
   assert.ok(find(fire(st), "stageGate"));
   const o = newGame();

@@ -49,9 +49,14 @@ test("an injected rng is used in place of the seeded one", () => {
   const rng = () => { calls.push(1); return 0.5; };
   const s = createState({ rng, width: 800, height: 600 });
   step(s, 0, [{ type: "startRun" }]);
-  for (let i = 0; i < 200; i++) step(s, 16, []);
+  // enemies come in waves now, so a fixed frame count can land in a lull:
+  // what matters is that the injected rng authored the field at all
+  let spawned = 0;
+  for (let i = 0; i < 200; i++) {
+    for (const ev of step(s, 16, [])) if (ev.type === "enemySpawned") spawned++;
+  }
   assert.ok(calls.length > 0, "the core drew from the injected rng");
-  assert.ok(s.enemies.length > 0);
+  assert.ok(spawned > 0);
 });
 
 test("the core touches no ambient randomness or clock", () => {

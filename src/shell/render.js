@@ -180,10 +180,13 @@ function drawLane(ctx, state, now) {
 function drawAim(ctx, state, now) {
   if (state.mode !== "playing") return;
   const G = state.G;
-  const am = C.aimMs(state.deletions);
+  const fallbackAim = C.aimMs(state.deletions);
   for (const e of state.enemies) {
     if (!e.willAttack || e.fired || e.state !== "up") continue;
-    const q = Math.min(1, (now - e.t0) / am);
+    // Each enemy bakes its own aim window at spawn: a hopper telegraphs far
+    // longer than a mett. Using one global value here saturated the hopper's
+    // chevron ~35% early, so the telegraph misreported the dodge window.
+    const q = Math.min(1, (now - e.t0) / (e.aimMs || fallbackAim));
     const p = panel(G, e.col, e.row);
     const x1 = p.x + p.w / 2;
     const y = C.laneY(G, e.row);

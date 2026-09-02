@@ -3,14 +3,21 @@ import assert from "node:assert/strict";
 import { newGame, addEnemy, fire, step, find, count, C } from "./helpers.mjs";
 import { computeRank } from "../src/core/select.js";
 
-test("stage gates are strictly ascending", () => {
+test("stage gates are strictly ascending on both floors", () => {
   for (let i = 1; i < C.STAGES.length; i++) {
     assert.ok(C.STAGES[i].at > C.STAGES[i - 1].at,
       `STAGES[${i}].at must exceed STAGES[${i - 1}].at`);
+    assert.ok(C.STAGES[i].wave > C.STAGES[i - 1].wave,
+      `STAGES[${i}].wave must exceed STAGES[${i - 1}].wave`);
   }
+  // the overclock card and the overclock itself are the same moment
+  const oc = C.STAGES.find((st) => st.title === "OVERCLOCK");
+  assert.equal(oc.at, C.OC_START);
 });
 
 test("stageIdx advances linearly, one gate per crossing, in order", () => {
+  // A gate now needs two floors — waves started and deletions banked — so this
+  // walks both up together and asserts the gate opens on whichever lands last.
   const s = newGame();
   s.timeLeft = 1e6;
   const gates = [];
@@ -18,6 +25,7 @@ test("stageIdx advances linearly, one gate per crossing, in order", () => {
   while (s.stageIdx < C.STAGES.length && guard++ < 5000) {
     const expectedIdx = s.stageIdx;
     if (s.mode === "interlevel") { step(s, 0, [{ type: "resume" }]); continue; }
+    s.waveIdx = Math.min(C.STAGES[expectedIdx].wave, s.deletions);
     addEnemy(s, { type: "mett", col: 3, row: 1 });
     const ev = fire(s);
     s.enemies.length = 0;
@@ -25,7 +33,8 @@ test("stageIdx advances linearly, one gate per crossing, in order", () => {
     if (gate) {
       assert.equal(gate.index, expectedIdx, "gate fires for the current index");
       assert.equal(s.stageIdx, expectedIdx + 1, "stageIdx advances by exactly one");
-      assert.equal(s.deletions, gate.stage.at, "gate fires on the deletion it names");
+      assert.ok(s.deletions >= gate.stage.at, "the deletion floor was met");
+      assert.ok(s.waveIdx >= gate.stage.wave, "and so was the wave floor");
       assert.equal(s.mode, "interlevel");
       gates.push(gate.stage.title);
     } else {
@@ -36,9 +45,32 @@ test("stageIdx advances linearly, one gate per crossing, in order", () => {
   assert.equal(s.stageIdx, C.STAGES.length);
 });
 
+test("a gate waits for BOTH floors: waves alone and kills alone are not enough", () => {
+  const st = C.STAGES[0];
+
+  const grinder = newGame();            // kills fast, but the waves have not run
+  grinder.timeLeft = 1e6;
+  grinder.deletions = st.at + 5;
+  step(grinder, 16, []);
+  assert.equal(grinder.mode, "playing", "a rushed deletion count opens nothing");
+  assert.equal(grinder.stageIdx, 0);
+
+  const idler = newGame();              // waves have run, but nothing was killed
+  idler.timeLeft = 1e6;
+  idler.waveIdx = st.wave + 3;
+  step(idler, 16, []);
+  assert.equal(idler.mode, "playing", "surviving alone teaches nothing either");
+  assert.equal(idler.stageIdx, 0);
+
+  idler.deletions = st.at;
+  const ev = step(idler, 16, []);
+  assert.equal(find(ev, "stageGate").title, st.title, "both floors: the card opens");
+});
+
 test("a stage gate pays a time bonus, drops bolts and parks the run", () => {
   const s = newGame();
   s.deletions = C.STAGES[0].at - 1;
+  s.waveIdx = C.STAGES[0].wave;
   s.timeLeft = 10;
   s.bolts.push({ row: 1, x: 400, speed: 0.5, heavy: false });
   s.charge.downAt = s.clock; s.charge.full = true;
@@ -59,6 +91,7 @@ test("a stage gate pays a time bonus, drops bolts and parks the run", () => {
 test("the clock and enemies freeze during an interlevel, and resume restarts them", () => {
   const s = newGame();
   s.deletions = C.STAGES[0].at - 1;
+  s.waveIdx = C.STAGES[0].wave;
   addEnemy(s, { type: "mett" });
   fire(s);
   assert.equal(s.mode, "interlevel");
@@ -78,6 +111,7 @@ test("the clock and enemies freeze during an interlevel, and resume restarts the
 test("END RUN from the interlevel card ends the run", () => {
   const s = newGame();
   s.deletions = C.STAGES[0].at - 1;
+  s.waveIdx = C.STAGES[0].wave;
   addEnemy(s, { type: "mett" });
   fire(s);
   const ev = step(s, 0, [{ type: "endRun" }]);
@@ -172,6 +206,24 @@ test("overclock decays the time reward past OC_START, rares at half rate", () =>
     C.BONUS.rare * Math.sqrt(C.bonusFactor(C.OC_START + 40)));
 });
 
+// The OVERCLOCK card and the decay are the same moment by construction: the
+// gate's deletion floor IS OC_START, so the run cannot start decaying before
+// the card that explains it.
+test("the overclock card fires on the deletion the decay starts at", () => {
+  const oc = C.STAGES.findIndex((st) => st.title === "OVERCLOCK");
+  assert.equal(C.STAGES[oc].at, C.OC_START);
+  const g = newGame();
+  g.timeLeft = 1e6;
+  g.stageIdx = oc;
+  g.waveIdx = C.STAGES[oc].wave;
+  g.deletions = C.OC_START - 1;
+  assert.equal(C.bonusFactor(g.deletions), 1, "nothing has decayed yet");
+  step(g, 16, []);
+  assert.equal(g.mode, "playing", "and the card has not fired yet either");
+  g.deletions = C.OC_START;
+  assert.equal(find(step(g, 16, []), "stageGate").title, "OVERCLOCK");
+});
+
 test("pause freezes the simulation and spills the charge", () => {
   const s = newGame();
   addEnemy(s, { type: "mett", state: "rising", t0: s.clock });
@@ -237,7 +289,8 @@ test("a fresh run resets the scoreboard but keeps the best", () => {
   const s = newGame();
   s.score = 900; s.deletions = 7; s.chain = 4; s.bestChain = 9;
   s.shots = 20; s.whiffs = 3; s.stageIdx = 2; s.best = 5000;
-  s.bolts.push({ row: 0, x: 10, speed: 1, heavy: false });
+  s.waveIdx = 9; s.waveState = "active"; s.wave = { index: 8, queue: [] };
+  s.bolts.push({ row: 0, x: 10, speed: 1, kind: "slow", radius: 20, heavy: true });
   addEnemy(s, { type: "mett" });
   const ev = step(s, 0, [{ type: "startRun" }]);
 
@@ -249,6 +302,9 @@ test("a fresh run resets the scoreboard but keeps the best", () => {
   assert.equal(s.shots, 0);
   assert.equal(s.whiffs, 0);
   assert.equal(s.stageIdx, 0);
+  assert.equal(s.waveIdx, 0, "and the wave counter starts over");
+  assert.equal(s.waveState, "lull");
+  assert.equal(s.wave, null);
   assert.equal(s.timeLeft, C.START_TIME);
   assert.equal(s.enemies.length, 0);
   assert.equal(s.bolts.length, 0);

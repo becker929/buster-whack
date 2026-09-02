@@ -67,6 +67,7 @@ test("the freeze is tiered by what died and is capped", () => {
 test("a stage gate and a game over both drop a pending freeze", () => {
   const s = newGame();
   s.deletions = C.STAGES[0].at - 1;
+  s.waveIdx = C.STAGES[0].wave;
   addEnemy(s, { type: "mett" });
   fire(s);
   assert.equal(s.mode, "interlevel");
@@ -151,7 +152,7 @@ test("a multiplier step arms the flourish and a break arms its opposite", () => 
   // taking a bolt breaks it quietly — the HIT popup is already shouting
   const h = newGame();
   h.chain = 6;
-  h.bolts.push({ row: h.player.row, x: C.panelRect(h.G, h.player.col, h.player.row).x + h.G.pw / 2 + 40, speed: 1 });
+  h.bolts.push({ row: h.player.row, x: C.panelRect(h.G, h.player.col, h.player.row).x + h.G.pw / 2 + 40, speed: 1, kind: "slow" });
   step(h, 60, []);
   assert.equal(h.fx.chainBreak.chain, 6);
   assert.equal(h.fx.chainBreak.quiet, true);
@@ -209,7 +210,10 @@ test("a mid-run resize carries everything in flight with it", () => {
   addEnemy(s, { type: "mett", col: 4, row: 1 });
   fire(s);
   step(s, 40, []);
-  s.bolts.push({ row: 0, x: C.panelRect(s.G, 5, 0).x + s.G.pw / 2, speed: s.G.pw / 150, heavy: false });
+  s.bolts.push({
+    row: 0, x: C.panelRect(s.G, 5, 0).x + s.G.pw / 2, speed: s.G.pw / 150,
+    kind: "slow", radius: s.G.pw * C.BOLT.slow.radiusFrac, heavy: true,
+  });
 
   const before = s.G;
   const boltPanels = (s.bolts[0].x - before.gx) / before.pw;
@@ -222,6 +226,9 @@ test("a mid-run resize carries everything in flight with it", () => {
   assert.ok(Math.abs((s.fx.bits[0].x - G.gx) / G.pw - bitPanels) < 1e-9, "and so does debris");
   assert.equal(Number((s.bolts[0].speed / G.pw).toFixed(12)),
     Number((s.G.pw / 150 / G.pw).toFixed(12)), "and it still crosses a panel in the same time");
+  assert.equal(Number((s.bolts[0].radius / G.pw).toFixed(12)),
+    Number(C.BOLT.slow.radiusFrac.toFixed(12)),
+    "and the head stays the same fraction of a panel — the renderer reads px");
 });
 
 test("setLayout leaves a same-size call alone", () => {
@@ -239,6 +246,7 @@ test("setLayout leaves a same-size call alone", () => {
 test("a tracer in flight survives the stage gate that its own kill opened", () => {
   const s = newGame();
   s.deletions = C.STAGES[0].at - 1;
+  s.waveIdx = C.STAGES[0].wave;
   addEnemy(s, { type: "mett", col: 5 });
   fire(s);
   assert.equal(s.mode, "interlevel", "the kill opened a gate");
