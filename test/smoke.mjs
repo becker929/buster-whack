@@ -1,5 +1,8 @@
 import { JSDOM } from "jsdom";
 import { createCanvas } from "@napi-rs/canvas";
+import { FakeAudioContext } from "./fake-audio.mjs";
+
+const audioContexts = [];
 
 const dom = new JSDOM(`<!doctype html><html><body><div id="app" style="width:800px;height:600px"></div></body></html>`, {
   pretendToBeVisual: true,
@@ -20,12 +23,16 @@ window.HTMLCanvasElement.prototype.getContext = function (type) {
 window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
 window.cancelAnimationFrame = (id) => clearTimeout(id);
 window.ResizeObserver = class { observe() {} disconnect() {} };
-window.AudioContext = class {
-  constructor() { this.state = "running"; this.currentTime = 0; this.destination = {}; }
-  createOscillator() { return { type: "", frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, start() {}, stop() {} }; }
-  createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
-  resume() {}
-  close() {}
+// The recording fake from the audio tests, so the smoke run exercises the real
+// audio shell end to end — including the music scheduler's timer.
+window.AudioContext = class extends FakeAudioContext {
+  constructor() {
+    super({ sampleRate: 8000 });
+    audioContexts.push(this);
+    // the game reads currentTime to place notes; let it advance with the clock
+    const t0 = Date.now();
+    Object.defineProperty(this, "currentTime", { get: () => (Date.now() - t0) / 1000 });
+  }
 };
 window.Element.prototype.getBoundingClientRect = function () {
   return { width: 800, height: 600, top: 0, left: 0, right: 800, bottom: 600 };
@@ -59,7 +66,37 @@ await new Promise((r) => setTimeout(r, 200));
 window.dispatchEvent(new window.KeyboardEvent("keydown", { code: "ArrowRight" }));
 await new Promise((r) => setTimeout(r, 100));
 
+// Actually start a run so the audio shell is exercised: the music transport,
+// a held charge, mute, and the interlevel/game-over transitions all hang off it.
+const key = (type, code) => window.dispatchEvent(new window.KeyboardEvent(type, { code }));
+key("keydown", "Space");                              // starts the run from the splash
+await new Promise((r) => setTimeout(r, 60));
+key("keyup", "Space");
+key("keydown", "Space");                              // hold to charge
+await new Promise((r) => setTimeout(r, 900));
+key("keyup", "Space");                                // charged release
+key("keydown", "KeyM"); key("keyup", "KeyM");         // mute
+await new Promise((r) => setTimeout(r, 120));
+key("keydown", "KeyM"); key("keyup", "KeyM");         // and back
+key("keydown", "KeyP"); key("keyup", "KeyP");         // pause
+await new Promise((r) => setTimeout(r, 120));
+key("keydown", "KeyP"); key("keyup", "KeyP");
+await new Promise((r) => setTimeout(r, 300));
+console.log("run OK");
+
 console.log("post-play OK");
+const ac = audioContexts[0];
+if (!ac) throw new Error("the run never created an AudioContext");
+console.log("audio OK, nodes built:", ac.nodes.length, "sources:", ac.sources.length);
+
 game.destroy();
 console.log("destroy OK, shadow children after destroy:", container.shadowRoot.children.length);
+
+// destroy() must leave nothing running: no live source, no open context. If a
+// scheduler timer survived, node would not exit either.
+if (!ac.closed) throw new Error("destroy() left the AudioContext open");
+const stuck = ac.sources.filter((s) => s.started !== null && s.stopped === null);
+if (stuck.length) throw new Error(`destroy() left ${stuck.length} source(s) running`);
+console.log("audio teardown OK");
+
 console.log("SMOKE TEST PASSED");
