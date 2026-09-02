@@ -26,6 +26,8 @@
  *     transition can be missed and nothing can be left stuck on.
  */
 
+import { COLS } from "../core/constants.js";
+
 // ---------- mix ----------
 
 const MASTER_GAIN = 0.85;
@@ -210,6 +212,25 @@ export function createAudio(win) {
     return o;
   }
 
+  /**
+   * The board is six columns wide and every gameplay event carries the column
+   * it happened in, so position is free information: pan a voice to where the
+   * thing actually is and you can hear which lane is aiming at you. Kept well
+   * short of hard-panned so nothing disappears on one earbud or in mono.
+   */
+  const PAN_SPREAD = 0.62;
+  function panOf(col) {
+    if (col === undefined || col === null) return 0;
+    return Math.max(-1, Math.min(1, ((col - (COLS - 1) / 2) / ((COLS - 1) / 2)) * PAN_SPREAD));
+  }
+  /** A panner, or null where the platform lacks StereoPannerNode. */
+  function panner(pan, t) {
+    if (!pan || !ac.createStereoPanner) return null;
+    const n = ac.createStereoPanner();
+    n.pan.setValueAtTime(pan, t);
+    return n;
+  }
+
   function gain(v, t) {
     const g = ac.createGain();
     g.gain.setValueAtTime(v, t);
@@ -261,7 +282,8 @@ export function createAudio(win) {
     } else {
       src.connect(g);
     }
-    g.connect(dest);
+    const pn = panner(o.pan, t);
+    if (pn) { g.connect(pn); pn.connect(dest); } else { g.connect(dest); }
     src.start(t);
     track(src, t + dur + 0.03);
     return src;
@@ -278,7 +300,9 @@ export function createAudio(win) {
     if (o.cutoffTo) f.frequency.exponentialRampToValueAtTime(Math.max(40, o.cutoffTo), t + dur);
     const g = gain(0, t);
     perc(g.gain, t, o.gain === undefined ? 0.1 : o.gain, o.attack === undefined ? 0.002 : o.attack, dur);
-    s.connect(f); f.connect(g); g.connect(dest);
+    s.connect(f); f.connect(g);
+    const pn = panner(o.pan, t);
+    if (pn) { g.connect(pn); pn.connect(dest); } else { g.connect(dest); }
     // a rolling offset so consecutive bursts are not literally the same noise
     s.start(t, 0.5 + vary(0.07));
     track(s, t + dur + 0.02);
@@ -304,6 +328,44 @@ export function createAudio(win) {
         });
       }
     }
+  }
+
+  /**
+   * A detonation: broadband transient, a crushed body swept down through a
+   * resonant lowpass, and a sub that drops a fifth as it decays. `size` scales
+   * duration, level and how far the sweep travels, so a mett pop and a rare
+   * jackpot are the same gesture at different magnitudes rather than two
+   * unrelated noises. The crushed noise buffer (sample-and-hold, 1/12 rate,
+   * 16 levels) is what makes it read as *bit* crush and not just noise.
+   */
+  function blast(size, pan, delay) {
+    const d = delay || 0;
+    // Duration scales hard with size: at wave density you hear a lot of small
+    // deletes, and a long tail on each would smear into mush. A mett pop is
+    // deliberately kept under the ~0.3s the sfx suite pins.
+    const dur = 0.1 + 0.34 * size;
+    // transient: the click that makes it sound like it happened *now*
+    hiss({
+      dur: 0.02 + 0.02 * size, filter: "highpass", cutoff: 1800, q: 0.6,
+      gain: 0.1 + 0.13 * size, delay: d, pan,
+    });
+    // crushed body, sweeping down: the bit-crush character lives here
+    hiss({
+      dur, filter: "lowpass", cutoff: 4200 + 3000 * size, cutoffTo: 180,
+      q: 3 + 7 * size, gain: 0.1 + 0.16 * size, delay: d + 0.006,
+      crushed: true, pan,
+    });
+    // a second, drier crushed layer an instant later: debris
+    hiss({
+      dur: dur * 0.7, filter: "bandpass", cutoff: 1400, cutoffTo: 300, q: 2,
+      gain: 0.05 + 0.08 * size, delay: d + 0.03 + 0.03 * size, crushed: true, pan,
+    });
+    // sub: the weight. Drops a fifth, which reads as collapse rather than pitch.
+    tone({
+      wave: "sine", freq: 120 - 40 * size, to: (120 - 40 * size) * 0.66,
+      glide: dur, dur: dur + 0.09 * size, gain: 0.16 + 0.16 * size,
+      attack: 0.006, delay: d, pan,
+    });
   }
 
   // ---------- sidechain ----------
@@ -359,16 +421,19 @@ export function createAudio(win) {
      * A deletion. The pitch climbs with the chain, which is the whole game
      * loop. Body + transient + tail, heavier for a charged kill.
      */
-    hit(chain, heavy) {
+    hit(chain, heavy, pan) {
       const i = Math.min(Math.max(chain, 1) - 1, CHAIN_LADDER.length - 1);
       const n = CHAIN_LADDER[i];
       const maxed = chain - 1 >= CHAIN_LADDER.length;
-      duckMusic(heavy ? 0.3 : 0.18, heavy ? 0.2 : 0.12);
+      duckMusic(heavy ? 0.42 : 0.26, heavy ? 0.24 : 0.15);
 
-      hiss({ dur: 0.05, cutoff: 3400, cutoffTo: 1200, q: 1, gain: heavy ? 0.14 : 0.09 });
+      // the detonation sits under the ladder note, never over it: the pitched
+      // body stays the loudest thing so a streak still reads as a melody
+      blast(heavy ? 0.62 : 0.3, pan);
+      hiss({ dur: 0.05, cutoff: 3400, cutoffTo: 1200, q: 1, gain: heavy ? 0.14 : 0.09, pan });
       tone({
         wave: pulseSafe(0.35), freq: hz(n), to: hz(n) * 0.55, glide: 0.1,
-        dur: heavy ? 0.18 : 0.13, gain: heavy ? 0.17 : 0.13,
+        dur: heavy ? 0.18 : 0.13, gain: heavy ? 0.17 : 0.13, pan,
         filter: "lowpass", cutoff: 9000, cutoffTo: 2200, q: 1,
       });
       tone({
@@ -399,8 +464,9 @@ export function createAudio(win) {
     },
 
     /** Steel guard cracked open: inharmonic ring, crunch, and a sub drop. */
-    guardBreak() {
-      duckMusic(0.45, 0.34);
+    guardBreak(pan) {
+      duckMusic(0.5, 0.36);
+      blast(0.8, pan);
       hiss({ dur: 0.09, filter: "highpass", cutoff: 2600, q: 0.8, gain: 0.16, crushed: true });
       // non-integer ratios: metal, not a note
       for (const [f, g, d] of [[1830, 0.09, 0.34], [2710, 0.07, 0.28], [4390, 0.05, 0.2]]) {
@@ -418,8 +484,9 @@ export function createAudio(win) {
     },
 
     /** Jackpot: a rising run, a bright held chord, sparkle. Unmistakable. */
-    rareGet() {
-      duckMusic(0.55, 0.9);
+    rareGet(pan) {
+      duckMusic(0.62, 0.9);
+      blast(1, pan);
       seq([69, 76, 81, 88, 93, 100], { step: 0.055, dur: 0.075, gain: 0.13, octave: true });
       for (const n of [81, 85, 88, 93]) {
         tone({
@@ -558,11 +625,21 @@ export function createAudio(win) {
     },
 
     /** Taking a bolt. Meant to be genuinely unpleasant. */
-    hurt() {
-      duckMusic(0.85, 0.45);
+    hurt(pan) {
+      // the deepest duck in the game, held longest: for a moment the music
+      // simply gets out of the way, which is most of why this reads as bad
+      duckMusic(0.94, 0.6);
+      // a detonation centred on the player, so a hit is physically the biggest
+      // event on the board -- larger than any kill
+      blast(0.85, pan);
+      // an inverted transient: near-silence for 25ms, then everything at once.
+      // The hole is what makes the impact land.
       hiss({
-        dur: 0.24, filter: "lowpass", cutoff: 3600, cutoffTo: 220, q: 9,
-        gain: 0.22, crushed: true,
+        dur: 0.34, filter: "lowpass", cutoff: 4200, cutoffTo: 180, q: 12,
+        gain: 0.3, crushed: true, delay: 0.025, pan,
+      });
+      hiss({
+        dur: 0.06, filter: "highpass", cutoff: 900, q: 0.7, gain: 0.26, pan,
       });
       // a tritone sliding down: the least resolved interval there is
       tone({
@@ -570,7 +647,13 @@ export function createAudio(win) {
         filter: "lowpass", cutoff: 2600, cutoffTo: 240, q: 6,
       });
       tone({ wave: "sawtooth", freq: 277, to: 88, glide: 0.34, dur: 0.42, gain: 0.11, attack: 0.002 });
-      tone({ wave: "square", freq: 58, dur: 0.5, gain: 0.16, attack: 0.004 });
+      tone({ wave: "square", freq: 58, dur: 0.6, gain: 0.2, attack: 0.004, pan });
+      // a siren tail wobbling down well after the impact: the recovery, so the
+      // i-frames have a sound and you know you are still reeling
+      tone({
+        wave: "sawtooth", freq: 150, to: 66, glide: 0.5, dur: 0.62, gain: 0.07,
+        attack: 0.05, delay: 0.12, filter: "bandpass", cutoff: 520, q: 7, pan,
+      });
       tone({
         wave: pulseSafe(0.1), freq: 330, to: 150, glide: 0.2, dur: 0.22, gain: 0.07,
         filter: "bandpass", cutoff: 800, q: 4, delay: 0.02,
@@ -578,29 +661,31 @@ export function createAudio(win) {
     },
 
     /** A virus has marked your row. Pure gameplay information — it must read. */
-    aim() {
+    aim(pan) {
+      // panned hardest of anything in the game: which lane is aiming at you is
+      // the single most useful thing position can tell you
       tone({
         wave: "sawtooth", freq: 210, to: 430, glide: 0.16, dur: 0.18, gain: 0.055,
-        filter: "bandpass", cutoff: 900, cutoffTo: 1900, q: 5,
+        filter: "bandpass", cutoff: 900, cutoffTo: 1900, q: 5, pan,
       });
-      tone({ wave: "square", freq: 1500, dur: 0.035, gain: 0.035 });
-      tone({ wave: "square", freq: 1500, dur: 0.035, gain: 0.035, delay: 0.1 });
+      tone({ wave: "square", freq: 1500, dur: 0.035, gain: 0.035, pan });
+      tone({ wave: "square", freq: 1500, dur: 0.035, gain: 0.035, delay: 0.1, pan });
     },
 
     /** Bolt away. Heavy (a guard's) is lower, so you can hear which is coming. */
-    bolt(heavy) {
+    bolt(heavy, pan) {
       hiss({
         dur: heavy ? 0.09 : 0.05, filter: "bandpass",
         cutoff: heavy ? 900 : 2200, cutoffTo: heavy ? 300 : 900, q: 2,
-        gain: heavy ? 0.11 : 0.07,
+        gain: heavy ? 0.11 : 0.07, pan,
       });
       tone({
         wave: heavy ? "sawtooth" : "square",
         freq: heavy ? 300 : 520, to: heavy ? 90 : 190, glide: 0.1,
-        dur: heavy ? 0.16 : 0.1, gain: heavy ? 0.1 : 0.065,
+        dur: heavy ? 0.16 : 0.1, gain: heavy ? 0.1 : 0.065, pan,
         filter: "lowpass", cutoff: heavy ? 2200 : 5000, q: 2,
       });
-      if (heavy) tone({ wave: "sine", freq: 110, to: 50, dur: 0.2, gain: 0.1 });
+      if (heavy) tone({ wave: "sine", freq: 110, to: 50, dur: 0.2, gain: 0.1, pan });
     },
 
     /** Credit accepted. Also the proof that audio unlocked on the gesture. */
@@ -982,11 +1067,13 @@ export function createAudio(win) {
       case "shot":
         (ev.tier === "charged" ? sfx.charged : sfx.shoot)();
         break;
-      case "hit":
-        if (ev.enemyType === "rare") sfx.rareGet();
-        else if (ev.enemyType === "guard") sfx.guardBreak();
-        else sfx.hit(ev.chain || 1, ev.tier === "charged");
+      case "hit": {
+        const p = panOf(ev.col);
+        if (ev.enemyType === "rare") sfx.rareGet(p);
+        else if (ev.enemyType === "guard") sfx.guardBreak(p);
+        else sfx.hit(ev.chain || 1, ev.tier === "charged", p);
         break;
+      }
       case "guardBlocked":  sfx.plink(); break;
       case "hopperStagger": sfx.stagger(); break;
       case "hopperHop":     sfx.hop(); break;
@@ -997,14 +1084,14 @@ export function createAudio(win) {
         break;
       case "progHit":       sfx.allyHit(); break;
       case "allySpared":    sfx.spared(); break;
-      case "playerHit":     sfx.hurt(); break;
+      case "playerHit":     sfx.hurt(panOf(ev.col)); break;
       case "playerMoved":   sfx.step(); break;
       case "enemySpawned":
         if (ev.enemyType === "rare") sfx.rareSpawn();
         else if (ev.enemyType === "ally") sfx.progWarn();
         break;
-      case "enemyAim":      sfx.aim(); break;
-      case "enemyFired":    sfx.bolt(!!ev.heavy); break;
+      case "enemyAim":      sfx.aim(panOf(ev.col)); break;
+      case "enemyFired":    sfx.bolt(!!ev.heavy, panOf(ev.col)); break;
       case "runStarted":
         alarmAt = 0;
         sfx.boot();
