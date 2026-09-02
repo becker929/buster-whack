@@ -50,15 +50,24 @@ function placeEnemy(state, o) {
   });
 }
 
-/** Incoming fire from a panel, using the core's own speed for the difficulty. */
+/**
+ * Incoming fire from a panel, using the core's own speed for the difficulty.
+ *
+ * `kind`, `radius` and `speed` are passed through when a scenario names them,
+ * so a golden can pin how the renderer draws a bolt that carries the newer
+ * per-kind fields as well as one that only has the original `heavy` flag.
+ */
 function placeBolt(state, o) {
   const p = C.panelRect(state.G, o.col === undefined ? C.COLS - 1 : o.col, o.row);
-  state.bolts.push({
+  const bolt = {
     row: o.row,
     x: p.x + p.w / 2,
-    speed: state.G.pw / C.boltPanelMs(state.deletions),
+    speed: o.speed === undefined ? state.G.pw / C.boltPanelMs(state.deletions) : o.speed,
     heavy: !!o.heavy,
-  });
+  };
+  if (o.kind !== undefined) bolt.kind = o.kind;
+  if (o.radius !== undefined) bolt.radius = o.radius;
+  state.bolts.push(bolt);
 }
 
 function applyCue(state, cue) {

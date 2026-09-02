@@ -81,7 +81,8 @@ mountBusterWhack(container: HTMLElement, options?: {
 - Dodge: from 12 deletions on, viruses shoot back. A virus about to fire
   marks its row with a dashed line and a chevron at your edge of the field —
   move off that row. A hit costs 2.5s off the clock and breaks your chain.
-- `P` or `Esc`: pause · `M`: mute
+- `P` or `Esc`: pause · `M`: mute (a crossed-speaker badge sits by the pause
+  button while sound is off)
 
 ## Development
 
@@ -108,7 +109,7 @@ src/
     rng.js         mulberry32; the core only ever draws from state.rng
     state.js       createState({ seed, best }) -> state; setLayout(state, w, h)
     step.js        step(state, dtMs, intents) -> events[]
-    select.js      pure selectors (HUD, footer, overlay view models)
+    select.js      pure selectors (HUD and overlay view models)
   shell/           everything with a side effect
     audio.js       Web Audio sfx bank, driven by core events
     render.js      draw(ctx, state, now) — canvas only, never touches the DOM
@@ -198,13 +199,15 @@ RNG to produce a charged kill on a steel guard while a heavy bolt is in flight
 would make the goldens hostage to unrelated tuning changes. Adding a scenario
 means adding a record; the harness needs no new code.
 
-The fourteen scenarios cover an empty board, mid-combat with every enemy type,
-the counterattack telegraph mid-charge, bolts in flight, the player-hit flash
-and screen shake, the charged shot's muzzle flash / tracer / impact ring, the
-charge ring filling, popups and sparks, shooting a friendly prog, the pause
-overlay, the high-chain multiplier HUD, the overclock HUD and its low-time bar,
-and two off-aspect stages (420x740 and 700x360) that exercise both branches of
-the layout clamp.
+The scenarios cover an empty board, mid-combat with every enemy type, the
+counterattack telegraph mid-charge, bolts in flight (both kinds), the player-hit
+punch and its recovery, the charged shot's muzzle flash / tracer / impact ring,
+the charge ring filling, popups and sparks, shooting a friendly prog, the pause
+overlay, the high-chain multiplier HUD, a deletion detonating at the smallest
+and largest tiers, the level marker announcing itself, the time bar's pips from
+full to critical and under overclock, and four off-aspect stages (420x740,
+700x360 and 300x560 alongside the default 900x640) that exercise both branches
+of the layout clamp and the pip ladder's coarse rung.
 
 #### Fonts
 
@@ -238,7 +241,7 @@ There is deliberately **no pixel tolerance**: the comparison is byte-exact.
   browsers draw as a closed ring and `@napi-rs/canvas` draws as nothing at all.
 - **Not layout in a real page**, DPR scaling, input handling, audio, or
   `localStorage`. Those live in the shell around `render.js`.
-- **Not a substitute for playing it.** The goldens pin fourteen moments. The
+- **Not a substitute for playing it.** The goldens pin a few dozen moments. The
   feel of the ramp between them is still yours to judge.
 
 [jbm]: https://github.com/JetBrains/JetBrainsMono
