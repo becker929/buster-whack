@@ -30,8 +30,20 @@ export function step(state, dtMs, intents = {}) {
 
   for (const a of actions) applyIntent(state, a, events);
 
+  // Hit-stop. `adv` is how much of this frame's dt the *simulation* gets: a
+  // pending freeze eats the front of it, so animations, bolts, spawn gaps and
+  // aim windows all stall together and cannot desync from each other. The run
+  // clock below is deliberately not part of it.
+  let adv = dtMs;
+  if (state.mode === "playing" && !state.paused &&
+      state.hitStopMs > 0 && state.clock >= state.hitStopAt) {
+    const used = Math.min(state.hitStopMs, adv);
+    state.hitStopMs -= used;
+    adv -= used;
+  }
+
   if (state.mode === "playing" && !state.paused) {
-    state.clock += dtMs;
+    state.clock += adv;
     state.timeLeft -= dtMs / 1000;
     if (state.timeLeft <= 0) { state.timeLeft = 0; gameOver(state, events); }
     if (state.charge.downAt !== null && !state.charge.full &&
@@ -44,10 +56,70 @@ export function step(state, dtMs, intents = {}) {
   if (hold && (hold.dc || hold.dr)) move(state, hold.dc, hold.dr, events);
 
   updateEnemies(state, events);
-  updateBolts(state, dtMs, events);
+  updateBolts(state, adv, events);
   cullFx(state);
 
   return events;
+}
+
+// ---------- juice authoring ----------
+// The core owns the fx *data*; `render.js` only reads it. Every random number
+// below comes from `state.rng`, so a seed still reproduces a run frame for
+// frame, debris included.
+
+/** Queue a freeze of `ms` that engages once the clock reaches `at`. */
+function hitStop(state, at, ms) {
+  if (state.hitStopMs <= 0) {
+    state.hitStopAt = at;
+    state.hitStopMs = Math.min(C.MAX_HITSTOP, ms);
+    return;
+  }
+  state.hitStopAt = Math.min(state.hitStopAt, at);
+  state.hitStopMs = Math.min(C.MAX_HITSTOP, state.hitStopMs + ms);
+}
+
+/** One shake envelope for the whole screen; the loudest live event wins. */
+function shake(state, spec, at, scale = 1) {
+  const sh = state.fx.shake;
+  const t = at - sh.t0;
+  const remaining = t >= 0 && t < sh.ms ? sh.amp * (1 - t / sh.ms) : 0;
+  const amp = spec.amp * scale;
+  if (amp < remaining) return;
+  sh.t0 = at;
+  sh.ms = spec.ms;
+  sh.amp = amp;
+}
+
+/**
+ * Throw debris. Jitter is drawn from `state.rng`, never Math.random, and the
+ * pool is hard-capped: the oldest bits fall off the front rather than letting a
+ * crowded frame grow without bound.
+ */
+function spawnBits(state, x, y, n, palette, opts = {}) {
+  const bits = state.fx.bits;
+  const t0 = opts.at === undefined ? state.clock : opts.at;
+  const dir = opts.dir === undefined ? -Math.PI / 2 : opts.dir;
+  const spread = opts.spread === undefined ? 1 : opts.spread;
+  const speed = opts.speed === undefined ? 0.24 : opts.speed;
+  const g = opts.g === undefined ? C.BIT_GRAVITY : opts.g;
+  for (let i = 0; i < n; i++) {
+    const a = dir + (state.rng() - 0.5) * Math.PI * spread;
+    const v = speed * (0.45 + state.rng());
+    bits.push({
+      x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g,
+      t0, ms: opts.ms || C.BIT_MS,
+      size: 3 + state.rng() * 4.6,
+      color: palette[Math.floor(state.rng() * palette.length)],
+    });
+  }
+  const over = bits.length - C.MAX_BITS;
+  if (over > 0) bits.splice(0, over);
+}
+
+/** An impact ring inside one panel. */
+function ripple(state, col, row, color, at, w = 1) {
+  state.fx.ripples.push({ col, row, color, w, t0: at, ms: C.RIPPLE_MS });
+  if (state.fx.ripples.length > 12) state.fx.ripples.shift();
 }
 
 // ---------- intents ----------
@@ -103,6 +175,11 @@ function move(state, dc, dr, events) {
   const col = Math.max(0, Math.min(C.PCOLS - 1, state.player.col + dc));
   const row = Math.max(0, Math.min(C.ROWS - 1, state.player.row + dr));
   const moved = col !== state.player.col || row !== state.player.row;
+  if (moved) {
+    state.fx.ghost.t0 = state.clock;
+    state.fx.ghost.col = state.player.col;
+    state.fx.ghost.row = state.player.row;
+  }
   state.player.col = col;
   state.player.row = row;
   if (moved) events.push({ type: "playerMoved", col, row });
@@ -129,9 +206,7 @@ function resetGame(state, events) {
   state.enemies.length = 0;
   state.nextSpawnAt = state.clock + 500;
   state.stageIdx = 0;
-  state.fx.popups.length = 0;
-  state.fx.sparks.length = 0;
-  state.fx.hurtT0 = -1e9;
+  clearFx(state);
   state.bolts.length = 0;
   state.hurtUntil = -1e9;
   state.rank = null;
@@ -147,6 +222,7 @@ function gameOver(state, events) {
   state.enemies.length = 0;
   state.bolts.length = 0;
   state.charge.downAt = null; state.charge.full = false;
+  state.hitStopMs = 0;
   events.push({
     type: "gameOver",
     score: state.score,
@@ -167,6 +243,7 @@ function enterInterlevel(state, events) {
   state.charge.downAt = null;
   state.charge.full = false;
   state.bolts.length = 0;   // don't resume the run into a bolt you can't see coming
+  state.hitStopMs = 0;      // nor into the tail of a freeze from the kill that opened the gate
   state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.STAGE_BONUS);
   events.push({
     type: "stageGate",
@@ -309,6 +386,7 @@ function hopTo(state, e, events) {
   const free = freePanels(state, e.col, e.row);
   if (!free.length) return;
   const [c, r] = free[Math.floor(state.rng() * free.length)];
+  e.hopFromCol = e.col; e.hopFromRow = e.row;
   e.col = c; e.row = r;
   e.hopT0 = state.clock;
   const p = panel(state, c, r);
@@ -365,6 +443,11 @@ function takeHit(state, events) {
     text: "HIT −" + C.HIT_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
   });
   state.fx.sparks.push({ x: p.x + p.w / 2, y: p.y + p.h * 0.3, t0: now });
+  spawnBits(state, p.x + p.w / 2, p.y + p.h * 0.4, C.BIT_COUNT.hurt, C.DEBRIS.player,
+    { speed: 0.26, spread: 1.4, at: now });
+  ripple(state, state.player.col, state.player.row, "#ff5470", now, 3);
+  shake(state, C.SHAKE.hurt, now);
+  hitStop(state, now, C.HITSTOP.hurt);
   events.push({
     type: "playerHit", col: state.player.col, row: state.player.row,
     x: p.x + p.w / 2, y: p.y, timePenalty: C.HIT_TIME_PENALTY,
@@ -373,10 +456,20 @@ function takeHit(state, events) {
   // the clock running out is the frame loop's call, same as any other drain
 }
 
-function breakChain(state, events, cause) {
+function breakChain(state, events, cause, at = state.clock) {
   const chain = state.chain;
   state.chain = 0;
-  if (chain > 0) events.push({ type: "chainBroken", chain, cause });
+  if (chain <= 0) return;
+  // Two or more is a chain worth mourning; one is just a hit.
+  if (chain >= 2) {
+    const p = panel(state, state.player.col, state.player.row);
+    // Taking a bolt already shouts; a second banner over the same panel just
+    // fights the HIT popup, so a hurt-break shows only its falling links.
+    const quiet = cause === "hurt";
+    state.fx.chainBreak = { t0: at, chain, x: p.x + p.w / 2, y: p.y - 6, quiet };
+    if (!quiet) ripple(state, state.player.col, state.player.row, "#8a96b8", at, 2);
+  }
+  events.push({ type: "chainBroken", chain, cause });
 }
 
 // ---------- shooting ----------
@@ -419,6 +512,13 @@ function shoot(state, tierName, events) {
   const dur = Math.max(40, Math.min(95, (x1 - x0) / 5));
   state.fx.ray = { t0: now, row, hitCol: target ? target.col : null, x0, x1, dur, tier: tierName };
 
+  // `land` is when the tracer arrives. Scoring stays instant — the hitscan is
+  // the rule and the tests pin it — but every *visible* consequence is dated to
+  // the impact, so the enemy no longer pops half a board before the shot gets
+  // there. The delete animation, the debris, the freeze and the popups all
+  // start together at `land`.
+  const land = now + dur;
+
   events.push({
     type: "shot", tier: tierName, row, x: x0, y: C.laneY(G, row),
     hit: !!target, targetType: target ? target.type : null,
@@ -426,33 +526,32 @@ function shoot(state, tierName, events) {
 
   if (!target) {
     state.whiffs++;
-    if (state.chain >= 5) {
-      const pp = panel(state, state.player.col, state.player.row);
-      state.fx.popups.push({
-        x: pp.x + pp.w / 2, y: pp.y - 14, t0: now, text: "chain broken", color: "#5f6b8c",
-      });
-    }
     events.push({ type: "whiff", tier: tierName, row, x: x1, y: C.laneY(G, row) });
-    breakChain(state, events, "whiff");
+    breakChain(state, events, "whiff", land);
     events.push({ type: "statsChanged" });
     return;
   }
 
   const p = panel(state, target.col, target.row);
   const cx = p.x + p.w / 2;
+  const cy = p.y + p.h * 0.34;
 
   // friendly prog: hitting it hurts — the anti-spam tax
   if (target.type === "ally") {
-    target.state = "hit"; target.t0 = now;
-    hitFx(target, tier, now);
+    target.state = "hit"; target.t0 = land;
+    hitFx(target, tier, land);
     state.whiffs++;                        // accuracy and rank take the hit too
-    breakChain(state, events, "prog");
+    breakChain(state, events, "prog", land);
     state.timeLeft = Math.max(0, state.timeLeft - C.ALLY_TIME_PENALTY);
     state.score = Math.max(0, state.score - C.ALLY_PTS_PENALTY);
     state.fx.popups.push({
-      x: cx, y: p.y - 8, t0: now,
+      x: cx, y: p.y - 8, t0: land,
       text: "PROG HIT −" + C.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
     });
+    spawnBits(state, cx, cy, C.BIT_COUNT.prog, C.DEBRIS.ally, { at: land, speed: 0.18 });
+    ripple(state, target.col, target.row, "#ff5470", land, 3);
+    shake(state, C.SHAKE.prog, land);
+    hitStop(state, land, C.HITSTOP.prog);
     events.push({
       type: "progHit", tier: tierName, col: target.col, row: target.row, x: cx, y: p.y,
       timePenalty: C.ALLY_TIME_PENALTY, pointsPenalty: C.ALLY_PTS_PENALTY,
@@ -462,8 +561,13 @@ function shoot(state, tierName, events) {
   }
 
   if (target.type === "guard" && tierName === "normal") {
-    state.fx.sparks.push({ x: p.x + p.w * 0.28, y: p.y + p.h * 0.2, t0: now });
-    state.fx.popups.push({ x: cx, y: p.y - 8, t0: now, text: "GUARD", color: "#8a96b8" });
+    state.fx.sparks.push({ x: p.x + p.w * 0.28, y: p.y + p.h * 0.2, t0: land });
+    state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: "GUARD", color: "#8a96b8" });
+    // a plink sprays back toward the player, not outward
+    spawnBits(state, p.x + p.w * 0.28, cy, C.BIT_COUNT.block, C.DEBRIS.guard,
+      { at: land, dir: Math.PI, spread: 0.7, speed: 0.16, ms: 320 });
+    ripple(state, target.col, target.row, "#aeb9d6", land, 2);
+    hitStop(state, land, C.HITSTOP.block);
     events.push({ type: "guardBlocked", col: target.col, row: target.row, x: cx, y: p.y });
     return;
   }
@@ -471,8 +575,12 @@ function shoot(state, tierName, events) {
   // hopper stamina: a tap staggers it and it flees; charged shots kill outright
   if (target.type === "hopper" && tierName === "normal" && target.hp > 1) {
     target.hp--;
-    state.fx.sparks.push({ x: cx, y: p.y + p.h * 0.2, t0: now });
-    state.fx.popups.push({ x: cx, y: p.y - 8, t0: now, text: "1 more", color: "#5ee87c" });
+    state.fx.sparks.push({ x: cx, y: p.y + p.h * 0.2, t0: land });
+    state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: "1 more", color: "#5ee87c" });
+    spawnBits(state, cx, cy, C.BIT_COUNT.stagger, C.DEBRIS.hopper,
+      { at: land, speed: 0.17, ms: 340 });
+    ripple(state, target.col, target.row, "#5ee87c", land, 2);
+    hitStop(state, land, C.HITSTOP.stagger);
     events.push({
       type: "hopperStagger", col: target.col, row: target.row, x: cx, y: p.y, hp: target.hp,
     });
@@ -482,8 +590,8 @@ function shoot(state, tierName, events) {
   }
 
   // deletion
-  target.state = "hit"; target.t0 = now;
-  hitFx(target, tier, now);
+  target.state = "hit"; target.t0 = land;
+  hitFx(target, tier, land);
 
   const multBefore = C.multOf(state.chain);
   state.chain++;
@@ -503,20 +611,44 @@ function shoot(state, tierName, events) {
   const timeBonus = C.BONUS[baseKey] * factor;
   state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + timeBonus);
 
+  // The felt half of a delete: debris in the skin's own colours, a ring in the
+  // struck panel, a kick on the whole screen and a freeze — all sized by what
+  // died, so a rare is unmistakably an event and a mett is a satisfying tap.
+  spawnBits(state, cx, cy, C.BIT_COUNT[baseKey], C.DEBRIS[target.type], {
+    at: land,
+    speed: baseKey === "rare" ? 0.4 : baseKey === "charged" ? 0.34 : 0.28,
+    spread: 1.25,
+  });
+  ripple(state, target.col, target.row,
+    baseKey === "rare" ? "#ffd23f" : baseKey === "guard" ? "#c9f6ff" : "#45e0e8",
+    land, baseKey === "rare" ? 4 : 3);
+  // the player's own panel answers a landed shot
+  ripple(state, state.player.col, state.player.row, "#45e0e8", land, 1);
+  shake(state, C.SHAKE[baseKey] || C.SHAKE.normal, land);
+  hitStop(state, land, C.HITSTOP[baseKey] || C.HITSTOP.normal);
+
   events.push({
     type: "hit", tier: tierName, enemyType: target.type, baseKey,
     col: target.col, row: target.row, x: cx, y: p.y,
     points: pts, mult, chain: state.chain, timeBonus,
   });
-  if (mult > multBefore) events.push({ type: "multiplierUp", mult, chain: state.chain });
+  if (mult > multBefore) {
+    events.push({ type: "multiplierUp", mult, chain: state.chain });
+    // a real flourish at every multiplier step, not just a bigger number
+    state.fx.flare = { t0: land, mult, x: cx, y: cy };
+    shake(state, C.SHAKE.chain, land, mult / 2);
+    hitStop(state, land, C.HITSTOP.chain);
+    spawnBits(state, cx, cy, 6 + mult * 2, C.DEBRIS.rare,
+      { at: land, speed: 0.34, spread: 2, ms: 640 });
+  }
 
   state.fx.popups.push({
-    x: cx, y: p.y - 8, t0: now,
+    x: cx, y: p.y - 8, t0: land,
     text: "+" + pts + (mult > 1 ? " ×" + mult : ""),
     color: baseKey === "rare" ? "#ffe08a" : baseKey === "guard" || mult > 1 ? "#45e0e8" : "#aab4ce",
   });
   state.fx.popups.push({
-    x: cx, y: p.y + 12, t0: now + 60,
+    x: cx, y: p.y + 12, t0: land + 60,
     text: "+" + timeBonus.toFixed(1) + "s",
     color: factor < 1 ? "#ff9f45" : "#ffd23f",
   });
@@ -542,4 +674,30 @@ function cullFx(state) {
   for (let i = sparks.length - 1; i >= 0; i--) {
     if (now - sparks[i].t0 >= C.SPARK_MS) sparks.splice(i, 1);
   }
+  const bits = state.fx.bits;
+  for (let i = bits.length - 1; i >= 0; i--) {
+    if (now - bits[i].t0 >= bits[i].ms) bits.splice(i, 1);
+  }
+  const ripples = state.fx.ripples;
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    if (now - ripples[i].t0 >= ripples[i].ms) ripples.splice(i, 1);
+  }
+}
+
+/** Wipe every transient effect — a new run starts on a clean board. */
+function clearFx(state) {
+  const fx = state.fx;
+  fx.popups.length = 0;
+  fx.sparks.length = 0;
+  fx.bits.length = 0;
+  fx.ripples.length = 0;
+  fx.hurtT0 = -1e9;
+  fx.shake.t0 = -1e9; fx.shake.amp = 0; fx.shake.ms = 0;
+  fx.flare.t0 = -1e9;
+  fx.chainBreak.t0 = -1e9;
+  fx.ghost.t0 = -1e9;
+  fx.ray.t0 = -1e9;
+  fx.muzzleT0 = -1e9;
+  state.hitStopAt = -1e9;
+  state.hitStopMs = 0;
 }

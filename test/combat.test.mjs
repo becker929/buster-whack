@@ -29,11 +29,23 @@ test("an enemy walks rising -> up -> sinking -> gone", () => {
   assert.equal(find(ev2, "enemyEscaped").enemyType, "mett");
 });
 
-test("a deleted enemy lingers for HIT_MS then leaves without escaping", () => {
+test("a deleted enemy lingers for HIT_MS after the tracer lands", () => {
   const s = newGame();
   addEnemy(s, { type: "mett" });
   fire(s);
   assert.equal(s.enemies[0].state, "hit");
+
+  // The delete animation is dated to the impact, not to the trigger pull: the
+  // enemy stays intact while the tracer crosses the board, then pops.
+  const flight = s.fx.ray.dur;
+  assert.ok(flight > 0);
+  step(s, flight, []);
+  assert.equal(s.enemies[0].t0, s.clock, "the hit clock starts when the shot lands");
+
+  // and the impact freeze buys a few frames before real time resumes
+  step(s, C.HITSTOP.normal, []);
+  assert.equal(s.clock, s.enemies[0].t0, "hit-stop froze the simulation clock");
+
   step(s, C.HIT_MS - 1, []);
   assert.equal(s.enemies.length, 1);
   const ev = step(s, 2, []);

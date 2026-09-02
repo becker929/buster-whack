@@ -15,6 +15,9 @@ import { mulberry32 } from "./rng.js";
  * @param {number} [opts.best=0] - persisted best score.
  * @param {number} [opts.width=0] - stage width in CSS px.
  * @param {number} [opts.height=0] - stage height in CSS px.
+ * @param {boolean} [opts.reducedMotion=false] - damp shake and flashing. The
+ *   renderer cannot read `matchMedia` (it never touches a DOM), so the shell
+ *   reads the media query and hands the answer in as data.
  */
 export function createState(opts = {}) {
   const seed = opts.seed === undefined ? 1 : opts.seed;
@@ -24,6 +27,9 @@ export function createState(opts = {}) {
 
     mode: "ready",             // ready | playing | interlevel | over
     paused: false,
+    // Accessibility, not a preference the sim reads: only `render.js` looks at
+    // it. Safe default is "full motion"; the shell overwrites it.
+    reducedMotion: !!opts.reducedMotion,
     clock: 0,                  // game clock, advances only while playing and unpaused
     canFire: true,
     score: 0,
@@ -43,6 +49,10 @@ export function createState(opts = {}) {
     charge: { downAt: null, full: false },
     lastMoveAt: -1e9,
     rank: null,
+    // hit-stop: freeze the simulation clock for `hitStopMs` once `clock`
+    // reaches `hitStopAt` (which is when the tracer actually lands).
+    hitStopAt: -1e9,
+    hitStopMs: 0,
     G: layout(opts.width || 0, opts.height || 0),
     fx: {
       recoil: makeImpulse(TIERS.normal.recoil),
@@ -51,13 +61,59 @@ export function createState(opts = {}) {
       ray: { t0: -1e9, row: 0, hitCol: null, x0: 0, x1: 0, dur: 1, tier: "normal" },
       popups: [],
       sparks: [],
+      bits: [],                // debris: { x,y,vx,vy,g,t0,ms,size,color }
+      ripples: [],             // panel impact rings: { col,row,t0,ms,color,w }
       hurtT0: -1e9,
+      shake: { t0: -1e9, ms: 0, amp: 0 },
+      flare: { t0: -1e9, mult: 1, x: 0, y: 0 },
+      chainBreak: { t0: -1e9, chain: 0, x: 0, y: 0, quiet: false },
+      ghost: { t0: -1e9, col: 1, row: 1 },
     },
   };
 }
 
-/** Recompute the board geometry for a new stage size. Pure numbers in. */
+/**
+ * Recompute the board geometry for a new stage size. Pure numbers in.
+ *
+ * Anything already in flight is carried across with it. Bolts, tracers, sparks,
+ * popups and debris all store absolute pixel coordinates (and a bolt bakes a
+ * speed from the panel width it was fired at), so before this a mid-run resize
+ * teleported every one of them — a bolt would jump out of its lane and land
+ * nowhere near the panel it was aimed at. Rescaling here keeps the whole board
+ * in board space without making every consumer do the arithmetic.
+ */
 export function setLayout(state, width, height) {
-  state.G = layout(width, height);
-  return state.G;
+  const old = state.G;
+  const G = layout(width, height);
+  state.G = G;
+  if (old && old.pw > 0 && G.pw > 0 && (old.pw !== G.pw || old.ph !== G.ph ||
+      old.gx !== G.gx || old.gy !== G.gy)) {
+    remap(state, old, G);
+  }
+  return G;
+}
+
+function remap(state, a, b) {
+  const kx = b.pw / a.pw, ky = b.ph / a.ph;
+  const mx = (x) => b.gx + (x - a.gx) * kx;
+  const my = (y) => b.gy + (y - a.gy) * ky;
+
+  for (const bolt of state.bolts) {
+    bolt.x = mx(bolt.x);
+    bolt.speed *= kx;
+  }
+  for (const pp of state.fx.popups) { pp.x = mx(pp.x); pp.y = my(pp.y); }
+  for (const sp of state.fx.sparks) { sp.x = mx(sp.x); sp.y = my(sp.y); }
+  for (const bit of state.fx.bits) {
+    bit.x = mx(bit.x); bit.y = my(bit.y);
+    bit.vx *= kx; bit.vy *= ky; bit.g *= ky;
+    bit.size *= Math.min(kx, ky);
+  }
+  const ray = state.fx.ray;
+  ray.x0 = mx(ray.x0);
+  ray.x1 = mx(ray.x1);
+  const flare = state.fx.flare;
+  flare.x = mx(flare.x); flare.y = my(flare.y);
+  const cb = state.fx.chainBreak;
+  cb.x = mx(cb.x); cb.y = my(cb.y);
 }

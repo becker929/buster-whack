@@ -87,6 +87,70 @@ export const RAY_IMPACT_MS = 130;
 export const MUZZLE_MS = { normal: 95, charged: 140 };
 export const HURT_FLASH_MS = 190;
 
+// ---------- juice ----------
+// Everything below is presentation, but it is *data*, so the core can author it
+// deterministically and the renderer stays a pure function of the state.
+
+export const TAU = Math.PI * 2;
+// @napi-rs/canvas draws an exact-2*PI arc() as nothing where a browser closes
+// the circle. Every ring in the renderer sweeps TAU - RING_GAP instead, so the
+// same shape is visible in the golden harness and in the browser.
+export const RING_GAP = 0.09;
+
+export const BIT_MS = 520;           // debris lifetime
+export const MAX_BITS = 96;          // hard cap; this many fillRects every frame
+export const BIT_GRAVITY = 0.0016;   // px per ms^2
+export const RIPPLE_MS = 300;        // panel impact ring
+export const FLARE_MS = 520;         // chain-milestone flourish
+export const CHAIN_BREAK_MS = 620;   // and what a broken chain looks like
+export const GHOST_MS = 170;         // player afterimage on a move
+export const LANE_MS = 240;          // the row stays lit behind a landed shot
+export const LOW_TIME = 6;           // seconds; the urgency frame comes on here
+
+// Hit-stop: a few frozen milliseconds at the moment the tracer lands, scaled by
+// what died. It freezes the *simulation* clock (animations, bolts, spawn and
+// aim timers) but deliberately not `timeLeft` — juice must never hand the
+// player a slower run clock, or a kill spammer would farm it.
+export const HITSTOP = {
+  normal: 26, charged: 52, guard: 46, hopper: 30, rare: 96,
+  block: 12, stagger: 18, prog: 34, hurt: 70, chain: 26,
+};
+export const MAX_HITSTOP = 150;      // never freeze longer than this at once
+
+// Screen shake, as { amp: px, ms }. One envelope, many senders, so two events
+// in the same frame cannot fight over the transform.
+export const SHAKE = {
+  normal:  { amp: 3.5, ms: 120 },
+  charged: { amp: 8,   ms: 210 },
+  guard:   { amp: 7,   ms: 190 },
+  hopper:  { amp: 4.5, ms: 150 },
+  rare:    { amp: 13,  ms: 380 },
+  prog:    { amp: 6,   ms: 220 },
+  hurt:    { amp: 9,   ms: HURT_SHAKE_MS },
+  chain:   { amp: 6,   ms: 260 },
+};
+
+// Debris tints per skin: a deletion sprays the colour of the thing deleted.
+export const DEBRIS = {
+  mett:   ["#ffd23f", "#ffe89a", "#fff0c0"],
+  guard:  ["#dfe7fb", "#aeb9d6", "#c9f6ff"],
+  hopper: ["#5ee87c", "#a6f5bb", "#c8ffd8"],
+  ally:   ["#58c7ff", "#a9defc", "#e2f4ff"],
+  rare:   ["#fff3c4", "#ffc95a", "#ffd23f"],
+  player: ["#ff5470", "#ff9f45", "#ffd7de"],
+};
+
+// How many bits a deletion throws. Capped so a crowded late-game frame is
+// still bounded by MAX_BITS.
+export const BIT_COUNT = {
+  normal: 9, charged: 14, guard: 13, hopper: 11, rare: 22,
+  block: 4, stagger: 5, prog: 8, hurt: 12,
+};
+
+// reducedMotion damping. Shake nearly vanishes, full-screen flashes lose most
+// of their punch, and anything that strobes goes steady (0 = no strobe).
+export const RM = { shake: 0.12, flash: 0.35, strobe: 0 };
+
 // ---------- easing ----------
 
 export const EASE = {
