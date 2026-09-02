@@ -18,3 +18,27 @@ jobs:
       - run: npm run test:unit
       - run: npm run test:smoke
       - run: npm run build
+
+      - name: Visual goldens
+        run: npm run visual
+
+      # The harness deletes the runner's font set and registers the two
+      # JetBrains Mono faces committed under tools/visual/fonts/, so the text
+      # in a golden does not depend on what this image happens to ship. This
+      # asserts that on the runner itself. It runs after the golden comparison
+      # so that a plain visual regression reports through the richer check and
+      # still produces diff images to upload.
+      - name: Prove the goldens do not depend on the runner's fonts
+        run: npm run visual:proof
+
+      # Numbers in a log do not tell you what moved. On a failure, upload the
+      # golden / actual / diff triple for every changed frame so a reviewer can
+      # look at the change and decide whether to accept it.
+      - name: Upload visual diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff-${{ github.run_id }}
+          path: .visual/diff/
+          if-no-files-found: ignore
+          retention-days: 14
