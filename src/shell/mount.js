@@ -91,7 +91,7 @@ export function mountBusterWhack(container, options = {}) {
   }
 
   const input = createInput({
-    win, els, on, dispatch,
+    win, host: container, root, els, on, dispatch,
     onGesture: () => audio.resume(),
     onMute: toggleMute,
   });
@@ -142,7 +142,10 @@ export function mountBusterWhack(container, options = {}) {
         break;
       case "paused":
       case "unpaused":
-        if (root.activeElement) root.activeElement.blur();
+        // Drop focus off the pause button so Space doesn't re-trigger it, but
+        // park it back on the stage — that is what keeps the keyboard ours.
+        if (root.activeElement && root.activeElement !== els.stage) root.activeElement.blur();
+        input.focus();
         break;
       default: break;
     }

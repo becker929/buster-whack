@@ -10,6 +10,13 @@ export const TEMPLATE = `
     width: 100%;
     height: 100%;
     min-height: 320px;
+    /* Gestures that start on the game stay on the game. 'pan-y' (not 'none')
+       so the one genuinely scrollable thing inside — the start card — can still
+       scroll; every actual play surface narrows it to 'none' below. Setting
+       'none' here would win the ancestor intersection and freeze that card. */
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
     --bw-field: #1b2233;
     --bw-panel: #232c42;
     --bw-line: #2f3a57;
@@ -30,19 +37,33 @@ export const TEMPLATE = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    touch-action: pan-y;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   main {
     position: relative;
     flex: 1;
     min-height: 0;
-    touch-action: manipulation;
+    touch-action: pan-y;   /* narrowed to 'none' by every child but #splash */
     container-type: size;
     container-name: bwstage;
+    /* The stage is the game's focus holder, but it is tabindex="-1" — script
+       focuses it, the Tab key never does — so it needs no focus ring of its own.
+       Keyboard users land on FIRE / PAUSE / PRESS START, which have theirs. */
+    outline: none;
   }
-  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  footer, #overlay, #dpad, #fireBtn, #pauseBtn { touch-action: none; }
 
   /* Analog ring: whole disc is touchable, no gaps. Center 2/5R is neutral;
      rock the finger outward to move, diagonals press two directions. */
@@ -98,7 +119,6 @@ export const TEMPLATE = `
     font: 700 14px/1.3 ui-monospace, Menlo, Consolas, monospace;
     letter-spacing: 0.12em;
     cursor: pointer;
-    touch-action: manipulation;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -119,7 +139,6 @@ export const TEMPLATE = `
     color: var(--bw-ink-dim);
     font: 700 13px/1 ui-monospace, Menlo, Consolas, monospace;
     cursor: pointer;
-    touch-action: manipulation;
   }
   #pauseBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 2px; }
 
@@ -147,7 +166,6 @@ export const TEMPLATE = `
     background:
       radial-gradient(ellipse at 50% 38%, rgba(79, 141, 255, 0.12), transparent 62%),
       rgba(27, 34, 51, 0.92);
-    touch-action: manipulation;
   }
   #overlay.hidden { display: none; }
   .ov-inner {
@@ -203,7 +221,7 @@ export const TEMPLATE = `
     border: 2px solid var(--bw-accent);
     background: rgba(69, 224, 232, 0.10);
     color: var(--bw-accent);
-    touch-action: manipulation;
+    touch-action: none;
   }
   .ov-btns button.dim {
     border-color: var(--bw-line);
@@ -224,8 +242,18 @@ export const TEMPLATE = `
     display: flex;
     overflow: auto;
     background: #080b14;
-    touch-action: manipulation;
+    /* The only surface allowed to scroll: on a short mount the card overflows
+       and a drag should still reach PRESS START. */
+    touch-action: pan-y;
     cursor: pointer;
+  }
+  /* Keep that scroll — including its momentum fling, which no touchmove
+     handler can reach — from chaining out into the host page. Scoped to touch
+     devices: on a desktop 'overscroll-behavior' would also stop the wheel from
+     scrolling the host page whenever the cursor happened to be over the card,
+     and Chromium applies it even when the card is not overflowing at all. */
+  @media (hover: none) and (pointer: coarse) {
+    #splash { overscroll-behavior: contain; }
   }
   #splash.hidden { display: none; }
 
@@ -464,8 +492,13 @@ export const TEMPLATE = `
   }
 </style>
 
-<div class="bw-root">
-  <main id="stage">
+<div class="bw-root" id="bwRoot">
+  <!-- tabindex="-1": focusable by script but not by Tab. Touching or clicking
+       the game parks focus here, which is how keyboard input stays scoped to
+       "the player is actually looking at the game" instead of the whole page.
+       Tab still walks the real controls below, and focusing any of them puts
+       focus inside this shadow tree, which counts just the same. -->
+  <main id="stage" tabindex="-1">
     <canvas id="cv"></canvas>
 
     <div id="overlay" class="hidden">
@@ -534,7 +567,7 @@ export const TEMPLATE = `
 `;
 
 const IDS = [
-  "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
+  "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "sDel", "sChain", "sAcc", "sBest", "sSnd",
 ];
