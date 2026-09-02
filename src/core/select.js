@@ -3,7 +3,8 @@
  * Never mutates state.
  */
 
-import { OC_START, bonusFactor, level, multOf, TIME_CAP } from "./constants.js";
+import { OC_START, bonusFactor, level, multOf, TIME_CAP, modeById } from "./constants.js";
+import { activeArena } from "./world.js";
 
 /** Hit accuracy as a 0..1 fraction (0 when nothing has been fired). */
 export function accuracy(state) {
@@ -42,7 +43,10 @@ export function hudView(state) {
     score: String(state.score).padStart(6, "0"),
     chain: state.chain,
     mult: multOf(state.chain),
-    level: level(state.deletions),
+    // advance counts arenas: the level is where you are on the road
+    level: modeById(state.modeId).advancing ? activeArena(state.world).idx + 1 : level(state.deletions),
+    unlimited: !!state.unlimited,
+    bombs: state.bombs || 0,
     timeLeft: state.timeLeft,
     timeFrac: Math.max(0, Math.min(1, state.timeLeft / TIME_CAP)),
     overclock: oc,

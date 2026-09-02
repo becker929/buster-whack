@@ -40,6 +40,13 @@ export function createState(opts = {}) {
     // never reads it -- it lives here so it is deterministic and replayable,
     // and the renderer applies it as a translate. Classic keeps it at 0.
     cam: 0,
+    // ADVANCE inventory and ordnance. Pickups live on road tiles; a bomb in
+    // flight is { fromCol,fromRow,toCol,toRow,t0,dur }; blasts are fx.
+    bombs: 0,
+    bombsInFlight: [],
+    pickups: [],               // { col, row, kind }
+    levelT0: -1e9,             // when the level last changed (advance: arena entry)
+    unlimited: false,          // past ROAD_END: nothing held back
     camAnchor: 0,              // x0 of the last arena entered: the camera's floor while following
     camClock: 0,               // clock at the last camera ease, so the ease is dt-driven and replayable
     clock: 0,                  // game clock, advances only while playing and unpaused
@@ -86,6 +93,7 @@ export function createState(opts = {}) {
       flare: { t0: -1e9, mult: 1, x: 0, y: 0 },
       chainBreak: { t0: -1e9, chain: 0, x: 0, y: 0, quiet: false },
       ghost: { t0: -1e9, col: 1, row: 1 },
+      blasts: [],              // bomb splashes: { col,row,x,y,t0 }
     },
   };
 }

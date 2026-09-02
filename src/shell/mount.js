@@ -8,7 +8,7 @@ import { step } from "../core/step.js";
 import { STAGE_BONUS, MODES, DEFAULT_MODE } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode } from "./dom.js";
+         renderModes, selectMode, renderBombs } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
@@ -119,6 +119,7 @@ export function mountBusterWhack(container, options = {}) {
 
   function refreshStats() {
     renderStats(els, statsView(state));
+    renderBombs(els, state.bombs || 0);
   }
 
   function showInterlevel(ev) {

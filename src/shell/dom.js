@@ -63,7 +63,7 @@ export const TEMPLATE = `
     cursor: crosshair;
     touch-action: none;
   }
-  #overlay, #dpad, #fireBtn, #pauseBtn { touch-action: none; }
+  #overlay, #dpad, #fireBtn, #bombBtn, #pauseBtn { touch-action: none; }
 
   /* Analog ring: whole disc is touchable, no gaps. Center 2/5R is neutral;
      rock the finger outward to move, diagonals press two directions. */
@@ -125,6 +125,32 @@ export const TEMPLATE = `
     padding: 22% 0 0 22%;   /* bias label toward the visible arc's center */
   }
   #fireBtn:active { background: rgba(69, 224, 232, 0.25); }
+
+  /* secondary fire: the bomb. A round button riding above the FIRE arc, lit
+     while you carry one and greyed to an outline when you don't. */
+  #bombBtn {
+    position: absolute;
+    right: 16px;
+    bottom: calc(min(46vw, 200px) + 14px);
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    border: 2px solid var(--bw-oc);
+    background: rgba(255, 159, 69, 0.14);
+    color: var(--bw-oc);
+    font: 700 10px/1.15 ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  #bombBtn b { font-size: 16px; }
+  #bombBtn.empty { border-color: var(--bw-line); color: var(--bw-ink-dim); background: rgba(35, 44, 66, 0.5); }
+  #bombBtn:active { background: rgba(255, 159, 69, 0.3); }
+  #bombBtn:focus-visible { outline: 2px solid var(--bw-oc); outline-offset: 3px; }
   #fireBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 3px; }
 
   #pauseBtn {
@@ -590,6 +616,7 @@ export const TEMPLATE = `
     </div>
 
     <button id="pauseBtn" aria-label="Pause">II</button>
+    <button id="bombBtn" class="empty" aria-label="Throw bomb">BOMB<b id="bombCount">0</b></button>
     <button id="fireBtn" aria-label="Fire">FIRE<br>&#9679;</button>
   </main>
 
@@ -599,7 +626,7 @@ export const TEMPLATE = `
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "spModes", "dpad", "aUp", "aDown", "aLeft", "aRight",
-  "pauseBtn", "fireBtn", "muteFlag",
+  "pauseBtn", "fireBtn", "bombBtn", "bombCount", "muteFlag",
 ];
 
 /**
@@ -710,4 +737,10 @@ export function selectMode(els, id) {
   for (const b of els.spModes.children) {
     b.setAttribute("aria-checked", String(b.dataset.mode === id));
   }
+}
+
+/** The bomb button carries the count; empty, it greys to an outline. */
+export function renderBombs(els, n) {
+  els.bombCount.textContent = String(n);
+  els.bombBtn.classList.toggle("empty", n <= 0);
 }

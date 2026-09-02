@@ -1149,6 +1149,25 @@ export function createAudio(win) {
         sfx.stageSting();
         sfx.cardPad();     // the card is a hold, not an ending — fill the air
         break;
+      case "bombThrown":
+        // a lob: a short rising whoosh, panned from where it left
+        hiss({ dur: 0.22, filter: "bandpass", cutoff: 500, cutoffTo: 2400, q: 1.5, gain: 0.08, pan: panOf(ev.col) });
+        tone({ wave: "triangle", freq: 220, to: 520, glide: 0.2, dur: 0.22, gain: 0.05, pan: panOf(ev.col) });
+        break;
+      case "bombBlast":
+        // the biggest detonation in the game, and a longer duck than a kill
+        duckMusic(0.7, 0.5);
+        blast(1, panOf(ev.col));
+        tone({ wave: "sine", freq: 60, to: 34, glide: 0.5, dur: 0.6, gain: 0.26, attack: 0.006, pan: panOf(ev.col) });
+        break;
+      case "pickup":
+        seq([76, 83, 88], { step: 0.05, dur: 0.07, gain: 0.1, octave: true });
+        break;
+      case "sentinelHit":
+        // armour taking a real hit: a ring, not a note
+        tone({ wave: "sine", freq: 1320, dur: 0.14, gain: 0.07, filter: "bandpass", cutoff: 1320, q: 12, pan: panOf(ev.col) });
+        tone({ wave: "square", freq: 330, to: 200, dur: 0.08, gain: 0.05, pan: panOf(ev.col) });
+        break;
       case "waveEnded":
         // only a wave the player actually wiped: a lapsed wave ends too, and
         // rewarding that would be rewarding nothing

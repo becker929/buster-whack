@@ -34,7 +34,12 @@ const SKINS = {
   hopper: { dome: "#5ee87c", stripe: "#1f7c3d" },
   ally:   { dome: "#58c7ff", stripe: "#2a7ab8" },
   rare:   { dome: "#fff3c4", stripe: "#e8a020" },
+  // the sentinel is drawn on its own path below; this is for debris and ghosts
+  sentinel: { dome: "#b48cff", stripe: "#5a3f9a" },
 };
+// Sentinel iris colour by mark: violet, magenta, red -- none of them a colour
+// any other virus wears, so the mark reads before the shape does.
+const SENTINEL_CORE = { 1: "#c48cff", 2: "#ff6fd8", 3: "#ff4d4d" };
 
 // Panel palettes. Past OC_START the whole field runs hot, not just the HUD.
 const PANELS    = { mine: ["#3a2330", "#7c3652"], theirs: ["#1e2c4d", "#35528f"] };
@@ -86,6 +91,7 @@ export function draw(ctx, state, now) {
   if (camPx) ctx.translate(-camPx, 0);
 
   drawPanels(ctx, state, now);
+  drawPickups(ctx, state, now);
   drawLane(ctx, state, now);
   drawAim(ctx, state, now);
   drawGhost(ctx, state, now);
@@ -96,6 +102,7 @@ export function draw(ctx, state, now) {
   for (const e of state.enemies) drawEnemy(ctx, state, now, e);
   for (const e of state.enemies) drawBlastOver(ctx, state, now, e);
   drawBolts(ctx, state, now);
+  drawBombs(ctx, state, now);
   drawShots(ctx, state, now, rayY, busterX);
   drawBits(ctx, state, now);
   drawSparks(ctx, state, now);
@@ -106,6 +113,75 @@ export function draw(ctx, state, now) {
   ctx.restore();
 
   drawHUD(ctx, state, now, rm);
+}
+
+// ---------- ordnance ----------
+
+/** A bomb waiting on the road: a dark sphere with a lit fuse, bobbing. */
+function drawPickups(ctx, state, now) {
+  const G = state.G;
+  for (const pk of state.pickups || []) {
+    const p = panel(G, pk.col, pk.row);
+    const cx = p.x + p.w / 2, cy = p.y + p.h * 0.5 + Math.sin(now / 260) * 3;
+    const r = Math.min(p.w, p.h) * 0.16;
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(now / 180);
+    ctx.fillStyle = "#ff9f45";
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#1a1f33";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
+    ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.4, cy - r * 0.8); ctx.lineTo(cx + r * 1.1, cy - r * 1.6); ctx.stroke();
+    ctx.fillStyle = Math.floor(now / 120) % 2 ? "#ffffff" : "#ff5470";
+    ctx.fillRect(cx + r * 1.0, cy - r * 1.8, 3, 3);
+  }
+}
+
+/** Bombs arcing, then the splash across the nine squares. */
+function drawBombs(ctx, state, now) {
+  const G = state.G;
+  for (const b of state.bombsInFlight || []) {
+    const q = Math.min(1, (now - b.t0) / b.dur);
+    const from = panel(G, b.fromCol, b.fromRow), to = panel(G, b.toCol, b.toRow);
+    const x = from.x + (to.x - from.x) * q + from.w / 2;
+    const ground = from.y + from.h * 0.5;
+    const y = ground - G.ph * 1.6 * 4 * q * (1 - q);          // the arc
+    const r = Math.min(G.pw, G.ph) * 0.15;
+    // shadow on the ground, shrinking with height
+    ctx.globalAlpha = 0.3 * (1 - 2.4 * q * (1 - q));
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(x, ground + G.ph * 0.28, r * 1.2, r * 0.45, 0, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#1a1f33";
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
+    ctx.strokeStyle = "#ff9f45"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2 - C.RING_GAP); ctx.stroke();
+    ctx.fillStyle = Math.floor(now / 70) % 2 ? "#ffffff" : "#ff5470";
+    ctx.fillRect(x + r * 0.6, y - r * 1.5, 3, 3);
+  }
+  for (const bl of state.fx.blasts || []) {
+    const q = Math.min(1, (now - bl.t0) / C.BOMB_BLAST_MS);
+    const R = C.BOMB_RADIUS;
+    // every square in the nine lights, then cools
+    ctx.globalAlpha = 0.55 * (1 - q) ** 1.5;
+    ctx.fillStyle = "#ff9f45";
+    for (let dc = -R; dc <= R; dc++) for (let dr = -R; dr <= R; dr++) {
+      const r = bl.row + dr;
+      if (r < 0 || r >= C.ROWS) continue;
+      const p = panel(G, bl.col + dc, r);
+      ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
+    }
+    // the fireball
+    const rad = (G.pw * 1.5) * EASE.out3(q);
+    ctx.globalAlpha = (1 - q) * 0.9;
+    ctx.strokeStyle = "#ffd23f";
+    ctx.lineWidth = 6 * (1 - q) + 1;
+    ctx.beginPath(); ctx.arc(bl.x, bl.y, rad, 0, Math.PI * 2 - C.RING_GAP); ctx.stroke();
+    ctx.globalAlpha = (1 - q) ** 2 * 0.8;
+    ctx.fillStyle = "#fff3c4";
+    ctx.beginPath(); ctx.arc(bl.x, bl.y, rad * 0.45, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 }
 
 // ---------- board ----------
@@ -463,6 +539,51 @@ function drawPlayer(ctx, state, now, rm) {
   return { rayY, busterX: cx + bw / 2 + bw * 0.55 };
 }
 
+/**
+ * The Sentinel: a hexagonal housing with an iris. Closed it is a steel slab
+ * with a seam; open, the iris parts and the core glows in the mark's colour,
+ * pulsing faster as the spell runs out. Drawn in the same translated frame
+ * as the dome so hit squash-and-kick apply.
+ */
+function drawSentinel(ctx, e, now, bw, bh) {
+  const open = e.state === "up" && (e.willAttack ? !e.fired : true);
+  const cfg = C.SENTINEL[e.tier] || C.SENTINEL[1];
+  const q = open ? Math.min(1, (now - e.t0) / cfg.openMs) : 0;   // spell spent
+  const core = SENTINEL_CORE[e.tier] || SENTINEL_CORE[1];
+  const R = bw * 0.62, cy = -bh * 0.44;
+  // housing
+  ctx.fillStyle = "#3a3452";
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (i * Math.PI) / 3;
+    const x = Math.cos(a) * R, y = cy + Math.sin(a) * R * 0.92;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#6a5f8f";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // pedestal
+  ctx.fillStyle = "#2a2540";
+  ctx.fillRect(-bw * 0.34, -bh * 0.12, bw * 0.68, bh * 0.1);
+  // iris
+  const gap = open ? 0.18 + 0.5 * (1 - q) : 0.04;           // shutters part, then close in
+  const half = R * 0.62;
+  ctx.fillStyle = core;
+  ctx.globalAlpha = open ? 0.85 + 0.15 * Math.sin(now / (60 + 90 * (1 - q))) : 0.25;
+  ctx.beginPath();
+  ctx.arc(0, cy, half * 0.62, 0, Math.PI * 2 - C.RING_GAP);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#1a1728";
+  ctx.fillRect(-half, cy - half, half * 2, half * (1 - gap));            // upper shutter
+  ctx.fillRect(-half, cy + half * gap, half * 2, half * (1 - gap));      // lower shutter
+  // mark pips on the housing
+  ctx.fillStyle = core;
+  for (let i = 0; i < (e.tier || 1); i++) ctx.fillRect(-bw * 0.26 + i * bw * 0.16, cy + R * 0.7, bw * 0.1, 3);
+}
+
 function drawEnemy(ctx, state, now, e) {
   const G = state.G;
   const p = panel(G, e.col, e.row);
@@ -514,6 +635,12 @@ function drawEnemy(ctx, state, now, e) {
   ctx.translate(cx, baseY);
   ctx.scale(sx, sy * grow);
   ctx.globalAlpha = e.state === "hit" ? grow : 1;
+
+  if (e.type === "sentinel") {
+    drawSentinel(ctx, e, now, bw, bh);
+    ctx.restore();
+    return;
+  }
 
   ctx.fillStyle = skin.dome;
   ctx.beginPath();
@@ -1114,7 +1241,12 @@ function lastDeletion(state) {
  * so the kill that did it is the most recent one — which `lastDeletion` dates.
  * The window is bounded by POPUP_MS, which is why LEVEL_POP_MS is shorter.
  */
+/** When the level last changed: a kill crossing a multiple, or an arena entered. */
 function levelUpAt(state) {
+  return Math.max(levelUpFromKills(state), state.levelT0 === undefined ? -1e9 : state.levelT0);
+}
+
+function levelUpFromKills(state) {
   const del = state.deletions;
   if (del <= 0 || C.level(del) === C.level(del - 1)) return -Infinity;
   const d = lastDeletion(state);
@@ -1286,7 +1418,7 @@ function drawLevel(ctx, state, now, hud, rm) {
     ctx.globalAlpha = a * 0.8;
     ctx.font = font(700, Math.round(size * 0.19));
     ctx.fillStyle = "#5f6b8c";
-    ctx.fillText("LEVEL", x, y - size * 0.82);
+    ctx.fillText(hud.unlimited ? "UNLIMITED" : "LEVEL", x, y - size * 0.82);
 
     ctx.font = font(700, size);
     if (flash > 0) {
@@ -1309,7 +1441,7 @@ function drawLevel(ctx, state, now, hud, rm) {
   ctx.globalAlpha = 0.75 * settle;
   ctx.font = font(700, 10);
   ctx.fillStyle = pop > 0.4 ? "#ffffff" : "#5f6b8c";
-  ctx.fillText("LEVEL", restX, 26);
+  ctx.fillText(hud.unlimited ? "UNLIMITED" : "LEVEL", restX, 26);
   ctx.globalAlpha = settle;
   ctx.font = font(700, restSize);
   ctx.fillStyle = pop > 0.4 && !room ? "#ffffff" : col;

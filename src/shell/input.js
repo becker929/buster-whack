@@ -179,6 +179,14 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     if (mk) { e.preventDefault(); dispatch({ type: "move", dc: mk[0], dr: mk[1] }); return; }
     if (e.code === "KeyP" || e.code === "Escape") { e.preventDefault(); dispatch({ type: "pause" }); return; }
     if (e.code === "KeyM") { e.preventDefault(); onMute(); return; }
+    // secondary fire: B, or either Shift. A tap, not a hold.
+    if (e.code === "KeyB" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
+      e.preventDefault();
+      if (e.repeat) return;
+      onGesture();
+      dispatch({ type: "bomb" });
+      return;
+    }
     if (e.code !== "Space") return;
     e.preventDefault();
     if (e.repeat) return;
@@ -208,6 +216,14 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     });
     on(triggerEl, "lostpointercapture", (e) => latch.release(e.pointerId));
   }
+
+  // the bomb button is a tap: no latch, no capture, nothing to release
+  on(els.bombBtn, "pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onGesture();
+    dispatch({ type: "bomb" });
+  });
 
   // Window-level, so a release that lands anywhere still reaches us — but only
   // the pointer that actually pressed can act on it.

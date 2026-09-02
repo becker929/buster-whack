@@ -77,6 +77,64 @@ export const scenarios = [
   },
 
   {
+    name: "sentinel-marks",
+    title: "The Sentinel: three marks, closed and open",
+    why: "A turret with an iris, in none of the colours the other viruses wear: violet, magenta, red for marks I, II, III, with mark pips on the housing. Top row closed (a steel slab with a seam, the core dim); bottom row open (shutters parted, the core lit and pulsing). The later frame catches the open irises part-way through their spell, shutters closing in. Closed is armour, open is the only time it can be hurt -- the golden pins both states at every mark.",
+    seed: 71,
+    width: W,
+    height: H,
+    frames: 34,
+    capture: [
+      { at: 3, as: "irises" },
+      { at: 30, as: "spell-running" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { modeId: "advance" },
+        place: [
+          { col: 3, row: 0, type: "sentinel", tier: 1, hp: 1, willAttack: true, fired: true, aimMs: 1400 },
+          { col: 4, row: 0, type: "sentinel", tier: 2, hp: 2, willAttack: true, fired: true, aimMs: 1050 },
+          { col: 5, row: 0, type: "sentinel", tier: 3, hp: 3, willAttack: true, fired: true, aimMs: 780 },
+          { col: 3, row: 2, type: "sentinel", tier: 1, hp: 1, willAttack: true, fired: false, aimMs: 1400 },
+          { col: 4, row: 2, type: "sentinel", tier: 2, hp: 2, willAttack: true, fired: false, aimMs: 1050 },
+          { col: 5, row: 2, type: "sentinel", tier: 3, hp: 3, willAttack: true, fired: false, aimMs: 780 },
+        ],
+      },
+    ],
+  },
+
+  {
+    name: "bomb-splash",
+    title: "The bomb: pickup, arc, splash",
+    why: "Secondary fire. A bomb waits on a tile as a dark sphere with a lit fuse; thrown, it arcs three columns along your row with a ground shadow that shrinks as it climbs; on landing every square of the 3x3 lights and a fireball rings out, and everything standing in it takes a charged-tier delete -- here three metts and a steel guard. Pins the pickup, the mid-arc frame, the splash on the landing frame, and the aftermath with the popups still up.",
+    seed: 72,
+    width: W,
+    height: H,
+    frames: 56,
+    capture: [
+      { at: 2, as: "pickup-and-launch" },
+      { at: 20, as: "mid-arc" },
+      { at: 41, as: "splash" },
+      { at: 52, as: "aftermath" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { modeId: "advance", bombs: 1, "player.col": 1, "player.row": 1,
+               pickups: [{ col: 2, row: 0, kind: "bomb" }] },
+        place: [
+          { col: 3, row: 0 },
+          { col: 4, row: 1 },
+          { col: 5, row: 2 },
+          { col: 4, row: 2, type: "guard" },
+        ],
+      },
+      { at: 1, actions: [{ type: "bomb" }] },
+    ],
+  },
+
+  {
     name: "empty-field",
     title: "Empty field",
     why: "Board panels, the player sprite, the player's panel highlight and the resting HUD. The baseline every other scenario is a delta from.",

@@ -15,7 +15,7 @@ import { snapshot } from "./helpers.mjs";
 // look at, which is what every test below actually wants.
 function playedState(seed = 21, frames = 400, until = (s) => s.enemies.length > 0) {
   const s = createState({ seed, width: 800, height: 600 });
-  step(s, 0, [{ type: "startRun" }]);
+  step(s, 0, [{ type: "startRun", modeId: "classic" }]);
   const play = (i) => {
     const actions = [];
     if (i % 6 === 0) actions.push({ type: "firePressed" });

@@ -302,7 +302,13 @@ test("a pool virus never sinks on its own", () => {
 
 test("a persistent attacker re-aims after firing instead of going quiet", () => {
   const s = advanceGame(5);
-  s.stageIdx = C.UNLOCK.retaliate;   // retaliation unlocked
+  // retaliation in advance is unlocked by arena: walk the world there
+  while (activeArena(s.world).idx < C.ADV_UNLOCK.retaliate) clearArena(s.world, s.rng);
+  const ra = activeArena(s.world);
+  s.player.col = ra.x0 + 1; s.player.row = 1; s.cam = ra.x0; s.camAnchor = ra.x0;
+  s.timeLeft = 120;
+  step(s, 16, []);                                   // enter: arms the arena, shows the card
+  if (s.mode === "interlevel") step(s, 0, [{ type: "resume" }]);
   s.nextSpawnAt = s.clock;
   step(s, 16, []);
   dealQueue(s);

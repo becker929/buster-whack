@@ -14,7 +14,7 @@ export function newGame(opts = {}) {
     height: opts.height || 600,
     best: opts.best || 0,
   });
-  step(s, 0, [{ type: "startRun" }]);
+  step(s, 0, [{ type: "startRun", modeId: "classic" }]);
   if (opts.spawn !== true) s.nextSpawnAt = Infinity;
   s.enemies.length = 0;
   return s;

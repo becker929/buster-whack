@@ -8,7 +8,7 @@ import { snapshot } from "./helpers.mjs";
 // A scripted run: fixed dt, fixed inputs, nothing from the outside world.
 function play(seed, frames = 900) {
   const s = createState({ seed, width: 800, height: 600 });
-  step(s, 0, [{ type: "startRun" }]);
+  step(s, 0, [{ type: "startRun", modeId: "classic" }]);
   for (let i = 0; i < frames; i++) {
     const actions = [];
     if (i % 7 === 0) actions.push({ type: "firePressed" });
@@ -48,7 +48,7 @@ test("an injected rng is used in place of the seeded one", () => {
   const calls = [];
   const rng = () => { calls.push(1); return 0.5; };
   const s = createState({ rng, width: 800, height: 600 });
-  step(s, 0, [{ type: "startRun" }]);
+  step(s, 0, [{ type: "startRun", modeId: "classic" }]);
   // enemies come in waves now, so a fixed frame count can land in a lull:
   // what matters is that the injected rng authored the field at all
   let spawned = 0;

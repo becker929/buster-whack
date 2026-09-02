@@ -47,7 +47,15 @@ function placeEnemy(state, o) {
     lastHop: state.clock,
     hopT0: -1e9,
     willAttack: !!o.willAttack,
-    fired: false,
+    fired: !!o.fired,
+    // the newer per-virus fields, passed through when a scenario names them
+    // (defaults match what the spawner would give a plain mett)
+    tier: o.tier || 0,
+    aimMs: o.aimMs === undefined ? 600 : o.aimMs,
+    persistent: !!o.persistent,
+    boltKind: o.boltKind || "slow",
+    refireAt: Infinity,
+    wave: -1,
   });
 }
 
@@ -138,7 +146,7 @@ export function runScenario(scenario, opts = {}) {
   // things on the board are the ones the scenario put there. Scenarios that
   // want the spawner can turn it back on with a `spawning: true` cue.
   if (scenario.start !== false) {
-    step(state, 0, [{ type: "startRun" }]);
+    step(state, 0, [{ type: "startRun", modeId: "classic" }]);
     if (!scenario.spawn) {
       state.nextSpawnAt = Infinity;
       state.enemies.length = 0;

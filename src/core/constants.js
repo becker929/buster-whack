@@ -38,16 +38,65 @@ export const CAM_TAU_MS = 170;            // camera ease: 63% of the way per TAU
 export const ARENA_WAVE_GAP_MS = 550;     // the beat between a wave dying and the next dealing
 export const REFIRE_MS = 1400;            // a persistent attacker re-aims this long after firing
 export function arenaPlan(idx) {
-  const pool = Math.min(16, 4 + 2 * idx);
-  const waveSize = Math.min(5, 2 + Math.floor(idx / 2));
+  const pool = Math.min(20, 4 + Math.floor(idx * 0.16));
+  const waveSize = Math.min(5, 2 + Math.floor(idx / 25));
   return { pool, waveSize };
 }
 
-export const MODES = [
-  { id: "classic", name: "CLASSIC", blurb: "hold the line",  advancing: false },
-  { id: "advance", name: "ADVANCE", blurb: "take the board", advancing: true },
+// ADVANCE progression, by arena index. The classic syllabus is keyed to wave
+// counts and had taught its last lesson by about arena 30, which is why the
+// road went flat around level 40-50. Here each mechanic has an arena, the
+// card shows as you step into it, and past ROAD_END the run is UNLIMITED:
+// nothing new is held back and the ramps just keep climbing.
+export const ROAD_END = 100;
+export const ADV_UNLOCK = {
+  guard: 5, retaliate: 9, hopper: 15, sentinel1: 20, ally: 30,
+  sentinel2: 40, swarm: 55, sentinel3: 70, unlimited: ROAD_END,
+};
+export const ADVANCE_STAGES = [
+  { arena: ADV_UNLOCK.guard,     title: "STEEL GUARDS" },
+  { arena: ADV_UNLOCK.retaliate, title: "RETALIATION" },
+  { arena: ADV_UNLOCK.hopper,    title: "HOPPERS" },
+  { arena: ADV_UNLOCK.sentinel1, title: "SENTINELS" },
+  { arena: ADV_UNLOCK.ally,      title: "PROGS ONLINE" },
+  { arena: ADV_UNLOCK.sentinel2, title: "SENTINEL MK II" },
+  { arena: ADV_UNLOCK.swarm,     title: "SWARM" },
+  { arena: ADV_UNLOCK.sentinel3, title: "SENTINEL MK III" },
+  { arena: ADV_UNLOCK.unlimited, title: "UNLIMITED" },
 ];
-export const DEFAULT_MODE = "classic";
+
+// The yellow mett is a low-level hopper now: it does move, but at a third of
+// the green one's pace, so its lane is still something you can plan around.
+export const MET_HOP_MS = 1500;
+
+// The Sentinel: a turret with an iris. Closed, it is armour; it opens on a
+// rhythm, and the open window is both its telegraph and the only time it can
+// be hurt. It fires a heavy shell as it closes. Three marks: more hits to
+// kill, a shorter window, a quicker cycle. Timing, where the mett asks for
+// aim and the hopper asks for a chase.
+export const SENTINEL = {
+  1: { hp: 1, openMs: 1400, closedMs: 1500 },
+  2: { hp: 2, openMs: 1050, closedMs: 1250 },
+  3: { hp: 3, openMs: 780,  closedMs: 1050 },
+};
+export const SENTINEL_CHARGED_DMG = 2;
+export const sentinelWaveChance = (idx) => Math.min(0.7, 0.35 + (idx - ADV_UNLOCK.sentinel1) * 0.006);
+
+// The bomb. Thrown BOMB_RANGE columns ahead along your row, it arcs for
+// BOMB_ARC_MS and then splashes a 3x3: charged-shot damage to every virus in
+// it, and a hit on you if you are standing in it. One per pickup, found on
+// roads; single use, and you can carry as many as you find.
+export const BOMB_RANGE = 3;
+export const BOMB_ARC_MS = 640;
+export const BOMB_RADIUS = 1;               // tiles either side of the landing square
+export const BOMB_PICKUP_CHANCE = 0.6;      // per road; the first road always has one
+export const BOMB_BLAST_MS = 460;
+
+export const MODES = [
+  { id: "advance", name: "ADVANCE", blurb: "take the road",  advancing: true },
+  { id: "classic", name: "CLASSIC", blurb: "hold the line",  advancing: false },
+];
+export const DEFAULT_MODE = "advance";
 export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
 
 // ---------- clock ----------
@@ -57,8 +106,8 @@ export const TIME_CAP = 45;
 
 // ---------- scoring ----------
 
-export const BONUS = { normal: 1.2, charged: 2.5, guard: 3.0, hopper: 1.8, rare: 8.0 };
-export const PTS   = { normal: 100, charged: 300, guard: 400, hopper: 250, rare: 1000 };
+export const BONUS = { sentinel: 3.0, normal: 1.2, charged: 2.5, guard: 3.0, hopper: 1.8, rare: 8.0 };
+export const PTS   = { sentinel: 500, normal: 100, charged: 300, guard: 400, hopper: 250, rare: 1000 };
 export const ALLY_TIME_PENALTY = 3.0;
 export const ALLY_PTS_PENALTY = 200;
 export const ALLY_SPARE_BONUS = 0.5;

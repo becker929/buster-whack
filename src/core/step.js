@@ -137,6 +137,7 @@ export function applyIntent(state, action, events) {
       if (state.mode === "playing" && !state.paused) togglePause(state, events);
       break;
     case "startRun":     resetGame(state, events, action.modeId); break;
+    case "bomb":         throwBomb(state, events); break;
     case "resume":       resumeFromInterlevel(state, events); break;
     case "endRun":       gameOver(state, events); break;
     default: break;      // shell-only intents (mute, …) never reach here
@@ -198,6 +199,17 @@ function move(state, dc, dr, events) {
   }
   const moved = col !== state.player.col || row !== state.player.row;
   if (moved) {
+    // walking onto a pickup takes it
+    for (let i = state.pickups.length - 1; i >= 0; i--) {
+      const pk = state.pickups[i];
+      if (pk.col !== col || pk.row !== row) continue;
+      state.pickups.splice(i, 1);
+      if (pk.kind === "bomb") state.bombs++;
+      const pp = panel(state, col, row);
+      state.fx.popups.push({ x: pp.x + pp.w / 2, y: pp.y - 8, t0: state.clock, text: "+BOMB", color: "#ff9f45" });
+      events.push({ type: "pickup", kind: pk.kind, col, row, x: pp.x + pp.w / 2, y: pp.y, bombs: state.bombs });
+      events.push({ type: "statsChanged" });
+    }
     state.fx.ghost.t0 = state.clock;
     state.fx.ghost.col = state.player.col;
     state.fx.ghost.row = state.player.row;
@@ -221,6 +233,12 @@ function resetGame(state, events, modeId) {
   state.modeId = cfg.id;
   state.world = createWorld();
   state.arenasCleared = 0;
+  state.bombs = 0;
+  state.bombsInFlight.length = 0;
+  state.pickups.length = 0;
+  state.fx.blasts.length = 0;
+  state.levelT0 = -1e9;       // announced on arena entry, never at the starting gun
+  state.unlimited = false;
   state.cam = 0;
   state.camAnchor = 0;
   state.camClock = state.clock;
@@ -277,6 +295,7 @@ function gameOver(state, events) {
  */
 function checkStageGate(state, events) {
   if (state.mode !== "playing" || state.paused) return;
+  if (C.modeById(state.modeId).advancing) return;   // advance cards are keyed to arenas, not this syllabus
   const st = C.STAGES[state.stageIdx];
   if (!st) return;
   if (state.waveIdx >= st.wave && state.deletions >= st.at) enterInterlevel(state, events);
@@ -318,7 +337,12 @@ function updateWorld(state, events) {
     a.entered = true;
     state.camAnchor = a.x0;
     state.nextSpawnAt = now + C.ARENA_ENTRY_DELAY_MS;
+    state.levelT0 = now;
     events.push({ type: "arenaEntered", index: a.idx, x0: a.x0 });
+    if (a.idx >= C.ROAD_END) state.unlimited = true;
+    // the chapter card, at the arena boundary -- the one moment a pause is free
+    const st = C.ADVANCE_STAGES.find((x) => x.arena === a.idx);
+    if (st) showCard(state, events, st, C.ADVANCE_STAGES.indexOf(st));
   }
 
   // Camera. Fighting in an arena: lock so the arena fills the view exactly as
@@ -337,6 +361,17 @@ function updateWorld(state, events) {
   const d = target - state.cam;
   if (Math.abs(d) < 0.002) state.cam = target;
   else state.cam += d * (1 - Math.exp(-dt / C.CAM_TAU_MS));
+}
+
+/** Advance's chapter card: same overlay as a classic gate, keyed to an arena. */
+function showCard(state, events, stage, index) {
+  state.mode = "interlevel";
+  state.charge.downAt = null;
+  state.charge.full = false;
+  state.bolts.length = 0;
+  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.STAGE_BONUS);
+  events.push({ type: "stageGate", stage, index, title: stage.title, timeBonus: C.STAGE_BONUS });
+  events.push({ type: "statsChanged" });
 }
 
 function resumeFromInterlevel(state, events) {
@@ -389,7 +424,28 @@ function freeSlot(state, planned) {
 // charge), so making it shoot as well would punish the exact behaviour it
 // exists to teach. Progs are friendly, and a rare's window is too short to
 // chase under fire.
-const canRetaliate = (type) => type === "mett" || type === "hopper";
+const canRetaliate = (type) => type === "mett" || type === "hopper" || type === "sentinel";
+
+/**
+ * Is a mechanic available yet? Classic answers from the stage syllabus (wave
+ * and deletion floors); advance answers from the arena you are in, so a
+ * hundred-arena road can hand things out on its own schedule.
+ */
+function unlocked(state, key) {
+  if (C.modeById(state.modeId).advancing) {
+    const at = C.ADV_UNLOCK[key];
+    return at !== undefined && activeArena(state.world).idx >= at;
+  }
+  return state.stageIdx >= (C.UNLOCK[key] === undefined ? Infinity : C.UNLOCK[key]);
+}
+
+/** Highest Sentinel mark the current arena has unlocked, or 0. */
+function sentinelMark(state) {
+  if (unlocked(state, "sentinel3")) return 3;
+  if (unlocked(state, "sentinel2")) return 2;
+  if (unlocked(state, "sentinel1")) return 1;
+  return 0;
+}
 
 /**
  * Author one formation. Rows are rotated by the rng so six shapes read as many
@@ -414,6 +470,11 @@ function planWave(state) {
     size = Math.min(arena.waveSize, arena.pool - arena.dealt, C.MAX_ALIVE);
     arena.dealt += size;
   }
+  // The composition chances below were written against the classic syllabus,
+  // where `stage` climbs 0..8 over a run. In advance stageIdx never moves, so
+  // fed straight in it would keep hoppers at ~3% forever. Map the road onto the
+  // same 0..8 scale instead: eight arenas per classic stage.
+  const chanceStage = advancing ? Math.min(C.STAGES.length, Math.floor(arena.idx / 8)) : stage;
   const slots = [];
   for (let i = 0; i < size; i++) {
     const [col, row] = form.slots[i];
@@ -422,16 +483,16 @@ function planWave(state) {
   }
 
   // the heavy: one armored anchor the wave forms around
-  if (stage >= C.UNLOCK.guard && form.anchor < slots.length &&
-      state.rng() < C.guardWaveChance(stage)) {
+  if (unlocked(state, "guard") && form.anchor < slots.length &&
+      state.rng() < C.guardWaveChance(chanceStage)) {
     slots[form.anchor].type = "guard";
   }
 
   // hoppers: one, or two once formations are big
-  if (stage >= C.UNLOCK.hopper) {
+  if (unlocked(state, "hopper")) {
     const wanted = size >= 4 && state.rng() < 0.35 ? 2 : 1;
     for (let k = 0; k < wanted; k++) {
-      if (state.rng() >= C.hopperWaveChance(stage)) continue;
+      if (state.rng() >= C.hopperWaveChance(chanceStage)) continue;
       const plain = slots.filter((s) => s.type === "mett");
       if (!plain.length) break;
       plain[Math.floor(state.rng() * plain.length)].type = "hopper";
@@ -440,14 +501,26 @@ function planWave(state) {
 
   // a prog tags along as an extra body: the wave is still clearable without
   // shooting it, which is the whole point of the hold-fire test
-  if (stage >= C.UNLOCK.ally && state.rng() < C.allyWaveChance(stage)) {
+  // the sentinel: one per wave once unlocked, at the arena's mark -- with a
+  // lower mark now and then so the older ones stay in the mix
+  const mark = advancing ? sentinelMark(state) : 0;
+  if (mark && state.rng() < C.sentinelWaveChance(arena.idx)) {
+    const plain = slots.filter((s) => s.type === "mett");
+    if (plain.length) {
+      const pick = plain[Math.floor(state.rng() * plain.length)];
+      pick.type = "sentinel";
+      pick.tier = mark > 1 && state.rng() < 0.35 ? mark - 1 : mark;
+    }
+  }
+
+  if (unlocked(state, "ally") && state.rng() < C.allyWaveChance(chanceStage)) {
     const spot = freeSlot(state, slots);
     if (spot) slots.push({ ...spot, type: "ally", at: now + slots.length * stagger });
   }
 
   // the jackpot leads the wave in, alone on the first beat, because it is only
   // up for RARE_LIFE and has to be seen the instant it arrives
-  if (!advancing && stage >= C.UNLOCK.rare && state.rng() < C.rareWaveChance(stage, state.timeLeft)) {
+  if (!advancing && unlocked(state, "rare") && state.rng() < C.rareWaveChance(stage, state.timeLeft)) {
     const spot = freeSlot(state, slots);
     if (spot) {
       for (const s of slots) s.at += C.RARE_LIFE * 0.5;
@@ -484,7 +557,10 @@ function spawnFromSlot(state, slot, events) {
   const now = state.clock;
   const type = slot.type;
   const boltKind = C.boltKindFor(type);
-  const armed = state.stageIdx >= C.UNLOCK.retaliate && canRetaliate(type);
+  const armed = unlocked(state, "retaliate") && canRetaliate(type);
+  const tier = slot.tier || 0;
+  // a sentinel's open window is its telegraph; the closed spell is its reload
+  const sent = type === "sentinel" ? C.SENTINEL[tier] || C.SENTINEL[1] : null;
   // a persistent virus that never shot would be a target dummy: once
   // retaliation is unlocked, every pool virus that can shoot, does
   const willAttack = slot.persistent ? armed : armed && state.rng() < C.attackChance(state.deletions, type);
@@ -493,14 +569,15 @@ function spawnFromSlot(state, slot, events) {
     persistent: !!slot.persistent,
     refireAt: Infinity,
     riseMs: type === "ally" ? C.ALLY_RISE_MS : C.RISE_MS,
-    hp: type === "hopper" ? 2 : 1,
+    hp: sent ? sent.hp : type === "hopper" ? 2 : 1,
+    tier,
     lastHop: now, hopT0: -1e9,
     wave: state.wave ? state.wave.index : -1,
     willAttack,
     // baked at spawn so the telegraph a virus is drawing cannot change length
     // underneath it when the deletion count ticks over mid-aim
     boltKind,
-    aimMs: C.aimMs(state.deletions, boltKind),
+    aimMs: sent ? sent.openMs : C.aimMs(state.deletions, boltKind),
     fired: false,
   });
   const p = panel(state, slot.col, slot.row);
@@ -555,6 +632,14 @@ function endWave(state, events) {
     // the walk is a true lull -- the road is the breath between fights.
     const { cleared: a, road, next } = clearArena(state.world, state.rng);
     state.arenasCleared++;
+    // a bomb on the road: always on the first one so it is found, often after
+    if (a.idx === 0 || state.rng() < C.BOMB_PICKUP_CHANCE) {
+      const pc = road.x0 + Math.floor(state.rng() * road.cols);
+      const pr = road.rows === 1 ? C.ROAD_MID_ROW : Math.floor(state.rng() * C.ROWS);
+      state.pickups.push({ col: pc, row: pr, kind: "bomb" });
+      const pp = panel(state, pc, pr);
+      events.push({ type: "pickupSpawned", kind: "bomb", col: pc, row: pr, x: pp.x + pp.w / 2, y: pp.y });
+    }
     state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ARENA_CLEAR_BONUS);
     state.score += C.ARENA_CLEAR_PTS;
     state.nextSpawnAt = Infinity;
@@ -576,6 +661,7 @@ function endWave(state, events) {
 function updateWave(state, events) {
   const now = state.clock;
   updateWorld(state, events);
+  updateBombs(state, events);
   if (state.waveState !== "active" || !state.wave) {
     if (now < state.nextSpawnAt) return;
     startWave(state, events);
@@ -656,22 +742,30 @@ function updateEnemies(state, events) {
         // a fresh telegraph, so a wave that stays on the board keeps pressing.
         // `break` here, because `t` was measured against the old t0 and would
         // otherwise fire the new telegraph on this very frame.
-        if (e.persistent && e.fired && now >= e.refireAt) {
+        if ((e.persistent || e.type === "sentinel") && e.fired && now >= e.refireAt) {
           e.fired = false;
           e.t0 = now;
           events.push({ type: "enemyAim", col: e.col, row: e.row, boltKind: e.boltKind });
           break;
         }
         const aiming = e.willAttack && !e.fired;
-        if (e.type === "hopper" && !aiming && now - e.lastHop >= C.HOP_MS) {
+        // the green hopper hops; the yellow mett, as a low-level hopper, hops
+        // too but at a third of the pace -- and only while it holds a road,
+        // so classic's metts are untouched
+        const hopEvery = e.type === "hopper" ? C.HOP_MS
+          : e.type === "mett" && e.persistent ? C.MET_HOP_MS : Infinity;
+        if (!aiming && now - e.lastHop >= hopEvery) {
           hopTo(state, e, events);
           e.lastHop = now;
         }
         if (aiming && t >= aimOf(state, e)) {
           fireBolt(state, e, events);
           e.fired = true;
-          e.refireAt = now + C.REFIRE_MS;
-          e.lastHop = now;                 // and it does not bolt the same frame
+          e.refireAt = now + (e.type === "sentinel"
+            ? (C.SENTINEL[e.tier] || C.SENTINEL[1]).closedMs : C.REFIRE_MS);
+          // the hop clock is deliberately NOT reset here: shoot, then scoot.
+          // A reset starved the mett -- its hop interval is longer than its
+          // reload, so an armed mett could never accumulate the idle time.
         }
         if (t >= lifeOf(state, e)) { e.state = "sinking"; e.t0 = now; }
         break;
@@ -767,6 +861,92 @@ function updateBolts(state, dt, events) {
   }
 }
 
+/**
+ * Lob a bomb BOMB_RANGE columns ahead along your row. It is ordnance, not a
+ * shot: no charge, no hitscan, one per pickup.
+ */
+function throwBomb(state, events) {
+  if (state.mode !== "playing" || state.paused) return;
+  if (state.bombs <= 0) return;
+  const now = state.clock;
+  const a = activeArena(state.world);
+  const toCol = Math.min(state.player.col + C.BOMB_RANGE, a.x0 + a.cols - 1);
+  state.bombs--;
+  state.bombsInFlight.push({
+    fromCol: state.player.col, fromRow: state.player.row,
+    toCol, toRow: state.player.row, t0: now, dur: C.BOMB_ARC_MS,
+  });
+  const p = panel(state, state.player.col, state.player.row);
+  events.push({ type: "bombThrown", col: state.player.col, row: state.player.row,
+                toCol, x: p.x + p.w / 2, y: p.y, bombs: state.bombs });
+  events.push({ type: "statsChanged" });
+}
+
+/** Bombs in the air land; a landed bomb splashes a 3x3 and hurts whoever is in it. */
+function updateBombs(state, events) {
+  const now = state.clock;
+  for (let i = state.bombsInFlight.length - 1; i >= 0; i--) {
+    const b = state.bombsInFlight[i];
+    if (now < b.t0 + b.dur) continue;
+    state.bombsInFlight.splice(i, 1);
+    detonate(state, b.toCol, b.toRow, events);
+  }
+  const bl = state.fx.blasts;
+  for (let i = bl.length - 1; i >= 0; i--) if (now - bl[i].t0 > C.BOMB_BLAST_MS) bl.splice(i, 1);
+}
+
+function detonate(state, col, row, events) {
+  const now = state.clock;
+  const R = C.BOMB_RADIUS;
+  const p = panel(state, col, row);
+  const cx = p.x + p.w / 2, cy = p.y + p.h * 0.5;
+  let kills = 0;
+  for (const e of state.enemies.slice()) {
+    if (Math.abs(e.col - col) > R || Math.abs(e.row - row) > R) continue;
+    if (!(e.state === "rising" || e.state === "up" || e.state === "sinking")) continue;
+    if (e.type === "ally") {
+      e.state = "hit"; e.t0 = now;
+      hitFx(e, C.TIERS.charged, now);
+      state.whiffs++;
+      breakChain(state, events, "prog");
+      state.timeLeft = Math.max(0, state.timeLeft - C.ALLY_TIME_PENALTY);
+      state.score = Math.max(0, state.score - C.ALLY_PTS_PENALTY);
+      const ep = panel(state, e.col, e.row);
+      state.fx.popups.push({ x: ep.x + ep.w / 2, y: ep.y - 8, t0: now,
+        text: "PROG HIT \u2212" + C.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470" });
+      events.push({ type: "progHit", tier: "charged", col: e.col, row: e.row,
+        x: ep.x + ep.w / 2, y: ep.y, timePenalty: C.ALLY_TIME_PENALTY, pointsPenalty: C.ALLY_PTS_PENALTY });
+      continue;
+    }
+    if (e.type === "sentinel") {
+      const open = e.willAttack ? !e.fired : true;
+      if (!open) continue;
+      if (e.hp > C.SENTINEL_CHARGED_DMG) {
+        e.hp -= C.SENTINEL_CHARGED_DMG;
+        const ep = panel(state, e.col, e.row);
+        events.push({ type: "sentinelHit", col: e.col, row: e.row, x: ep.x + ep.w / 2, y: ep.y, hp: e.hp });
+        continue;
+      }
+    }
+    deleteEnemy(state, e, "charged", now, events);
+    kills++;
+  }
+  if (Math.abs(state.player.col - col) <= R && Math.abs(state.player.row - row) <= R &&
+      now >= state.hurtUntil) {
+    takeHit(state, events);
+  }
+  for (let dc = -R; dc <= R; dc++) for (let dr = -R; dr <= R; dr++) {
+    const r = row + dr;
+    if (r < 0 || r >= C.ROWS) continue;
+    ripple(state, col + dc, r, "#ff9f45", now, dc === 0 && dr === 0 ? 4 : 2);
+  }
+  spawnBits(state, cx, cy, 28, C.DEBRIS.rare, { at: now, speed: 0.42, spread: 2.2, ms: 620 });
+  shake(state, C.SHAKE.rare || C.SHAKE.normal, now, 1.3);
+  hitStop(state, now, C.HITSTOP.rare || C.HITSTOP.normal);
+  state.fx.blasts.push({ col, row, x: cx, y: cy, t0: now });
+  events.push({ type: "bombBlast", col, row, x: cx, y: cy, kills });
+}
+
 function takeHit(state, events) {
   const now = state.clock;
   state.hurtUntil = now + C.HIT_IFRAME_MS;
@@ -820,6 +1000,91 @@ function hitFx(target, tier, now) {
     squash: C.makeImpulse(tier.squash, now),
     kick:   C.makeImpulse(tier.kick, now),
   };
+}
+
+/**
+ * A virus dies. Shared by the buster and the bomb, so both pay the same score,
+ * time, chain and fx -- the bomb is simply a charged-tier delete on up to nine
+ * squares at once.
+ */
+function deleteEnemy(state, target, tierName, land, events) {
+  const now = state.clock;
+  const tier = C.TIERS[tierName];
+  const p = panel(state, target.col, target.row);
+  // the same origin shoot() has always used, so a bomb kill and a buster kill
+  // burst from the identical point -- and classic's frames do not move
+  const cx = p.x + p.w / 2, cy = p.y + p.h * 0.34;
+  // deletion
+  target.state = "hit"; target.t0 = land;
+  hitFx(target, tier, land);
+
+  const multBefore = C.multOf(state.chain);
+  state.chain++;
+  if (state.chain > state.bestChain) state.bestChain = state.chain;
+  const mult = C.multOf(state.chain);
+  // a wave is "cleared" only when every virus in it was actually deleted
+  if (state.wave && target.wave === state.wave.index) state.wave.kills++;
+
+  const baseKey =
+    target.type === "guard" ? "guard" :
+    target.type === "hopper" ? "hopper" :
+    target.type === "rare" ? "rare" :
+    target.type === "sentinel" ? "sentinel" : tierName;
+  const pts = (C.PTS[baseKey] === undefined ? C.PTS[tierName] : C.PTS[baseKey]) * mult;
+  state.score += pts;
+  state.deletions++;
+
+  const bf = C.bonusFactor(state.deletions);
+  const factor = baseKey === "rare" ? Math.sqrt(bf) : bf;
+  const timeBonus = (C.BONUS[baseKey] === undefined ? C.BONUS[tierName] : C.BONUS[baseKey]) * factor;
+  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + timeBonus);
+
+  // The felt half of a delete: debris in the skin's own colours, a ring in the
+  // struck panel, a kick on the whole screen and a freeze — all sized by what
+  // died, so a rare is unmistakably an event and a mett is a satisfying tap.
+  spawnBits(state, cx, cy, (C.BIT_COUNT[baseKey] || C.BIT_COUNT.guard), (C.DEBRIS[target.type] || C.DEBRIS.guard), {
+    at: land,
+    speed: baseKey === "rare" ? 0.4 : baseKey === "charged" ? 0.34 : 0.28,
+    spread: 1.25,
+  });
+  ripple(state, target.col, target.row,
+    baseKey === "rare" ? "#ffd23f" : baseKey === "guard" ? "#c9f6ff" : "#45e0e8",
+    land, baseKey === "rare" ? 4 : 3);
+  // the player's own panel answers a landed shot
+  ripple(state, state.player.col, state.player.row, "#45e0e8", land, 1);
+  shake(state, C.SHAKE[baseKey] || C.SHAKE.normal, land);
+  hitStop(state, land, C.HITSTOP[baseKey] || C.HITSTOP.normal);
+
+  events.push({
+    type: "hit", tier: tierName, enemyType: target.type, baseKey,
+    col: target.col, row: target.row, x: cx, y: p.y,
+    points: pts, mult, chain: state.chain, timeBonus,
+  });
+  if (mult > multBefore) {
+    events.push({ type: "multiplierUp", mult, chain: state.chain });
+    // a real flourish at every multiplier step, not just a bigger number
+    state.fx.flare = { t0: land, mult, x: cx, y: cy };
+    shake(state, C.SHAKE.chain, land, mult / 2);
+    hitStop(state, land, C.HITSTOP.chain);
+    spawnBits(state, cx, cy, 6 + mult * 2, C.DEBRIS.rare,
+      { at: land, speed: 0.34, spread: 2, ms: 640 });
+  }
+
+  state.fx.popups.push({
+    x: cx, y: p.y - 8, t0: land,
+    text: "+" + pts + (mult > 1 ? " ×" + mult : ""),
+    color: baseKey === "rare" ? "#ffe08a" : baseKey === "guard" || mult > 1 ? "#45e0e8" : "#aab4ce",
+  });
+  state.fx.popups.push({
+    x: cx, y: p.y + 12, t0: land + 60,
+    text: "+" + timeBonus.toFixed(1) + "s",
+    color: factor < 1 ? "#ff9f45" : "#ffd23f",
+  });
+
+  events.push({ type: "statsChanged" });
+  // the stage gate is checked once per frame at the end of step(), not here:
+  // a gate now needs a wave floor as well as a deletion floor, and either can
+  // be the one that lands last.
 }
 
 function shoot(state, tierName, events) {
@@ -911,6 +1176,31 @@ function shoot(state, tierName, events) {
     return;
   }
 
+  // the sentinel: armour while closed, a health bar while open
+  if (target.type === "sentinel") {
+    const open = target.willAttack ? !target.fired : true;
+    if (!open) {
+      state.fx.sparks.push({ x: p.x + p.w * 0.28, y: p.y + p.h * 0.2, t0: land });
+      state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: "CLOSED", color: "#b48cff" });
+      spawnBits(state, p.x + p.w * 0.28, cy, C.BIT_COUNT.block, C.DEBRIS.guard,
+        { at: land, speed: 0.14, ms: 260 });
+      ripple(state, target.col, target.row, "#b48cff", land, 2);
+      events.push({ type: "guardBlocked", col: target.col, row: target.row, x: cx, y: p.y });
+      return;
+    }
+    const dmg = tierName === "charged" ? C.SENTINEL_CHARGED_DMG : 1;
+    if (target.hp > dmg) {
+      target.hp -= dmg;
+      state.fx.sparks.push({ x: cx, y: p.y + p.h * 0.2, t0: land });
+      state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: target.hp + " more", color: "#c48cff" });
+      spawnBits(state, cx, cy, C.BIT_COUNT.stagger, C.DEBRIS.guard, { at: land, speed: 0.17, ms: 340 });
+      ripple(state, target.col, target.row, "#c48cff", land, 2);
+      hitStop(state, land, C.HITSTOP.stagger);
+      events.push({ type: "sentinelHit", col: target.col, row: target.row, x: cx, y: p.y, hp: target.hp });
+      return;
+    }
+  }
+
   // hopper stamina: a tap staggers it and it flees; charged shots kill outright
   if (target.type === "hopper" && tierName === "normal" && target.hp > 1) {
     target.hp--;
@@ -928,76 +1218,7 @@ function shoot(state, tierName, events) {
     return;                            // contact: chain neither breaks nor grows
   }
 
-  // deletion
-  target.state = "hit"; target.t0 = land;
-  hitFx(target, tier, land);
-
-  const multBefore = C.multOf(state.chain);
-  state.chain++;
-  if (state.chain > state.bestChain) state.bestChain = state.chain;
-  const mult = C.multOf(state.chain);
-  // a wave is "cleared" only when every virus in it was actually deleted
-  if (state.wave && target.wave === state.wave.index) state.wave.kills++;
-
-  const baseKey =
-    target.type === "guard" ? "guard" :
-    target.type === "hopper" ? "hopper" :
-    target.type === "rare" ? "rare" : tierName;
-  const pts = C.PTS[baseKey] * mult;
-  state.score += pts;
-  state.deletions++;
-
-  const bf = C.bonusFactor(state.deletions);
-  const factor = baseKey === "rare" ? Math.sqrt(bf) : bf;
-  const timeBonus = C.BONUS[baseKey] * factor;
-  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + timeBonus);
-
-  // The felt half of a delete: debris in the skin's own colours, a ring in the
-  // struck panel, a kick on the whole screen and a freeze — all sized by what
-  // died, so a rare is unmistakably an event and a mett is a satisfying tap.
-  spawnBits(state, cx, cy, C.BIT_COUNT[baseKey], C.DEBRIS[target.type], {
-    at: land,
-    speed: baseKey === "rare" ? 0.4 : baseKey === "charged" ? 0.34 : 0.28,
-    spread: 1.25,
-  });
-  ripple(state, target.col, target.row,
-    baseKey === "rare" ? "#ffd23f" : baseKey === "guard" ? "#c9f6ff" : "#45e0e8",
-    land, baseKey === "rare" ? 4 : 3);
-  // the player's own panel answers a landed shot
-  ripple(state, state.player.col, state.player.row, "#45e0e8", land, 1);
-  shake(state, C.SHAKE[baseKey] || C.SHAKE.normal, land);
-  hitStop(state, land, C.HITSTOP[baseKey] || C.HITSTOP.normal);
-
-  events.push({
-    type: "hit", tier: tierName, enemyType: target.type, baseKey,
-    col: target.col, row: target.row, x: cx, y: p.y,
-    points: pts, mult, chain: state.chain, timeBonus,
-  });
-  if (mult > multBefore) {
-    events.push({ type: "multiplierUp", mult, chain: state.chain });
-    // a real flourish at every multiplier step, not just a bigger number
-    state.fx.flare = { t0: land, mult, x: cx, y: cy };
-    shake(state, C.SHAKE.chain, land, mult / 2);
-    hitStop(state, land, C.HITSTOP.chain);
-    spawnBits(state, cx, cy, 6 + mult * 2, C.DEBRIS.rare,
-      { at: land, speed: 0.34, spread: 2, ms: 640 });
-  }
-
-  state.fx.popups.push({
-    x: cx, y: p.y - 8, t0: land,
-    text: "+" + pts + (mult > 1 ? " ×" + mult : ""),
-    color: baseKey === "rare" ? "#ffe08a" : baseKey === "guard" || mult > 1 ? "#45e0e8" : "#aab4ce",
-  });
-  state.fx.popups.push({
-    x: cx, y: p.y + 12, t0: land + 60,
-    text: "+" + timeBonus.toFixed(1) + "s",
-    color: factor < 1 ? "#ff9f45" : "#ffd23f",
-  });
-
-  events.push({ type: "statsChanged" });
-  // the stage gate is checked once per frame at the end of step(), not here:
-  // a gate now needs a wave floor as well as a deletion floor, and either can
-  // be the one that lands last.
+  deleteEnemy(state, target, tierName, land, events);
 }
 
 // ---------- fx bookkeeping ----------
