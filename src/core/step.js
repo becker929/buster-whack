@@ -57,6 +57,7 @@ export function step(state, dtMs, intents = {}) {
 
   updateEnemies(state, events);
   updateBolts(state, adv, events);
+  checkStageGate(state, events);
   cullFx(state);
 
   return events;
@@ -204,7 +205,10 @@ function resetGame(state, events) {
   state.timeLeft = C.START_TIME;
   state.player.col = 1; state.player.row = 1;
   state.enemies.length = 0;
-  state.nextSpawnAt = state.clock + 500;
+  state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
+  state.waveIdx = 0;
+  state.waveState = "lull";
+  state.wave = null;
   state.stageIdx = 0;
   clearFx(state);
   state.bolts.length = 0;
@@ -221,6 +225,8 @@ function gameOver(state, events) {
   if (newBest) state.best = state.score;
   state.enemies.length = 0;
   state.bolts.length = 0;
+  state.wave = null;
+  state.waveState = "lull";
   state.charge.downAt = null; state.charge.full = false;
   state.hitStopMs = 0;
   events.push({
@@ -233,6 +239,19 @@ function gameOver(state, events) {
     newBest,
   });
   events.push({ type: "statsChanged" });
+}
+
+/**
+ * A gate needs both floors: `wave` waves started AND `at` deletions banked.
+ * Checked once per frame rather than only on a kill, so whichever floor lands
+ * last opens it — usually the wave floor, which puts the card in a lull rather
+ * than in the middle of a formation.
+ */
+function checkStageGate(state, events) {
+  if (state.mode !== "playing" || state.paused) return;
+  const st = C.STAGES[state.stageIdx];
+  if (!st) return;
+  if (state.waveIdx >= st.wave && state.deletions >= st.at) enterInterlevel(state, events);
 }
 
 function enterInterlevel(state, events) {
@@ -260,10 +279,24 @@ function resumeFromInterlevel(state, events) {
   if (state.mode !== "interlevel") return;
   state.mode = "playing";
   state.nextSpawnAt = state.clock + 700;
+  // A gate can open in the middle of a formation. Give the rest of it the same
+  // beat back, so the card is never followed instantly by an arrival.
+  if (state.wave) for (const slot of state.wave.queue) slot.at += 700;
   events.push({ type: "resumed" });
 }
 
-// ---------- enemy spawning + state machine ----------
+// ---------- waves ----------
+//
+// Enemies do not trickle in on a rolling timer any more; they arrive as a
+// formation, and the gap between formations is the game's breathing room.
+// One wave is live at a time:
+//
+//   lull   — nothing on the board, `nextSpawnAt` is when the next wave lands
+//   active — `wave.queue` holds the arrivals that have not surfaced yet;
+//            the wave ends when the queue is empty and nothing of it is left
+//
+// `nextSpawnAt` keeps its old name and its old meaning ("the next thing
+// happens at"), so setting it to Infinity still gives a completely still board.
 
 function freePanels(state, excludeCol, excludeRow) {
   const occ = new Set(state.enemies.map((e) => e.col + "," + e.row));
@@ -276,57 +309,220 @@ function freePanels(state, excludeCol, excludeRow) {
   return out;
 }
 
-function rollType(state, del) {
-  const rare = C.rareChance(del, state.timeLeft);
-  const g = C.guardChance(del), h = C.hopperChance(del), a = C.allyChance(del);
-  const r = state.rng();
-  if (r < rare) return "rare";
-  if (r < rare + a) return "ally";
-  if (r < rare + a + g) return "guard";
-  if (r < rare + a + g + h) return "hopper";
-  return "mett";
+/** A free panel that no live enemy and no pending arrival is using. */
+function freeSlot(state, planned) {
+  const taken = new Set(planned.map((s) => s.col + "," + s.row));
+  const free = freePanels(state).filter(([c, r]) => !taken.has(c + "," + r));
+  if (!free.length) return null;
+  const [col, row] = free[Math.floor(state.rng() * free.length)];
+  return { col, row };
 }
 
-// Only metts and steel guards retaliate: hoppers already pressure you by
-// fleeing, progs are friendly, and a rare's window is too short to chase
-// under fire.
-const canRetaliate = (type) => type === "mett" || type === "guard";
+// Metts and hoppers retaliate. A steel guard does not: it is the anchor of a
+// formation and already demands the one thing that pins you in place (a held
+// charge), so making it shoot as well would punish the exact behaviour it
+// exists to teach. Progs are friendly, and a rare's window is too short to
+// chase under fire.
+const canRetaliate = (type) => type === "mett" || type === "hopper";
+
+/**
+ * Author one formation. Rows are rotated by the rng so six shapes read as many
+ * more, and the arrival order is the formation's own — a wave lands, it does
+ * not blink into existence.
+ */
+function planWave(state) {
+  const now = state.clock;
+  const idx = state.waveIdx;
+  const stage = state.stageIdx;
+  const size = C.waveSize(stage);
+  const form = C.FORMATIONS[Math.floor(state.rng() * C.FORMATIONS.length)];
+  const rot = Math.floor(state.rng() * C.ROWS);
+  const stagger = C.waveStaggerMs(idx);
+
+  const slots = [];
+  for (let i = 0; i < size; i++) {
+    const [col, row] = form.slots[i];
+    slots.push({ col, row: (row + rot) % C.ROWS, type: "mett", at: now + i * stagger });
+  }
+
+  // the heavy: one armored anchor the wave forms around
+  if (stage >= C.UNLOCK.guard && form.anchor < slots.length &&
+      state.rng() < C.guardWaveChance(stage)) {
+    slots[form.anchor].type = "guard";
+  }
+
+  // hoppers: one, or two once formations are big
+  if (stage >= C.UNLOCK.hopper) {
+    const wanted = size >= 4 && state.rng() < 0.35 ? 2 : 1;
+    for (let k = 0; k < wanted; k++) {
+      if (state.rng() >= C.hopperWaveChance(stage)) continue;
+      const plain = slots.filter((s) => s.type === "mett");
+      if (!plain.length) break;
+      plain[Math.floor(state.rng() * plain.length)].type = "hopper";
+    }
+  }
+
+  // a prog tags along as an extra body: the wave is still clearable without
+  // shooting it, which is the whole point of the hold-fire test
+  if (stage >= C.UNLOCK.ally && state.rng() < C.allyWaveChance(stage)) {
+    const spot = freeSlot(state, slots);
+    if (spot) slots.push({ ...spot, type: "ally", at: now + slots.length * stagger });
+  }
+
+  // the jackpot leads the wave in, alone on the first beat, because it is only
+  // up for RARE_LIFE and has to be seen the instant it arrives
+  if (stage >= C.UNLOCK.rare && state.rng() < C.rareWaveChance(stage, state.timeLeft)) {
+    const spot = freeSlot(state, slots);
+    if (spot) {
+      for (const s of slots) s.at += C.RARE_LIFE * 0.5;
+      slots.unshift({ ...spot, type: "rare", at: now });
+    }
+  }
+
+  const virusCount = slots.reduce((n, s) => n + (s.type === "ally" ? 0 : 1), 0);
+  return {
+    index: idx,
+    formation: form.name,
+    size: slots.length,
+    virusCount,
+    kills: 0,
+    startedAt: now,
+    // only ever used to stop a jammed queue from stalling the run
+    deadline: now + slots.length * stagger + C.HOPPER_LIFE + C.WAVE_GRACE_MS,
+    queue: slots,
+  };
+}
+
+function startWave(state, events) {
+  const wave = planWave(state);
+  state.waveIdx++;
+  state.wave = wave;
+  state.waveState = "active";
+  events.push({
+    type: "waveStart", index: wave.index, size: wave.size,
+    virusCount: wave.virusCount, formation: wave.formation,
+  });
+}
+
+function spawnFromSlot(state, slot, events) {
+  const now = state.clock;
+  const type = slot.type;
+  const boltKind = C.boltKindFor(type);
+  const armed = state.stageIdx >= C.UNLOCK.retaliate && canRetaliate(type);
+  const willAttack = armed && state.rng() < C.attackChance(state.deletions, type);
+  state.enemies.push({
+    col: slot.col, row: slot.row, type, state: "rising", t0: now,
+    riseMs: type === "ally" ? C.ALLY_RISE_MS : C.RISE_MS,
+    hp: type === "hopper" ? 2 : 1,
+    lastHop: now, hopT0: -1e9,
+    wave: state.wave ? state.wave.index : -1,
+    willAttack,
+    // baked at spawn so the telegraph a virus is drawing cannot change length
+    // underneath it when the deletion count ticks over mid-aim
+    boltKind,
+    aimMs: C.aimMs(state.deletions, boltKind),
+    fired: false,
+  });
+  const p = panel(state, slot.col, slot.row);
+  events.push({
+    type: "enemySpawned", enemyType: type, col: slot.col, row: slot.row, willAttack,
+    boltKind: willAttack ? boltKind : null,
+    x: p.x + p.w / 2, y: p.y,
+  });
+}
+
+function endWave(state, events) {
+  const wave = state.wave;
+  const now = state.clock;
+  const cleared = wave.virusCount > 0 && wave.kills >= wave.virusCount;
+
+  let lull = C.waveLullMs(wave.index, state.stageIdx);
+  if (cleared) lull *= C.WAVE_CLEAR_LULL;      // clearing it buys pressure back
+  // a lull must never be the thing that kills you: with the clock this low the
+  // player needs targets, not air
+  if (state.timeLeft < C.LOW_TIME) lull = Math.min(lull, C.LOW_TIME_LULL_MS);
+  lull = Math.round(lull);
+
+  let timeBonus = 0, points = 0;
+  if (cleared) {
+    timeBonus = C.waveClearBonus(wave.virusCount) * C.bonusFactor(state.deletions);
+    state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + timeBonus);
+    points = C.WAVE_CLEAR_PTS * wave.virusCount * C.multOf(state.chain);
+    state.score += points;
+    const p = panel(state, state.player.col, state.player.row);
+    state.fx.popups.push({
+      x: p.x + p.w / 2, y: p.y - 22, t0: now,
+      text: "WAVE CLEAR +" + timeBonus.toFixed(1) + "s", color: "#45e0e8",
+    });
+  }
+
+  state.waveState = "lull";
+  state.nextSpawnAt = now + lull;
+  state.wave = null;
+  events.push({
+    type: "waveEnded", index: wave.index, size: wave.size,
+    virusCount: wave.virusCount, kills: wave.kills, cleared,
+    timeBonus, points, lullMs: lull,
+  });
+  if (cleared) events.push({ type: "statsChanged" });
+}
+
+function updateWave(state, events) {
+  const now = state.clock;
+  if (state.waveState !== "active" || !state.wave) {
+    if (now < state.nextSpawnAt) return;
+    startWave(state, events);
+  }
+  const wave = state.wave;
+
+  const queue = wave.queue;
+  for (let i = 0; i < queue.length; ) {
+    const slot = queue[i];
+    if (slot.at > now) { i++; continue; }
+    let busy = false;
+    for (const e of state.enemies) {
+      if (e.col === slot.col && e.row === slot.row) { busy = true; break; }
+    }
+    if (busy || state.enemies.length >= C.MAX_ALIVE) {
+      // the panel is still busy dying; take the next beat instead of dropping
+      // the member, unless the whole wave has run out of patience
+      if (now >= wave.deadline) { queue.splice(i, 1); continue; }
+      slot.at = now + 90;
+      i++;
+      continue;
+    }
+    queue.splice(i, 1);
+    spawnFromSlot(state, slot, events);
+  }
+
+  if (queue.length) return;
+  // plain loop, not .some(): this runs on every frame of every wave
+  for (const e of state.enemies) {
+    if (e.wave === wave.index && e.state !== "hit") return;
+  }
+  endWave(state, events);
+}
+
+// ---------- enemy state machine ----------
 
 function lifeOf(state, e) {
-  if (e.type === "hopper") return C.HOPPER_LIFE;
   if (e.type === "rare") return C.RARE_LIFE;
-  const base = C.upMs(state.deletions);
+  const base = e.type === "hopper" ? C.HOPPER_LIFE : C.upMs(state.deletions);
+  if (!e.willAttack) return base;
   // an attacker sticks around long enough to actually follow through
-  return e.willAttack ? Math.max(base, C.aimMs(state.deletions) + 300) : base;
+  return Math.max(base, aimOf(state, e) + C.ATTACK_FOLLOW_MS);
 }
+
+const aimOf = (state, e) =>
+  e.aimMs === undefined
+    ? C.aimMs(state.deletions, e.boltKind || C.boltKindFor(e.type))
+    : e.aimMs;
 
 function updateEnemies(state, events) {
   if (state.mode !== "playing" || state.paused) return;
   const now = state.clock;
-  const mx = C.maxConcurrent(state.deletions);
 
-  if (state.enemies.length < mx && now >= state.nextSpawnAt) {
-    const free = freePanels(state);
-    if (free.length) {
-      const [c, r] = free[Math.floor(state.rng() * free.length)];
-      const type = rollType(state, state.deletions);
-      const willAttack = canRetaliate(type) && state.rng() < C.attackChance(state.deletions);
-      state.enemies.push({
-        col: c, row: r, type, state: "rising", t0: now,
-        riseMs: type === "ally" ? C.ALLY_RISE_MS : C.RISE_MS,
-        hp: type === "hopper" ? 2 : 1,
-        lastHop: now, hopT0: -1e9,
-        willAttack,
-        fired: false,
-      });
-      state.nextSpawnAt = now + C.gapMs(state.deletions) + state.rng() * 200;
-      const p = panel(state, c, r);
-      events.push({
-        type: "enemySpawned", enemyType: type, col: c, row: r, willAttack,
-        x: p.x + p.w / 2, y: p.y,
-      });
-    }
-  }
+  updateWave(state, events);
 
   for (let i = state.enemies.length - 1; i >= 0; i--) {
     const e = state.enemies[i];
@@ -345,13 +541,18 @@ function updateEnemies(state, events) {
         }
         break;
       case "up": {
-        if (e.type === "hopper" && now - e.lastHop >= C.HOP_MS) {
+        // A hopper about to shoot plants itself: the telegraph would be
+        // unreadable if the lane moved under it, and a stationary hopper is
+        // the window you get in exchange for the speed of its bolt.
+        const aiming = e.willAttack && !e.fired;
+        if (e.type === "hopper" && !aiming && now - e.lastHop >= C.HOP_MS) {
           hopTo(state, e, events);
           e.lastHop = now;
         }
-        if (e.willAttack && !e.fired && t >= C.aimMs(state.deletions)) {
+        if (aiming && t >= aimOf(state, e)) {
           fireBolt(state, e, events);
           e.fired = true;
+          e.lastHop = now;                 // and it does not bolt the same frame
         }
         if (t >= lifeOf(state, e)) { e.state = "sinking"; e.t0 = now; }
         break;
@@ -395,17 +596,34 @@ function hopTo(state, e, events) {
 
 // ---------- incoming fire ----------
 
+/**
+ * Incoming fire. Two kinds, and the difference is the mechanic:
+ *
+ *   slow — the mett's siege shell. Huge and lumbering; you can still leave the
+ *          row after it launches.
+ *   fast — the hopper's. Crosses the board in a blink, so it has to be dodged
+ *          during the telegraph — which is why the hopper's aim is the longest
+ *          window in the game.
+ *
+ * The bolt carries everything the renderer needs as data: `kind` for the look,
+ * `radius` in px (already scaled to the board) for the size, `speed` in px/ms.
+ * `heavy` is kept as a legacy alias for the slow bolt so an older shell (and
+ * the audio bank, which keys its bass layer off it) still reads correctly.
+ */
 function fireBolt(state, e, events) {
   const p = panel(state, e.col, e.row);
+  const kind = e.boltKind || C.boltKindFor(e.type);
   state.bolts.push({
     row: e.row,
     x: p.x + p.w / 2,
-    speed: state.G.pw / C.boltPanelMs(state.deletions),   // px per ms, travelling left
-    heavy: e.type === "guard",
+    speed: state.G.pw / C.boltPanelMs(state.deletions, kind),  // px per ms, travelling left
+    kind,
+    radius: state.G.pw * C.BOLT[kind].radiusFrac,
+    heavy: kind === "slow",
   });
   events.push({
     type: "enemyFired", enemyType: e.type, col: e.col, row: e.row,
-    heavy: e.type === "guard", x: p.x + p.w / 2, y: p.y,
+    kind, heavy: kind === "slow", x: p.x + p.w / 2, y: p.y,
   });
 }
 
@@ -417,7 +635,7 @@ function updateBolts(state, dt, events) {
   const G = state.G;
   const pr = panel(state, state.player.col, state.player.row);
   const px = pr.x + pr.w / 2;
-  const hitR = G.pw * 0.3;
+  const hitR = G.pw * C.BOLT_HIT_R;
   for (let i = state.bolts.length - 1; i >= 0; i--) {
     const b = state.bolts[i];
     b.x -= b.speed * dt;
@@ -597,6 +815,8 @@ function shoot(state, tierName, events) {
   state.chain++;
   if (state.chain > state.bestChain) state.bestChain = state.chain;
   const mult = C.multOf(state.chain);
+  // a wave is "cleared" only when every virus in it was actually deleted
+  if (state.wave && target.wave === state.wave.index) state.wave.kills++;
 
   const baseKey =
     target.type === "guard" ? "guard" :
@@ -654,10 +874,9 @@ function shoot(state, tierName, events) {
   });
 
   events.push({ type: "statsChanged" });
-
-  if (state.stageIdx < C.STAGES.length && state.deletions >= C.STAGES[state.stageIdx].at) {
-    enterInterlevel(state, events);
-  }
+  // the stage gate is checked once per frame at the end of step(), not here:
+  // a gate now needs a wave floor as well as a deletion floor, and either can
+  // be the one that lands last.
 }
 
 // ---------- fx bookkeeping ----------

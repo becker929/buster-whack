@@ -10,17 +10,22 @@ import { step } from "../src/core/step.js";
 import { draw } from "../src/shell/render.js";
 import { snapshot } from "./helpers.mjs";
 
-function playedState(seed = 21, frames = 400) {
+// Enemies arrive in waves, so a fixed frame count can leave the board empty in
+// a lull. `until` runs a few frames past the target until there is something to
+// look at, which is what every test below actually wants.
+function playedState(seed = 21, frames = 400, until = (s) => s.enemies.length > 0) {
   const s = createState({ seed, width: 800, height: 600 });
   step(s, 0, [{ type: "startRun" }]);
-  for (let i = 0; i < frames; i++) {
+  const play = (i) => {
     const actions = [];
     if (i % 6 === 0) actions.push({ type: "firePressed" });
     if (i % 6 === 3) actions.push({ type: "fireReleased" });
     if (i % 17 === 0) actions.push({ type: "move", dc: 0, dr: 1 });
     if (i % 3 === 0) actions.push({ type: "resume" });
     step(s, 16, actions);
-  }
+  };
+  for (let i = 0; i < frames; i++) play(i);
+  for (let i = frames; i < frames + 300 && !until(s); i++) play(i);
   return s;
 }
 
