@@ -1,0 +1,38 @@
+{
+  "name": "buster-whack",
+  "version": "1.0.0",
+  "description": "A virus-busting, whack-a-mole arcade minigame you can drop into any page as an ES module.",
+  "type": "module",
+  "main": "src/buster-whack.js",
+  "module": "src/buster-whack.js",
+  "exports": {
+    ".": "./src/buster-whack.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/becker929/buster-whack.git"
+  },
+  "homepage": "https://github.com/becker929/buster-whack#readme",
+  "bugs": {
+    "url": "https://github.com/becker929/buster-whack/issues"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "start": "npx serve .",
+    "test": "node test/smoke.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^0.1.53",
+    "jsdom": "^24.0.0"
+  },
+  "keywords": [
+    "game",
+    "canvas",
+    "arcade",
+    "widget",
+    "web-component"
+  ],
+  "license": "MIT"
+}
