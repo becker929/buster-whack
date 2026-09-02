@@ -5,7 +5,8 @@
  * is the point — so nothing here is frozen or copied per frame.
  */
 
-import { START_TIME, TIERS, layout, makeImpulse, DEFAULT_MODE, modeById } from "./constants.js";
+import { START_TIME, TIERS, layout, makeImpulse, DEFAULT_MODE } from "./constants.js";
+import { createWorld } from "./world.js";
 import { mulberry32 } from "./rng.js";
 
 /**
@@ -30,12 +31,17 @@ export function createState(opts = {}) {
     // Accessibility, not a preference the sim reads: only `render.js` looks at
     // it. Safe default is "full motion"; the shell overwrites it.
     reducedMotion: !!opts.reducedMotion,
-    // which mode this run is playing, and the front line it owns. `frontier`
-    // is the count of player-owned columns: classic pins it at PCOLS, advance
-    // pushes it right as waves fall.
+    // which mode this run is playing, and the world it plays on. See world.js:
+    // classic is one arena that never clears to a road; advance grows.
     modeId: opts.modeId || DEFAULT_MODE,
-    frontier: modeById(opts.modeId || DEFAULT_MODE).frontier,
-    sector: 0,
+    world: createWorld(),
+    arenasCleared: 0,
+    // camera, in world columns: the left edge of the view. The simulation
+    // never reads it -- it lives here so it is deterministic and replayable,
+    // and the renderer applies it as a translate. Classic keeps it at 0.
+    cam: 0,
+    camAnchor: 0,              // x0 of the last arena entered: the camera's floor while following
+    camClock: 0,               // clock at the last camera ease, so the ease is dt-driven and replayable
     clock: 0,                  // game clock, advances only while playing and unpaused
     canFire: true,
     score: 0,

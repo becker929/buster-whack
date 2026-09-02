@@ -12,7 +12,7 @@ const VOCABULARY = new Set([
   "progHit", "chainBroken", "multiplierUp", "playerHit", "playerMoved",
   "enemySpawned", "enemyAim", "enemyFired", "enemyEscaped", "allySpared",
   "waveStart", "waveEnded",
-  "frontAdvanced", "sectorBroken",
+  "arenaEntered", "arenaCleared",
 ]);
 
 test("a long random run only ever emits known event types", () => {

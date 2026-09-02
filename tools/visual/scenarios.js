@@ -38,24 +38,41 @@ const H = 640;
 
 export const scenarios = [
   {
-    name: "advance-front",
-    title: "ADVANCE mode: the front line",
-    why: "The mode's whole read is territory. Classic owns three fixed columns; advance starts on a one-column beachhead and claims a column per wave wiped, so ownership and the lit seam must both track `state.frontier` rather than the PCOLS constant. Captured at the beachhead, mid-push and one column short of breaking the sector — the panel colours should move right with the line, and the pulsing seam should sit on the last owned column. Classic must show no seam at all, which `empty-field` pins.",
+    name: "advance-world",
+    title: "ADVANCE: a taken arena, the road, the next arena",
+    why: "The mode is an unbounded strip: arena, road, arena. After a wipe the whole arena turns to the player's ground and a road runs off its right edge to the next fight. The camera is a translate over world pixels, so this pins the scroll itself: the taken arena sliding out of view, a full-height road, and the camera locked on the next arena with the player on its footing. The lit seam sits between the player's last tile and the enemy's first. Classic never moves the camera, which every other scenario pins.",
     seed: 61,
     width: W,
     height: H,
-    frames: 40,
+    frames: 12,
+    modes: ["playing"],
     capture: [
-      { at: 6, as: "beachhead" },
-      { at: 18, as: "pushed" },
-      { at: 34, as: "last-column" },
+      { at: 2, as: "taken-arena" },
+      { at: 6, as: "on-the-road" },
+      { at: 10, as: "next-arena" },
     ],
     cues: [
-      { at: 0, set: { modeId: "advance", frontier: 1, "player.col": 0, sector: 0 } },
-      // deliberately stand the player OFF the front column: on it, the player's
-      // own panel highlight covers the seam and the scenario would pin nothing
-      { at: 12, set: { frontier: 2, "player.col": 0 } },
-      { at: 28, set: { frontier: 4, "player.col": 1, sector: 1 } },
+      // arena 0 wiped; seed 61's first road is full height
+      { at: 0, set: { modeId: "advance", "player.col": 4, "player.row": 1 }, clearArenas: 1, cam: 1.5 },
+      { at: 4, set: { "player.col": 7, "player.row": 1 }, cam: 5 },
+      { at: 8, set: { "player.col": 10, "player.row": 1 }, cam: 9 },
+    ],
+  },
+
+  {
+    name: "advance-narrow-road",
+    title: "ADVANCE: a single-row road",
+    why: "Half the roads are one row tall: the void rows beside it are simply not drawn, and the player is funnelled to the middle row to cross. This pins the void, the dash, and the player standing in the funnel. Seed chosen so the first road is narrow.",
+    seed: 7,
+    width: W,
+    height: H,
+    frames: 4,
+    modes: ["playing"],
+    capture: [
+      { at: 2, as: "funnel" },
+    ],
+    cues: [
+      { at: 0, set: { modeId: "advance", "player.col": 7, "player.row": 1 }, clearArenas: 1, cam: 4.5 },
     ],
   },
 

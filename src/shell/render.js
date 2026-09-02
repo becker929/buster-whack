@@ -19,6 +19,7 @@
 
 import * as C from "../core/constants.js";
 import { hudView } from "../core/select.js";
+import { tileAt, TILE } from "../core/world.js";
 
 const { EASE, impulseValue, TAU, RING_GAP } = C;
 
@@ -38,6 +39,10 @@ const SKINS = {
 // Panel palettes. Past OC_START the whole field runs hot, not just the HUD.
 const PANELS    = { mine: ["#3a2330", "#7c3652"], theirs: ["#1e2c4d", "#35528f"] };
 const PANELS_OC = { mine: ["#40252c", "#95483f"], theirs: ["#2b2a35", "#7b5733"] };
+// The road between arenas: darker than either side's ground, with a centre
+// dash so it reads as a way through rather than more floor.
+const ROAD      = ["#121828", "#243050"];
+const ROAD_DASH = "#34416a";
 
 /** A ring that stops just short of a full turn — see C.RING_GAP. */
 function ring(ctx, x, y, r, squash = 1) {
@@ -75,6 +80,10 @@ export function draw(ctx, state, now) {
 
   ctx.save();
   if (dx || dy) ctx.translate(dx, dy);
+  // The simulation works in world pixels; the camera is nothing but this
+  // translate. Classic never moves it, so classic frames are untouched.
+  const camPx = (state.cam || 0) * G.pw;
+  if (camPx) ctx.translate(-camPx, 0);
 
   drawPanels(ctx, state, now);
   drawLane(ctx, state, now);
@@ -106,21 +115,32 @@ function drawPanels(ctx, state, now) {
   const oc = state.deletions >= C.OC_START;
   const skin = oc ? PANELS_OC : PANELS;
   const advancing = C.modeById(state.modeId).advancing;
+  const world = state.world;
+  // only the columns the camera can see, with a margin so a scroll never
+  // reveals an undrawn edge
+  const c0 = Math.floor(state.cam || 0) - 1;
+  const c1 = c0 + C.COLS + 3;
   for (let r = 0; r < C.ROWS; r++) {
-    for (let c = 0; c < C.COLS; c++) {
+    for (let c = c0; c < c1; c++) {
+      const t = tileAt(world, c, r);
+      if (t === TILE.VOID) continue;
       const p = panel(G, c, r);
-      const mine = c < state.frontier;
-      const [fill, edge] = mine ? skin.mine : skin.theirs;
+      const road = t === TILE.ROAD;
+      const [fill, edge] = road ? ROAD : t === TILE.PLAYER ? skin.mine : skin.theirs;
       ctx.fillStyle = fill;
       ctx.strokeStyle = edge;
       ctx.lineWidth = 2;
       ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
       ctx.strokeRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
+      if (road) {
+        ctx.fillStyle = ROAD_DASH;
+        ctx.fillRect(p.x + p.w * 0.3, p.y + p.h / 2 - 1.5, p.w * 0.4, 3);
+      }
       // The seam the player is pushing, lit so a moving boundary is never
       // something you infer from panel colour. Only drawn where the line
       // actually moves: in classic the halves are fixed and a pulsing edge
       // would be decoration on a fact the panel colours already state.
-      if (advancing && c === state.frontier - 1 && state.frontier < C.COLS) {
+      if (advancing && t === TILE.PLAYER && tileAt(world, c + 1, r) === TILE.ENEMY) {
         ctx.globalAlpha = 0.5 + 0.28 * Math.sin(now / 260);
         ctx.strokeStyle = "#45e0e8";
         ctx.lineWidth = 3;
@@ -139,7 +159,8 @@ function drawPanels(ctx, state, now) {
         ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
         ctx.globalAlpha = 1;
       }
-      if (mine && c === state.player.col && r === state.player.row) {
+      // the player's own panel highlight; they can stand on their ground or the road
+      if (t !== TILE.ENEMY && c === state.player.col && r === state.player.row) {
         ctx.strokeStyle = "#45e0e8";
         ctx.strokeRect(p.x + 5, p.y + 5, p.w - 10, p.h - 10);
       }

@@ -7,6 +7,7 @@
  * `@napi-rs/canvas`. No jsdom, no browser, no headless Chromium.
  */
 
+import { clearArena } from "../../src/core/world.js";
 import { createCanvas } from "@napi-rs/canvas";
 import { createState, setLayout } from "../../src/core/state.js";
 import { step } from "../../src/core/step.js";
@@ -71,6 +72,18 @@ function placeBolt(state, o) {
 }
 
 function applyCue(state, cue) {
+  if (cue.clearArenas) {
+    // Take N arenas exactly as a wipe does, then stand the player where the
+    // scenario says. Uses the same rng-driven road heights as the game.
+    for (let k = 0; k < cue.clearArenas; k++) clearArena(state.world, state.rng);
+    state.arenasCleared += cue.clearArenas;
+    state.nextSpawnAt = Infinity;
+  }
+  if (cue.cam !== undefined) {
+    // pin the camera for a still frame; the sim eases it every step otherwise
+    state.cam = cue.cam;
+    state.camAnchor = cue.cam;
+  }
   if (cue.spawning !== undefined) {
     state.nextSpawnAt = cue.spawning ? state.clock : Infinity;
   }

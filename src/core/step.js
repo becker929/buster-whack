@@ -17,6 +17,7 @@
  */
 
 import * as C from "./constants.js";
+import { createWorld, activeArena, walkable, clearArena } from "./world.js";
 import { computeRank } from "./select.js";
 
 const panel = (state, col, row) => C.panelRect(state.G, col, row);
@@ -173,8 +174,24 @@ function move(state, dc, dr, events) {
   if (state.mode !== "playing" || state.paused) return;
   if (state.clock - state.lastMoveAt < C.MOVE_REPEAT_MS) return;
   state.lastMoveAt = state.clock;
-  const col = Math.max(0, Math.min(state.frontier - 1, state.player.col + dc));
-  const row = Math.max(0, Math.min(C.ROWS - 1, state.player.row + dr));
+  // The world decides where you may stand: your own ground and the road,
+  // never an enemy tile, never off the map. Each axis is resolved on its own,
+  // one tile at a time, so a diagonal press blocked in one direction still
+  // moves in the other -- the ring presses both axes on a diagonal, and a
+  // wall should not cancel the half of the input that was fine. In classic
+  // this is exactly the old clamp to the player's half.
+  const world = state.world;
+  let col = state.player.col, row = state.player.row;
+  const sc = Math.sign(dc), sr = Math.sign(dr);
+  for (let i = 0; i < Math.abs(dc); i++) {
+    if (col + sc < 0 || !walkable(world, col + sc, row)) break;
+    col += sc;
+  }
+  for (let i = 0; i < Math.abs(dr); i++) {
+    const nr = row + sr;
+    if (nr < 0 || nr >= C.ROWS || !walkable(world, col, nr)) break;
+    row = nr;
+  }
   const moved = col !== state.player.col || row !== state.player.row;
   if (moved) {
     state.fx.ghost.t0 = state.clock;
@@ -198,8 +215,11 @@ function togglePause(state, events) {
 function resetGame(state, events, modeId) {
   const cfg = C.modeById(modeId || state.modeId);
   state.modeId = cfg.id;
-  state.frontier = cfg.frontier;
-  state.sector = 0;
+  state.world = createWorld();
+  state.arenasCleared = 0;
+  state.cam = 0;
+  state.camAnchor = 0;
+  state.camClock = state.clock;
   state.mode = "playing";
   state.paused = false;
   state.score = 0;
@@ -207,7 +227,7 @@ function resetGame(state, events, modeId) {
   state.shots = 0; state.whiffs = 0;
   state.chain = 0; state.bestChain = 0;
   state.timeLeft = C.START_TIME;
-  state.player.col = Math.min(1, state.frontier - 1); state.player.row = 1;
+  state.player.col = 1; state.player.row = 1;
   state.enemies.length = 0;
   state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
   state.waveIdx = 0;
@@ -279,38 +299,38 @@ function enterInterlevel(state, events) {
 }
 
 /**
- * ADVANCE mode: the wiped wave hands the player the next column. Reaching the
- * last takeable column breaks the sector — the front resets to a fresh
- * beachhead, which is what keeps the mode going rather than ending it. Two
- * enemy columns are always left so wave formations still fit.
+ * Each frame: notice the player stepping into the arena they were walking
+ * toward, and ease the camera. Both live in the core so a replay from a seed
+ * reproduces the scroll exactly; the renderer only applies `cam`.
  */
-function advanceFront(state, events) {
-  if (state.frontier >= C.MAX_FRONTIER) {
-    state.sector++;
-    state.frontier = C.ADVANCE_START_FRONTIER;
-    state.player.col = 0;
-    state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ADVANCE_BREAK_BONUS);
-    state.score += C.ADVANCE_BREAK_PTS;
-    // anything still in flight belonged to the sector just broken
-    state.bolts.length = 0;
-    state.enemies.length = 0;
-    events.push({
-      type: "sectorBroken",
-      sector: state.sector,
-      points: C.ADVANCE_BREAK_PTS,
-      timeBonus: C.ADVANCE_BREAK_BONUS,
-    });
-    return;
+function updateWorld(state, events) {
+  const now = state.clock;
+  const a = activeArena(state.world);
+
+  // Stepping in is the wave boundary: the arena wakes a beat later. Arena 0
+  // is born entered, which is how classic and the opening of advance share a
+  // single opening lull.
+  if (!a.entered && state.player.col >= a.x0) {
+    a.entered = true;
+    state.camAnchor = a.x0;
+    state.nextSpawnAt = now + C.ARENA_ENTRY_DELAY_MS;
+    events.push({ type: "arenaEntered", index: a.idx, x0: a.x0 });
   }
-  const claimed = state.frontier;
-  state.frontier++;
-  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ADVANCE_CLAIM_BONUS);
-  events.push({
-    type: "frontAdvanced",
-    col: claimed,
-    frontier: state.frontier,
-    timeBonus: C.ADVANCE_CLAIM_BONUS,
-  });
+
+  // Camera. Fighting in an arena: lock so the arena fills the view exactly as
+  // classic's board does. Otherwise follow, never behind the last arena you
+  // entered and never past the one you are walking to -- so the view slides
+  // out of a taken arena as you cross its right half and settles into the
+  // lock position as you arrive, with no jump at either end.
+  const fighting = a.entered && a.owner === "enemy";
+  const target = fighting
+    ? a.x0
+    : Math.max(state.camAnchor, Math.min(a.x0, state.player.col - 1));
+  const dt = Math.max(0, now - state.camClock);
+  state.camClock = now;
+  const d = target - state.cam;
+  if (Math.abs(d) < 0.002) state.cam = target;
+  else state.cam += d * (1 - Math.exp(-dt / C.CAM_TAU_MS));
 }
 
 function resumeFromInterlevel(state, events) {
@@ -339,7 +359,9 @@ function resumeFromInterlevel(state, events) {
 function freePanels(state, excludeCol, excludeRow) {
   const occ = new Set(state.enemies.map((e) => e.col + "," + e.row));
   const out = [];
-  for (let c = state.frontier; c < C.COLS; c++)
+  const a = activeArena(state.world);
+  if (a.owner !== "enemy") return out;
+  for (let c = a.x0 + C.PCOLS; c < a.x0 + a.cols; c++)
     for (let r = 0; r < C.ROWS; r++) {
       if (c === excludeCol && r === excludeRow) continue;
       if (!occ.has(c + "," + r)) out.push([c, r]);
@@ -377,10 +399,12 @@ function planWave(state) {
   const rot = Math.floor(state.rng() * C.ROWS);
   const stagger = C.waveStaggerMs(idx);
 
+  // formations are authored against the origin arena; shift them to this one
+  const ax0 = activeArena(state.world).x0;
   const slots = [];
   for (let i = 0; i < size; i++) {
     const [col, row] = form.slots[i];
-    slots.push({ col, row: (row + rot) % C.ROWS, type: "mett", at: now + i * stagger });
+    slots.push({ col: col + ax0, row: (row + rot) % C.ROWS, type: "mett", at: now + i * stagger });
   }
 
   // the heavy: one armored anchor the wave forms around
@@ -497,7 +521,20 @@ function endWave(state, events) {
   state.waveState = "lull";
   state.nextSpawnAt = now + lull;
   state.wave = null;
-  if (cleared && C.modeById(state.modeId).advancing) advanceFront(state, events);
+  if (cleared && C.modeById(state.modeId).advancing) {
+    // The arena is yours. The next one wakes only when you step into it, so
+    // the walk is a true lull -- the road is the breath between fights.
+    const { cleared: a, road, next } = clearArena(state.world, state.rng);
+    state.arenasCleared++;
+    state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ARENA_CLEAR_BONUS);
+    state.score += C.ARENA_CLEAR_PTS;
+    state.nextSpawnAt = Infinity;
+    events.push({
+      type: "arenaCleared", index: a.idx, x0: a.x0,
+      roadRows: road.rows, nextX0: next.x0,
+      timeBonus: C.ARENA_CLEAR_BONUS, points: C.ARENA_CLEAR_PTS,
+    });
+  }
 
   events.push({
     type: "waveEnded", index: wave.index, size: wave.size,
@@ -509,6 +546,7 @@ function endWave(state, events) {
 
 function updateWave(state, events) {
   const now = state.clock;
+  updateWorld(state, events);
   if (state.waveState !== "active" || !state.wave) {
     if (now < state.nextSpawnAt) return;
     startWave(state, events);
@@ -684,7 +722,7 @@ function updateBolts(state, dt, events) {
       takeHit(state, events);
       continue;
     }
-    if (b.x < G.gx - G.pw * 0.5) state.bolts.splice(i, 1);
+    if (b.x < G.gx + (activeArena(state.world).x0 - 0.5) * G.pw) state.bolts.splice(i, 1);
   }
 }
 
@@ -758,6 +796,7 @@ function shoot(state, tierName, events) {
     if (!isVisible(e) || e.row !== row) continue;
     // progs are safe while rising or sinking — shots pass through them
     if (e.type === "ally" && e.state !== "up") continue;
+    if (e.col <= state.player.col) continue;   // the buster only fires forward
     if (!target || e.col < target.col) target = e;
   }
 
@@ -765,7 +804,8 @@ function shoot(state, tierName, events) {
   const pr = panel(state, state.player.col, row);
   const bwP = G.pw * 0.34;
   const x0 = pr.x + pr.w / 2 + bwP / 2 + bwP * 0.55;
-  const x1 = target ? panel(state, target.col, row).x + G.pw / 2 : G.gx + G.pw * C.COLS;
+  const ax0 = activeArena(state.world).x0;
+  const x1 = target ? panel(state, target.col, row).x + G.pw / 2 : G.gx + G.pw * (ax0 + C.COLS);
   // hitscan logic stays instant; the tracer just travels fast (~5 px/ms)
   const dur = Math.max(40, Math.min(95, (x1 - x0) / 5));
   state.fx.ray = { t0: now, row, hitCol: target ? target.col : null, x0, x1, dur, tier: tierName };

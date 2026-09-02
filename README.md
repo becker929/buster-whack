@@ -89,6 +89,21 @@ mountBusterWhack(container: HTMLElement, options?: {
 - `P` or `Esc`: pause · `M`: mute (a crossed-speaker badge sits by the pause
   button while sound is off)
 
+## Modes
+
+Pick one on the start screen (arrow keys move the selection; a tap on a row
+picks it and starts).
+
+- **CLASSIC** — hold the line. One arena: your three columns on the left,
+  theirs on the right.
+- **ADVANCE** — take the board. The world is an unbounded strip of arenas
+  joined by roads. Wipe an arena's wave and the whole arena becomes yours, a
+  road opens off its right edge, and the next arena waits at the road's end —
+  its wave wakes only once you step in, so the walk is a real breather. Roads
+  are three columns long and either full height or a single middle row, so some
+  crossings funnel you. The view scrolls with you and locks onto each arena
+  when the fight starts.
+
 ## Development
 
 ```bash

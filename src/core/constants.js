@@ -13,41 +13,28 @@ export const COLS = 6;
 export const PCOLS = 3;          // leftmost columns are the player's half by default
 
 // ---------- modes ----------
-// A mode is a small bag of rule overrides, not a code path: everything below
-// reads `state.mode*` fields seeded from here, so adding a mode never means
-// branching the simulation.
+// A mode is a small bag of rule overrides, not a code path: the simulation
+// reads the world's segment list either way, and the one flag that differs
+// decides whether wiping a wave appends a road and the next arena.
 //
-// ADVANCE reframes the board as a front line. The player starts pinned to a
-// beachhead one column wide; every wave they wipe converts an enemy column to
-// theirs and they can push into it. Take the last takeable column and the
-// sector breaks: the front resets to a fresh beachhead further in, and the
-// pressure steps up. Two enemy columns are always kept so formations still fit.
-export const MIN_ENEMY_COLS = 2;
-export const ADVANCE_START_FRONTIER = 1;
-export const ADVANCE_BREAK_BONUS = 4.0;    // seconds for breaking a sector
-export const ADVANCE_BREAK_PTS = 1500;
-export const ADVANCE_CLAIM_BONUS = 1.0;    // seconds for claiming one column
+// ADVANCE makes the board unbounded. Wipe the arena's wave and the whole arena
+// is yours, a road opens to the right, and the next arena waits at its end;
+// its wave only wakes once you step into it. A road is ROAD_COLS long and is
+// either full height or a single middle row, so some crossings funnel you.
+export const ROAD_COLS = 3;
+export const ROAD_MID_ROW = 1;
+export const NARROW_ROAD_CHANCE = 0.5;
+export const ARENA_CLEAR_BONUS = 3.0;    // seconds for taking an arena
+export const ARENA_CLEAR_PTS = 1500;
+export const ARENA_ENTRY_DELAY_MS = 650;  // the beat between stepping in and the wave waking
+export const CAM_TAU_MS = 170;            // camera ease: 63% of the way per TAU
 
 export const MODES = [
-  {
-    id: "classic",
-    name: "CLASSIC",
-    blurb: "hold the line",
-    frontier: PCOLS,
-    advancing: false,
-  },
-  {
-    id: "advance",
-    name: "ADVANCE",
-    blurb: "take the board",
-    frontier: ADVANCE_START_FRONTIER,
-    advancing: true,
-  },
+  { id: "classic", name: "CLASSIC", blurb: "hold the line",  advancing: false },
+  { id: "advance", name: "ADVANCE", blurb: "take the board", advancing: true },
 ];
 export const DEFAULT_MODE = "classic";
 export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
-/** The furthest column the player can ever own, leaving room for enemies. */
-export const MAX_FRONTIER = COLS - MIN_ENEMY_COLS;
 
 // ---------- clock ----------
 
