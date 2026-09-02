@@ -505,6 +505,174 @@ export const scenarios = [
       },
     ],
   },
+
+  // ---------- HUD: level marker, pips, and the punch on both ends ----------
+
+  {
+    name: "level-up",
+    title: "The level ticking over",
+    why: "LV 3 in grey 13px was a corner label; the level is now a chapter marker that announces itself. The kill on frame 4 takes the count from 9 to 10, so `level()` steps: the numeral opens huge in the band between the time bar and the board, with a rule tearing across it, and then hands off to the corner marker with a cross-fade rather than flying through the pips. Captured on the way in, holding, mid-handoff and settled — the middle frames are the only ones that would catch a regression in the easing.",
+    seed: 101,
+    width: W,
+    height: H,
+    frames: 46,
+    capture: [
+      { at: 6, as: "announce" },
+      { at: 14, as: "holding" },
+      { at: 26, as: "handoff" },
+      { at: 44, as: "settled" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 9, score: 14200, chain: 4, bestChain: 6, timeLeft: 26.4 },
+        place: [{ col: 4, row: 1, type: "mett", state: "up" }],
+      },
+      { at: 2, actions: [{ type: "firePressed" }, { type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "deletion-explosion",
+    title: "Detonations, sized by tier",
+    why: "A deletion is an explosion now, not debris plus a one-frame silhouette: a white core blowing out, one to three shockwave rings, a star of shards on fixed bearings and a soot ring left hanging. Everything is dated to the tracer landing — the same clock the squash, the kick and the hit-stop run on — so the freeze holds the fireball at its peak instead of fighting it. A tapped mett first (the smallest tier), then a charged rare (the largest), so the two ends of the scale are pinned in one sheet along with the full-screen wash the big one throws.",
+    seed: 103,
+    width: W,
+    height: H,
+    frames: 40,
+    capture: [
+      { at: 6, as: "mett-ignite" },
+      { at: 9, as: "mett-bloom" },
+      { at: 30, as: "rare-ignite" },
+      { at: 34, as: "rare-bloom" },
+      { at: 38, as: "rare-fading" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 51, score: 168400, chain: 6, bestChain: 12, timeLeft: 21.8 },
+        place: [{ col: 4, row: 1, type: "mett", state: "up" }],
+      },
+      { at: 2, actions: [{ type: "firePressed" }, { type: "fireReleased" }] },
+      { at: 18, place: [{ col: 5, row: 1, type: "rare", state: "up" }] },
+      { at: 20, charge: "full", actions: [{ type: "fireReleased" }] },
+    ],
+  },
+
+  {
+    name: "damage-punch",
+    title: "Taking a hit, and coming back from it",
+    why: "The other end of the same escalation. A bolt lands on the player: a two-ring blowout with four impact spikes on its panel, a front-loaded red wash, three slabs of signal tear shoved sideways, a vignette slammed against the bezel — and then the recovery, which is the part that used to say nothing. The i-frame arc unwinds around the player and turns cyan for its last quarter, and the two pips the hit cost lift off the time bar where they used to be. Captured through the tear, the burst, the vignette receding and the last of the i-frames.",
+    seed: 107,
+    width: W,
+    height: H,
+    frames: 54,
+    capture: [
+      { at: 18, as: "tear" },
+      { at: 21, as: "burst" },
+      { at: 26, as: "pips-lost" },
+      { at: 34, as: "receding" },
+      { at: 50, as: "iframes-out" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 24, score: 44600, chain: 8, bestChain: 11, timeLeft: 22.5 },
+        bolt: [{ col: 3, row: 1, heavy: true }],
+      },
+    ],
+  },
+
+  {
+    name: "pip-bar",
+    title: "The time bar, as pips, from full to nearly out",
+    why: "The clock is the only resource, so it is spent in countable cells: 36 pips of 1.25s in six subsections of six, which makes a 2.5s hit exactly two pips and a mett kill about one. This walks the same bar from nearly full through half to the last few seconds, where the fill turns red and beats. The subsection feet are what let the eye count in sixes instead of measuring a length.",
+    seed: 109,
+    width: W,
+    height: H,
+    frames: 40,
+    capture: [
+      { at: 4, as: "brimming" },
+      { at: 16, as: "half" },
+      { at: 28, as: "thin" },
+      { at: 38, as: "critical" },
+    ],
+    cues: [
+      { at: 0, set: { deletions: 17, score: 26900, chain: 3, bestChain: 7, timeLeft: 43.6 } },
+      { at: 14, set: { timeLeft: 22.5 } },
+      { at: 26, set: { timeLeft: 9.4 } },
+      { at: 36, set: { timeLeft: 2.6 } },
+    ],
+  },
+
+  {
+    name: "pip-narrow",
+    title: "Pips on a 300x560 stage: the coarse rung of the ladder",
+    why: "Pips have to stay pips. Below PIP_MIN_W the layout steps to a coarser rung rather than shaving 36 cells into slivers, so this stage draws 18 pips of 2.5s (three subsections) instead — a hit still costs a countable amount, one pip instead of two. Also the narrowest layout the HUD has to survive: the level block, the multiplier and the bar all inside 300px.",
+    seed: 113,
+    width: 300,
+    height: 560,
+    frames: 26,
+    capture: [
+      { at: 6, as: "coarse" },
+      { at: 24, as: "hit" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 26, score: 58300, chain: 11, bestChain: 13, timeLeft: 17.9 },
+        place: [{ col: 4, row: 0, type: "mett", state: "up" }],
+      },
+      { at: 14, bolt: [{ col: 5, row: 1, heavy: false }] },
+    ],
+  },
+
+  {
+    name: "pip-overclock",
+    title: "Pips under overclock, on a squat stage",
+    why: "Overclock lost its \"OVERCLOCK x0.94\" readout, so the decay has to be visible instead: past the fill head sits a dashed outline exactly as wide as the clock the next mett kill will actually pay back — a pip's worth at the start of overclock, a sliver deep into it. Squat 700x360 because that is where the HUD has the least room above the board, and the low-time capture puts the red fill, the beat and the refund ghost on screen together.",
+    seed: 127,
+    width: 700,
+    height: 360,
+    frames: 30,
+    capture: [
+      { at: 4, as: "hot" },
+      { at: 28, as: "hot-low" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 96, score: 431200, chain: 12, bestChain: 22, timeLeft: 14.2 },
+        place: [{ col: 5, row: 1, type: "guard", state: "up" }],
+      },
+      { at: 26, set: { timeLeft: 3.4 } },
+    ],
+  },
+
+  {
+    name: "bolt-kinds",
+    title: "Two kinds of incoming fire",
+    why: "Virus bolts come in two flavours and must never be confused at a glance: a fast needle you have to already be moving away from, and a slow heavy orb you can still walk around. Speed is drawn rather than implied — the streak behind a bolt is where it was BOLT_TRAIL_MS ago, so the fast one smears and the slow one barely does. This pins both, using the per-bolt `kind` / `radius` / `speed` fields as well as a bolt that carries none of them (the middle lane), which must still render from the defaults.",
+    seed: 131,
+    width: W,
+    height: H,
+    frames: 22,
+    capture: [
+      { at: 6, as: "launched" },
+      { at: 18, as: "closing" },
+    ],
+    cues: [
+      {
+        at: 0,
+        set: { deletions: 34, score: 91500, chain: 5, bestChain: 9, timeLeft: 19.1 },
+        bolt: [
+          { col: 5, row: 0, kind: "fast", radius: 9, speed: 1.35 },
+          { col: 5, row: 1 },
+          { col: 5, row: 2, kind: "heavy", radius: 15, speed: 0.42 },
+        ],
+      },
+    ],
+  },
 ];
 
 /** @returns {object|undefined} */

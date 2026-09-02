@@ -63,7 +63,7 @@ export const TEMPLATE = `
     cursor: crosshair;
     touch-action: none;
   }
-  footer, #overlay, #dpad, #fireBtn, #pauseBtn { touch-action: none; }
+  #overlay, #dpad, #fireBtn, #pauseBtn { touch-action: none; }
 
   /* Analog ring: whole disc is touchable, no gaps. Center 2/5R is neutral;
      rock the finger outward to move, diagonals press two directions. */
@@ -142,18 +142,31 @@ export const TEMPLATE = `
   }
   #pauseBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 2px; }
 
-  footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 22px;
-    padding: 8px 14px;
-    background: var(--bw-panel);
-    border-top: 1px solid var(--bw-line);
-    font-size: 11px;
-    letter-spacing: 0.04em;
+  /* Muted, as a state of the machine rather than a line of stats: a crossed
+     speaker next to the pause button, shown only while sound is off. It is the
+     one thing the deleted footer was carrying that the player still needs. */
+  #muteFlag {
+    position: absolute;
+    right: 66px;
+    top: 14px;
+    width: 40px;
+    height: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--bw-warn);
+    background: rgba(255, 84, 112, 0.12);
+    color: var(--bw-warn);
+    pointer-events: none;
   }
-  footer .stat b { color: var(--bw-ink); font-weight: 600; }
-  footer .stat span { color: var(--bw-ink-dim); }
+  #muteFlag.on { display: flex; animation: bwMutePop 220ms ease-out; }
+  #muteFlag svg { width: 22px; height: 22px; display: block; }
+  @keyframes bwMutePop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { #muteFlag.on { animation: none; } }
 
   /* splash / interlevel / game-over overlay */
   #overlay {
@@ -416,27 +429,6 @@ export const TEMPLATE = `
     background: linear-gradient(to right, transparent, var(--bw-line), transparent);
   }
 
-  /* control legend as keycaps */
-  .sp-keys {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 5px 8px;
-    font-size: 10px;
-    color: var(--bw-ink-dim);
-    margin-bottom: 18px;
-  }
-  .sp-keys span { display: inline-flex; align-items: center; gap: 4px; }
-  .sp-keys kbd {
-    font: 700 9px/1 ui-monospace, Menlo, Consolas, monospace;
-    color: var(--bw-ink);
-    background: rgba(35, 44, 66, 0.95);
-    border: 1px solid var(--bw-line);
-    border-bottom-width: 2px;
-    border-radius: 3px;
-    padding: 3px 5px;
-  }
-
   .sp-start {
     font: 700 14px/1 ui-monospace, Menlo, Consolas, monospace;
     letter-spacing: 0.24em;
@@ -466,14 +458,13 @@ export const TEMPLATE = `
   }
 
   /* Short mounts shed the card from the bottom up, so PRESS START never
-     falls below the fold: first the spacing, then the roster, then the keys. */
+     falls below the fold: first the spacing, then the badge. */
   @container bwstage (max-height: 620px) {
     .sp-inner { padding: 12px 16px 14px; }
     .sp-w1 { font-size: clamp(24px, 11cqw, 42px); }
     .sp-w2 { font-size: clamp(28px, 13cqw, 52px); }
     .sp-hud, .sp-badge, .sp-logo { margin-bottom: 9px; }
-    .sp-rule { margin-bottom: 11px; }
-    .sp-keys { margin-bottom: 13px; }
+    .sp-rule { margin-bottom: 14px; }
     .sp-start { padding: 12px 26px; }
     .sp-coin { margin-top: 10px; }
     .sp-floor { height: 48%; opacity: 0.5; }
@@ -482,7 +473,7 @@ export const TEMPLATE = `
     .sp-floor { opacity: 0.32; }
   }
   @container bwstage (max-height: 340px) {
-    .sp-keys, .sp-badge { display: none; }
+    .sp-badge { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -529,15 +520,7 @@ export const TEMPLATE = `
           <span class="sp-word sp-w2" data-t="WHACK">WHACK</span>
         </h1>
 
-        <div class="sp-rule">CONTROLS</div>
-
-
-        <div class="sp-keys">
-          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
-          <span><kbd>SPACE</kbd> fire &#183; hold to charge</span>
-          <span><kbd>P</kbd> pause</span>
-          <span><kbd>M</kbd> mute</span>
-        </div>
+        <div class="sp-rule">1 PLAYER</div>
 
         <button id="spStart" class="sp-start">PRESS START</button>
         <div class="sp-coin">INSERT COIN &#183; CYBERSPACE 2026</div>
@@ -552,24 +535,25 @@ export const TEMPLATE = `
       <span class="arr" id="aDown">&#9660;</span>
     </div>
 
+    <div id="muteFlag" role="status" aria-label="Sound off" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" stroke="none" />
+        <path d="M16 9l5 6M21 9l-5 6" />
+      </svg>
+    </div>
+
     <button id="pauseBtn" aria-label="Pause">II</button>
     <button id="fireBtn" aria-label="Fire">FIRE<br>&#9679;</button>
   </main>
 
-  <footer>
-    <div class="stat"><span>deletions</span> <b id="sDel">0</b></div>
-    <div class="stat"><span>best chain</span> <b id="sChain">0</b></div>
-    <div class="stat"><span>accuracy</span> <b id="sAcc">—</b></div>
-    <div class="stat"><span>best</span> <b id="sBest">0</b></div>
-    <div class="stat"><span>sound</span> <b id="sSnd">on</b></div>
-  </footer>
 </div>
 `;
 
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "dpad", "aUp", "aDown", "aLeft", "aRight",
-  "pauseBtn", "fireBtn", "sDel", "sChain", "sAcc", "sBest", "sSnd",
+  "pauseBtn", "fireBtn", "muteFlag",
 ];
 
 /**
@@ -585,16 +569,22 @@ export function createUI(container) {
   return { root, els };
 }
 
-/** The five footer numbers, from a `statsView(state)`. */
-export function renderStats(els, stats) {
-  els.sDel.textContent = stats.deletions;
-  els.sChain.textContent = stats.bestChain;
-  els.sAcc.textContent = stats.accuracy;
-  els.sBest.textContent = stats.best;
-}
+/**
+ * Live stats have no home in the shell any more: the footer strip (deletions /
+ * best chain / accuracy / best / sound) is gone, and those numbers are shown
+ * on the interlevel and game-over cards, which is where a player reads rather
+ * than fights. Kept as a no-op so the mount can keep announcing `statsChanged`
+ * without knowing whether anything is listening.
+ *
+ * @param {Record<string, Element>} _els
+ * @param {ReturnType<import("../core/select.js").statsView>} _stats
+ */
+export function renderStats(_els, _stats) {}
 
+/** Sound state, as an icon rather than the word "off". */
 export function renderSound(els, on) {
-  els.sSnd.textContent = on ? "on" : "off";
+  els.muteFlag.classList.toggle("on", !on);
+  els.muteFlag.setAttribute("aria-hidden", on ? "true" : "false");
 }
 
 export function statRows(rows) {
