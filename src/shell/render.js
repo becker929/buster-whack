@@ -105,16 +105,32 @@ function drawPanels(ctx, state, now) {
   const G = state.G;
   const oc = state.deletions >= C.OC_START;
   const skin = oc ? PANELS_OC : PANELS;
+  const advancing = C.modeById(state.modeId).advancing;
   for (let r = 0; r < C.ROWS; r++) {
     for (let c = 0; c < C.COLS; c++) {
       const p = panel(G, c, r);
-      const mine = c < C.PCOLS;
+      const mine = c < state.frontier;
       const [fill, edge] = mine ? skin.mine : skin.theirs;
       ctx.fillStyle = fill;
       ctx.strokeStyle = edge;
       ctx.lineWidth = 2;
       ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
       ctx.strokeRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
+      // The seam the player is pushing, lit so a moving boundary is never
+      // something you infer from panel colour. Only drawn where the line
+      // actually moves: in classic the halves are fixed and a pulsing edge
+      // would be decoration on a fact the panel colours already state.
+      if (advancing && c === state.frontier - 1 && state.frontier < C.COLS) {
+        ctx.globalAlpha = 0.5 + 0.28 * Math.sin(now / 260);
+        ctx.strokeStyle = "#45e0e8";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(p.x + p.w - 3, p.y + 4);
+        ctx.lineTo(p.x + p.w - 3, p.y + p.h - 4);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 2;
+      }
       if (oc) {
         // a slow orange tide crossing the grid: overclock you can feel without
         // reading the HUD

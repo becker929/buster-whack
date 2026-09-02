@@ -135,7 +135,7 @@ export function applyIntent(state, action, events) {
     case "pauseOnBlur":
       if (state.mode === "playing" && !state.paused) togglePause(state, events);
       break;
-    case "startRun":     resetGame(state, events); break;
+    case "startRun":     resetGame(state, events, action.modeId); break;
     case "resume":       resumeFromInterlevel(state, events); break;
     case "endRun":       gameOver(state, events); break;
     default: break;      // shell-only intents (mute, …) never reach here
@@ -173,7 +173,7 @@ function move(state, dc, dr, events) {
   if (state.mode !== "playing" || state.paused) return;
   if (state.clock - state.lastMoveAt < C.MOVE_REPEAT_MS) return;
   state.lastMoveAt = state.clock;
-  const col = Math.max(0, Math.min(C.PCOLS - 1, state.player.col + dc));
+  const col = Math.max(0, Math.min(state.frontier - 1, state.player.col + dc));
   const row = Math.max(0, Math.min(C.ROWS - 1, state.player.row + dr));
   const moved = col !== state.player.col || row !== state.player.row;
   if (moved) {
@@ -195,7 +195,11 @@ function togglePause(state, events) {
 
 // ---------- game flow ----------
 
-function resetGame(state, events) {
+function resetGame(state, events, modeId) {
+  const cfg = C.modeById(modeId || state.modeId);
+  state.modeId = cfg.id;
+  state.frontier = cfg.frontier;
+  state.sector = 0;
   state.mode = "playing";
   state.paused = false;
   state.score = 0;
@@ -203,7 +207,7 @@ function resetGame(state, events) {
   state.shots = 0; state.whiffs = 0;
   state.chain = 0; state.bestChain = 0;
   state.timeLeft = C.START_TIME;
-  state.player.col = 1; state.player.row = 1;
+  state.player.col = Math.min(1, state.frontier - 1); state.player.row = 1;
   state.enemies.length = 0;
   state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
   state.waveIdx = 0;
@@ -214,7 +218,7 @@ function resetGame(state, events) {
   state.bolts.length = 0;
   state.hurtUntil = -1e9;
   state.rank = null;
-  events.push({ type: "runStarted" });
+  events.push({ type: "runStarted", modeId: cfg.id });
   events.push({ type: "statsChanged" });
 }
 
@@ -269,10 +273,44 @@ function enterInterlevel(state, events) {
     stage,
     index,
     title: stage.title,
-    desc: stage.desc,
     timeBonus: C.STAGE_BONUS,
   });
   events.push({ type: "statsChanged" });
+}
+
+/**
+ * ADVANCE mode: the wiped wave hands the player the next column. Reaching the
+ * last takeable column breaks the sector — the front resets to a fresh
+ * beachhead, which is what keeps the mode going rather than ending it. Two
+ * enemy columns are always left so wave formations still fit.
+ */
+function advanceFront(state, events) {
+  if (state.frontier >= C.MAX_FRONTIER) {
+    state.sector++;
+    state.frontier = C.ADVANCE_START_FRONTIER;
+    state.player.col = 0;
+    state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ADVANCE_BREAK_BONUS);
+    state.score += C.ADVANCE_BREAK_PTS;
+    // anything still in flight belonged to the sector just broken
+    state.bolts.length = 0;
+    state.enemies.length = 0;
+    events.push({
+      type: "sectorBroken",
+      sector: state.sector,
+      points: C.ADVANCE_BREAK_PTS,
+      timeBonus: C.ADVANCE_BREAK_BONUS,
+    });
+    return;
+  }
+  const claimed = state.frontier;
+  state.frontier++;
+  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.ADVANCE_CLAIM_BONUS);
+  events.push({
+    type: "frontAdvanced",
+    col: claimed,
+    frontier: state.frontier,
+    timeBonus: C.ADVANCE_CLAIM_BONUS,
+  });
 }
 
 function resumeFromInterlevel(state, events) {
@@ -301,7 +339,7 @@ function resumeFromInterlevel(state, events) {
 function freePanels(state, excludeCol, excludeRow) {
   const occ = new Set(state.enemies.map((e) => e.col + "," + e.row));
   const out = [];
-  for (let c = C.PCOLS; c < C.COLS; c++)
+  for (let c = state.frontier; c < C.COLS; c++)
     for (let r = 0; r < C.ROWS; r++) {
       if (c === excludeCol && r === excludeRow) continue;
       if (!occ.has(c + "," + r)) out.push([c, r]);
@@ -459,6 +497,8 @@ function endWave(state, events) {
   state.waveState = "lull";
   state.nextSpawnAt = now + lull;
   state.wave = null;
+  if (cleared && C.modeById(state.modeId).advancing) advanceFront(state, events);
+
   events.push({
     type: "waveEnded", index: wave.index, size: wave.size,
     virusCount: wave.virusCount, kills: wave.kills, cleared,

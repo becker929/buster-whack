@@ -5,9 +5,10 @@
 
 import { createState, setLayout } from "../core/state.js";
 import { step } from "../core/step.js";
-import { STAGE_BONUS } from "../core/constants.js";
+import { STAGE_BONUS, MODES, DEFAULT_MODE } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
-import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows } from "./dom.js";
+import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
+         renderModes, selectMode } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
@@ -105,10 +106,13 @@ export function mountBusterWhack(container, options = {}) {
     renderSound(els, !muted);
   }
 
+  renderModes(els, MODES, DEFAULT_MODE);
   const input = createInput({
     win, host: container, root, els, on, dispatch,
     onGesture: () => audio.resume(),
     onMute: toggleMute,
+    modes: MODES,
+    onModeChange: (id) => selectMode(els, id),
   });
 
   // ---------- core events -> DOM ----------
@@ -139,7 +143,8 @@ export function mountBusterWhack(container, options = {}) {
       rank: v.rank,
       sub: v.sub,
       stats: statRows(v.rows),
-      buttons: [{ label: "RETRY", fn: () => { audio.resume(); dispatch({ type: "startRun" }); } }],
+      // retry the mode you were playing, not whatever the menu last had lit
+      buttons: [{ label: "RETRY", fn: () => { audio.resume(); dispatch({ type: "startRun", modeId: state.modeId }); } }],
     });
   }
 

@@ -55,9 +55,9 @@ export function hudView(state) {
 /** Stat rows for the interlevel card. */
 export function interlevelView(state, stage, stageBonus) {
   return {
-    eyebrow: "new challenge",
+    eyebrow: "",
     title: stage.title,
-    sub: stage.desc,
+    sub: "",
     rows: [
       ["score", String(state.score).padStart(6, "0"), "big"],
       ["deletions", state.deletions],

@@ -429,6 +429,48 @@ export const TEMPLATE = `
     background: linear-gradient(to right, transparent, var(--bw-line), transparent);
   }
 
+  /* mode menu: one row per mode, the selected one lit like a cabinet's
+     illuminated button. Arrow keys move the selection, a tap picks and starts. */
+  .sp-modes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .sp-mode {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--bw-line);
+    border-left: 3px solid var(--bw-line);
+    border-radius: 3px;
+    background: rgba(27, 34, 51, 0.72);
+    color: var(--bw-ink-dim);
+    font: 700 12px/1 ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: 0.16em;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .sp-mode .blurb {
+    margin-left: auto;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--bw-ink-dim);
+  }
+  .sp-mode[aria-checked="true"] {
+    border-color: var(--bw-accent);
+    border-left-color: var(--bw-accent);
+    background: rgba(69, 224, 232, 0.12);
+    color: #d9fbff;
+    box-shadow: 0 0 18px rgba(69, 224, 232, 0.22);
+  }
+  .sp-mode[aria-checked="true"] .blurb { color: var(--bw-accent); }
+  .sp-mode:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 2px; }
+
   .sp-start {
     font: 700 14px/1 ui-monospace, Menlo, Consolas, monospace;
     letter-spacing: 0.24em;
@@ -465,6 +507,8 @@ export const TEMPLATE = `
     .sp-w2 { font-size: clamp(28px, 13cqw, 52px); }
     .sp-hud, .sp-badge, .sp-logo { margin-bottom: 9px; }
     .sp-rule { margin-bottom: 14px; }
+    .sp-modes { gap: 4px; margin-bottom: 12px; }
+    .sp-mode { padding: 7px 10px; }
     .sp-start { padding: 12px 26px; }
     .sp-coin { margin-top: 10px; }
     .sp-floor { height: 48%; opacity: 0.5; }
@@ -520,7 +564,9 @@ export const TEMPLATE = `
           <span class="sp-word sp-w2" data-t="WHACK">WHACK</span>
         </h1>
 
-        <div class="sp-rule">1 PLAYER</div>
+        <div class="sp-rule">SELECT MODE</div>
+
+        <div id="spModes" class="sp-modes" role="radiogroup" aria-label="Game mode"></div>
 
         <button id="spStart" class="sp-start">PRESS START</button>
         <div class="sp-coin">INSERT COIN &#183; CYBERSPACE 2026</div>
@@ -552,7 +598,7 @@ export const TEMPLATE = `
 
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
-  "splash", "spBest", "spStart", "dpad", "aUp", "aDown", "aLeft", "aRight",
+  "splash", "spBest", "spStart", "spModes", "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "muteFlag",
 ];
 
@@ -631,4 +677,37 @@ export function showSplash(els, best) {
   els.spBest.textContent = String(best).padStart(6, "0");
   hideOverlay(els);
   els.splash.classList.remove("hidden");
+}
+
+/**
+ * Render the mode menu from the mode table, so adding a mode is a data change
+ * and never a markup one. Returns the buttons in order.
+ */
+export function renderModes(els, modes, selectedId) {
+  const doc = els.splash.ownerDocument;
+  els.spModes.textContent = "";
+  for (const m of modes) {
+    const b = doc.createElement("button");
+    b.type = "button";
+    b.className = "sp-mode";
+    b.dataset.mode = m.id;
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(m.id === selectedId));
+    const name = doc.createElement("span");
+    name.textContent = m.name;
+    const blurb = doc.createElement("span");
+    blurb.className = "blurb";
+    blurb.textContent = m.blurb;
+    b.appendChild(name);
+    b.appendChild(blurb);
+    els.spModes.appendChild(b);
+  }
+  return Array.from(els.spModes.children);
+}
+
+/** Move the lit row without rebuilding the menu. */
+export function selectMode(els, id) {
+  for (const b of els.spModes.children) {
+    b.setAttribute("aria-checked", String(b.dataset.mode === id));
+  }
 }

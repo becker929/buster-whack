@@ -113,9 +113,27 @@ export function createFireLatch(dispatch) {
  * @param {() => void} o.onMute - toggle sound (shell-side)
  * @returns {{ hold: () => ({dc:number,dr:number}|null), focus: () => void }}
  */
-export function createInput({ win, host, root, els, on, dispatch, onGesture, onMute }) {
+export function createInput({ win, host, root, els, on, dispatch, onGesture, onMute, modes, onModeChange }) {
   const doc = (host && host.ownerDocument) || win.document;
   const latch = createFireLatch(dispatch);
+
+  // ---------- mode selection ----------
+  // The menu only exists on the start screen, so selection lives here rather
+  // than in core state: it is a shell affordance until the moment it seeds a run.
+  const modeList = modes && modes.length ? modes : [{ id: "classic" }];
+  let modeIdx = 0;
+  const modeId = () => modeList[modeIdx].id;
+  function setMode(id) {
+    const i = modeList.findIndex((m) => m.id === id);
+    if (i < 0 || i === modeIdx) return;
+    modeIdx = i;
+    if (onModeChange) onModeChange(modeId());
+  }
+  function stepMode(d) {
+    setMode(modeList[(modeIdx + d + modeList.length) % modeList.length].id);
+  }
+  /** True while the start screen is up, so arrows drive the menu, not the buster. */
+  const onMenu = () => !els.splash.classList.contains("hidden");
 
   // ---------- focus ----------
   // The stage carries `tabindex="0"`, so the game is a real focus target. Any
@@ -151,6 +169,13 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     if (!ownsKeyboard()) return;
 
     const mk = MOVE_KEYS[e.code];
+    // While the start screen is up the arrows drive the menu. Vertical only:
+    // left/right would fight the muscle memory of moving the buster, and the
+    // list is vertical.
+    if (mk && onMenu()) {
+      if (mk[1]) { e.preventDefault(); stepMode(mk[1]); }
+      return;
+    }
     if (mk) { e.preventDefault(); dispatch({ type: "move", dc: mk[0], dr: mk[1] }); return; }
     if (e.code === "KeyP" || e.code === "Escape") { e.preventDefault(); dispatch({ type: "pause" }); return; }
     if (e.code === "KeyM") { e.preventDefault(); onMute(); return; }
@@ -271,12 +296,23 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
   // A click anywhere on the start screen starts the run, arcade-style — click
   // rather than pointerdown so a drag can still scroll the card on a short
   // stage. The button keeps the game's snappier pointerdown feel.
-  on(els.splash, "click", () => { onGesture(); dispatch({ type: "startRun" }); });
+  // Tapping a mode row picks it *and* starts it: on a cabinet you do not
+  // select and then separately confirm. The click handler below would also
+  // fire, so picking stops propagation and starts the run itself.
+  on(els.spModes, "click", (e) => {
+    const row = e.target.closest && e.target.closest(".sp-mode");
+    if (!row) return;
+    e.stopPropagation();
+    onGesture();
+    setMode(row.dataset.mode);
+    dispatch({ type: "startRun", modeId: modeId() });
+  });
+  on(els.splash, "click", () => { onGesture(); dispatch({ type: "startRun", modeId: modeId() }); });
   on(els.spStart, "pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     onGesture();
-    dispatch({ type: "startRun" });
+    dispatch({ type: "startRun", modeId: modeId() });
   });
 
   // ---------- gesture containment ----------

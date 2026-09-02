@@ -10,7 +10,44 @@
 
 export const ROWS = 3;
 export const COLS = 6;
-export const PCOLS = 3;          // leftmost columns are the player's half
+export const PCOLS = 3;          // leftmost columns are the player's half by default
+
+// ---------- modes ----------
+// A mode is a small bag of rule overrides, not a code path: everything below
+// reads `state.mode*` fields seeded from here, so adding a mode never means
+// branching the simulation.
+//
+// ADVANCE reframes the board as a front line. The player starts pinned to a
+// beachhead one column wide; every wave they wipe converts an enemy column to
+// theirs and they can push into it. Take the last takeable column and the
+// sector breaks: the front resets to a fresh beachhead further in, and the
+// pressure steps up. Two enemy columns are always kept so formations still fit.
+export const MIN_ENEMY_COLS = 2;
+export const ADVANCE_START_FRONTIER = 1;
+export const ADVANCE_BREAK_BONUS = 4.0;    // seconds for breaking a sector
+export const ADVANCE_BREAK_PTS = 1500;
+export const ADVANCE_CLAIM_BONUS = 1.0;    // seconds for claiming one column
+
+export const MODES = [
+  {
+    id: "classic",
+    name: "CLASSIC",
+    blurb: "hold the line",
+    frontier: PCOLS,
+    advancing: false,
+  },
+  {
+    id: "advance",
+    name: "ADVANCE",
+    blurb: "take the board",
+    frontier: ADVANCE_START_FRONTIER,
+    advancing: true,
+  },
+];
+export const DEFAULT_MODE = "classic";
+export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
+/** The furthest column the player can ever own, leaving room for enemies. */
+export const MAX_FRONTIER = COLS - MIN_ENEMY_COLS;
 
 // ---------- clock ----------
 
@@ -201,14 +238,14 @@ export const multOf = (chain) => (chain >= 20 ? 4 : chain >= 10 ? 3 : chain >= 5
 // is never handed a mechanic they have not earned. Both sequences ascend, so
 // the gates stay strictly ordered.
 export const STAGES = [
-  { wave: 16,  at: 26,       title: "STEEL GUARDS", desc: "armored viruses — charged shots only" },
-  { wave: 28,  at: 52,       title: "RETALIATION",  desc: "viruses shoot back — a marked row is\nabout to fire; move off it" },
-  { wave: 40,  at: 78,       title: "PROGS ONLINE", desc: "blue friendlies join — hold fire" },
-  { wave: 52,  at: 105,      title: "HOPPERS",      desc: "green hoppers flee, then plant and\nsnipe — their bolt is fast" },
-  { wave: 64,  at: 130,      title: "RARE VIRUS",   desc: "gold jackpot leads a wave in —\nbust it fast" },
-  { wave: 76,  at: OC_START, title: "OVERCLOCK",    desc: "time rewards decay from here on" },
-  { wave: 90,  at: 195,      title: "SWARM",        desc: "the board stops breathing —\nshorter lulls from here" },
-  { wave: 106, at: 235,      title: "MAXIMUM LOAD", desc: "five at once — keep the chain" },
+  { wave: 16,  at: 26,       title: "STEEL GUARDS" },
+  { wave: 28,  at: 52,       title: "RETALIATION" },
+  { wave: 40,  at: 78,       title: "PROGS ONLINE" },
+  { wave: 52,  at: 105,      title: "HOPPERS" },
+  { wave: 64,  at: 130,      title: "RARE VIRUS" },
+  { wave: 76,  at: OC_START, title: "OVERCLOCK" },
+  { wave: 90,  at: 195,      title: "SWARM" },
+  { wave: 106, at: 235,      title: "MAXIMUM LOAD" },
 ];
 export const STAGE_BONUS = 2.0;
 

@@ -38,6 +38,28 @@ const H = 640;
 
 export const scenarios = [
   {
+    name: "advance-front",
+    title: "ADVANCE mode: the front line",
+    why: "The mode's whole read is territory. Classic owns three fixed columns; advance starts on a one-column beachhead and claims a column per wave wiped, so ownership and the lit seam must both track `state.frontier` rather than the PCOLS constant. Captured at the beachhead, mid-push and one column short of breaking the sector — the panel colours should move right with the line, and the pulsing seam should sit on the last owned column. Classic must show no seam at all, which `empty-field` pins.",
+    seed: 61,
+    width: W,
+    height: H,
+    frames: 40,
+    capture: [
+      { at: 6, as: "beachhead" },
+      { at: 18, as: "pushed" },
+      { at: 34, as: "last-column" },
+    ],
+    cues: [
+      { at: 0, set: { modeId: "advance", frontier: 1, "player.col": 0, sector: 0 } },
+      // deliberately stand the player OFF the front column: on it, the player's
+      // own panel highlight covers the seam and the scenario would pin nothing
+      { at: 12, set: { frontier: 2, "player.col": 0 } },
+      { at: 28, set: { frontier: 4, "player.col": 1, sector: 1 } },
+    ],
+  },
+
+  {
     name: "empty-field",
     title: "Empty field",
     why: "Board panels, the player sprite, the player's panel highlight and the resting HUD. The baseline every other scenario is a delta from.",
