@@ -6,7 +6,7 @@
 import { createState, setLayout } from "../core/state.js";
 import { step } from "../core/step.js";
 import { STAGE_BONUS } from "../core/constants.js";
-import { statsView, interlevelView, gameOverView } from "../core/select.js";
+import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
@@ -171,6 +171,11 @@ export function mountBusterWhack(container, options = {}) {
 
     audio.handleAll(events);
     for (const ev of events) handleEvent(ev);
+
+    // Continuous audio (music transport, the charge sweep, the low-time alarm)
+    // is derived from the same view model the HUD draws, rather than from
+    // events, so no transition can be missed and nothing can be left ringing.
+    audio.observe(hudView(state), state.charge.downAt !== null, state.charge.full);
 
     draw(ctx, state, state.clock);
 
