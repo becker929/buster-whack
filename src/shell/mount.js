@@ -56,7 +56,22 @@ export function mountBusterWhack(container, options = {}) {
   const seed = options.seed !== undefined
     ? options.seed
     : ((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
-  const state = createState({ seed, best });
+  // The renderer never touches a DOM, so the media query is read here and
+  // handed to the core as data. Guarded: matchMedia is absent in jsdom.
+  const motionQuery = win.matchMedia
+    ? win.matchMedia("(prefers-reduced-motion: reduce)")
+    : null;
+  const state = createState({ seed, best, reducedMotion: !!(motionQuery && motionQuery.matches) });
+  // Honour the OS toggle flipping mid-run. addEventListener is the modern API;
+  // Safari before 14 only has addListener, hence the fallback.
+  if (motionQuery) {
+    const onMotion = (e) => { state.reducedMotion = e.matches; };
+    if (motionQuery.addEventListener) on(motionQuery, "change", onMotion);
+    else if (motionQuery.addListener) {
+      motionQuery.addListener(onMotion);
+      cleanupFns.push(() => motionQuery.removeListener(onMotion));
+    }
+  }
 
   // ---------- geometry ----------
   // The only place an element is measured. The core and the renderer see
