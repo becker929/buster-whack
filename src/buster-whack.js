@@ -399,38 +399,6 @@ const TEMPLATE = `
     background: linear-gradient(to right, transparent, var(--bw-line), transparent);
   }
 
-  /* virus roster: teaches each enemy by its actual in-game colour */
-  .sp-roster {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-    gap: 5px;
-    margin-bottom: 14px;
-    text-align: left;
-  }
-  .sp-vir {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 8px;
-    border: 1px solid var(--bw-line);
-    border-left: 2px solid var(--dome);
-    border-radius: 3px;
-    background: rgba(27, 34, 51, 0.72);
-    font-size: 10px;
-    color: var(--bw-ink-dim);
-    line-height: 1.35;
-  }
-  .sp-vir i {
-    flex: none;
-    width: 15px;
-    height: 10px;
-    border-radius: 9px 9px 2px 2px;
-    background: linear-gradient(180deg, var(--dome), var(--stripe));
-    filter: drop-shadow(0 0 4px var(--dome));
-  }
-  .sp-vir b { display: block; color: var(--bw-ink); font-weight: 700; letter-spacing: 0.06em; }
-  .sp-vir.wide { grid-column: 1 / -1; }
-
   /* control legend as keycaps */
   .sp-keys {
     display: flex;
@@ -488,15 +456,12 @@ const TEMPLATE = `
     .sp-w2 { font-size: clamp(28px, 13cqw, 52px); }
     .sp-hud, .sp-badge, .sp-logo { margin-bottom: 9px; }
     .sp-rule { margin-bottom: 11px; }
-    .sp-roster { gap: 4px; margin-bottom: 10px; }
-    .sp-vir { padding: 4px 7px; }
     .sp-keys { margin-bottom: 13px; }
     .sp-start { padding: 12px 26px; }
     .sp-coin { margin-top: 10px; }
     .sp-floor { height: 48%; opacity: 0.5; }
   }
   @container bwstage (max-height: 430px) {
-    .sp-roster { display: none; }
     .sp-floor { opacity: 0.32; }
   }
   @container bwstage (max-height: 340px) {
@@ -542,15 +507,8 @@ const TEMPLATE = `
           <span class="sp-word sp-w2" data-t="WHACK">WHACK</span>
         </h1>
 
-        <div class="sp-rule">THREAT INDEX</div>
+        <div class="sp-rule">CONTROLS</div>
 
-        <ul class="sp-roster">
-          <li class="sp-vir" style="--dome: #ffd23f; --stripe: #c9992a"><i></i><span><b>METT</b>tap to delete</span></li>
-          <li class="sp-vir" style="--dome: #aeb9d6; --stripe: #6c7794"><i></i><span><b>STEEL</b>charged shots only</span></li>
-          <li class="sp-vir" style="--dome: #5ee87c; --stripe: #1f7c3d"><i></i><span><b>HOPPER</b>2 taps or 1 charge</span></li>
-          <li class="sp-vir" style="--dome: #58c7ff; --stripe: #2a7ab8"><i></i><span><b>PROG</b>ally &#183; hold fire</span></li>
-          <li class="sp-vir wide" style="--dome: #fff3c4; --stripe: #e8a020"><i></i><span><b>RARE</b>gold jackpot &#183; bust it fast</span></li>
-        </ul>
 
         <div class="sp-keys">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
@@ -699,6 +657,9 @@ export function mountBusterWhack(container, options = {}) {
     rareSpawn: () => { tone(1047, 0.05, { gain: 0.035 }); tone(1319, 0.05, { delay: 0.05, gain: 0.035 }); tone(1568, 0.08, { delay: 0.1, gain: 0.035 }); },
     rareGet: () => { tone(784, 0.07, { gain: 0.05 }); tone(988, 0.07, { delay: 0.07, gain: 0.05 }); tone(1175, 0.07, { delay: 0.14, gain: 0.05 }); tone(1568, 0.14, { delay: 0.21, gain: 0.05 }); },
     over:    () => { tone(392, 0.12, { gain: 0.05 }); tone(311, 0.12, { delay: 0.13, gain: 0.05 }); tone(233, 0.25, { delay: 0.26, gain: 0.05 }); },
+    aim:     () => tone(190, 0.10, { type: "sawtooth", slide: 110, gain: 0.03 }),
+    bolt:    () => tone(300, 0.07, { type: "square", slide: -170, gain: 0.035 }),
+    hurt:    () => { tone(150, 0.22, { type: "sawtooth", slide: -70, gain: 0.09 }); tone(92, 0.28, { type: "square", delay: 0.02, slide: -40, gain: 0.07 }); },
   };
 
   // ---------- constants ----------
@@ -729,6 +690,18 @@ export function mountBusterWhack(container, options = {}) {
   // so every run mathematically ends. 0.995 sets the slope; rares decay at
   // sqrt of the factor — half the exponential rate — so late-game survival
   // becomes rare-hunting rather than a fixed death spiral.
+  // counterattack: a virus marks its row, then fires back down it. The mark
+  // plus the bolt's travel time is the whole dodge window, so both tighten
+  // with level rather than the attack simply becoming more frequent.
+  const ATTACK_START = 12;
+  const HIT_TIME_PENALTY = 2.5;
+  const HIT_IFRAME_MS = 800;
+  const HURT_SHAKE_MS = 260;
+  const aimMs = (del) => Math.max(280, 620 - (del - ATTACK_START) * 6);
+  const boltPanelMs = (del) => Math.max(95, 190 - (del - ATTACK_START) * 0.8);
+  const attackChance = (del) =>
+    (del < ATTACK_START ? 0 : Math.min(0.55, 0.22 + (del - ATTACK_START) * 0.004));
+
   const OC_START = 60;
   const bonusFactor = (del) => (del < OC_START ? 1 : Math.pow(0.995, del - OC_START));
 
@@ -737,7 +710,8 @@ export function mountBusterWhack(container, options = {}) {
   // stage gates: each new mechanic pauses the run for a splash + continue/end choice
   const STAGES = [
     { at: 8,   title: "STEEL GUARDS", desc: "armored viruses — charged shots only" },
-    { at: 20,  title: "PROGS ONLINE", desc: "blue friendlies join — hold fire\nviruses now attack \u00d72 at once" },
+    { at: 12,  title: "RETALIATION",  desc: "viruses shoot back — a marked row is\nabout to fire; move off it" },
+    { at: 20,  title: "PROGS ONLINE", desc: "blue friendlies join — hold fire\ntwo viruses at once" },
     { at: 30,  title: "HOPPERS",      desc: "green hoppers flee — 2 taps or 1 charge" },
     { at: 50,  title: "RARE VIRUS",   desc: "gold jackpot spawns — bust it fast" },
     { at: 60,  title: "OVERCLOCK",    desc: "time rewards decay from here on" },
@@ -760,7 +734,9 @@ export function mountBusterWhack(container, options = {}) {
     chain: 0, bestChain: 0,
     timeLeft: START_TIME,
     player: { col: 1, row: 1 },
-    enemies: [],             // { col,row,type,state,t0,hp, lastHop,hopT0, fx?,tier? }
+    enemies: [],             // { col,row,type,state,t0,hp, lastHop,hopT0, fx?,tier?, willAttack,fired }
+    bolts: [],               // incoming fire: { row, x, speed, heavy }
+    hurtUntil: -1e9,         // i-frames, so one volley can't drain the clock
     nextSpawnAt: 0,
     stageIdx: 0,
     charge: { downAt: null, full: false },
@@ -773,6 +749,7 @@ export function mountBusterWhack(container, options = {}) {
       ray: { t0: -1e9, row: 0, hitCol: null, x0: 0, x1: 0, dur: 1, tier: "normal" },
       popups: [],
       sparks: [],
+      hurtT0: -1e9,
     },
     lastFrame: 0,
   };
@@ -795,6 +772,9 @@ export function mountBusterWhack(container, options = {}) {
     S.stageIdx = 0;
     S.fx.popups.length = 0;
     S.fx.sparks.length = 0;
+    S.fx.hurtT0 = -1e9;
+    S.bolts.length = 0;
+    S.hurtUntil = -1e9;
     S.rank = null;
     hideOverlay();
     renderStats();
@@ -817,6 +797,7 @@ export function mountBusterWhack(container, options = {}) {
       try { localStorage.setItem(storageKey, String(S.best)); } catch (e) {}
     }
     S.enemies.length = 0;
+    S.bolts.length = 0;
     S.charge.downAt = null; S.charge.full = false;
     sfx.over();
     renderStats();
@@ -847,10 +828,17 @@ export function mountBusterWhack(container, options = {}) {
     return "mett";
   }
 
+  // Only metts and steel guards retaliate: hoppers already pressure you by
+  // fleeing, progs are friendly, and a rare's window is too short to chase
+  // under fire.
+  const canRetaliate = (type) => type === "mett" || type === "guard";
+
   function lifeOf(e) {
     if (e.type === "hopper") return HOPPER_LIFE;
     if (e.type === "rare") return RARE_LIFE;
-    return upMs(S.deletions);
+    const base = upMs(S.deletions);
+    // an attacker sticks around long enough to actually follow through
+    return e.willAttack ? Math.max(base, aimMs(S.deletions) + 300) : base;
   }
 
   function updateEnemies(now) {
@@ -868,6 +856,8 @@ export function mountBusterWhack(container, options = {}) {
           riseMs: type === "ally" ? ALLY_RISE_MS : RISE_MS,
           hp: type === "hopper" ? 2 : 1,
           lastHop: now, hopT0: -1e9,
+          willAttack: canRetaliate(type) && Math.random() < attackChance(S.deletions),
+          fired: false,
         });
         S.nextSpawnAt = now + gapMs(S.deletions) + Math.random() * 200;
         if (type === "rare") sfx.rareSpawn();
@@ -879,7 +869,10 @@ export function mountBusterWhack(container, options = {}) {
       const t = now - e.t0;
       switch (e.state) {
         case "rising":
-          if (t >= (e.riseMs || RISE_MS)) { e.state = "up"; e.t0 = now; e.lastHop = now; }
+          if (t >= (e.riseMs || RISE_MS)) {
+            e.state = "up"; e.t0 = now; e.lastHop = now;
+            if (e.willAttack) sfx.aim();
+          }
           break;
         case "up": {
           if (e.type === "hopper" && now - e.lastHop >= HOP_MS) {
@@ -891,6 +884,10 @@ export function mountBusterWhack(container, options = {}) {
               sfx.hop();
             }
             e.lastHop = now;
+          }
+          if (e.willAttack && !e.fired && t >= aimMs(S.deletions)) {
+            fireBolt(e, now);
+            e.fired = true;
           }
           if (t >= lifeOf(e)) { e.state = "sinking"; e.t0 = now; }
           break;
@@ -911,6 +908,55 @@ export function mountBusterWhack(container, options = {}) {
           break;
       }
     }
+  }
+
+  // ---------- incoming fire ----------
+
+  function fireBolt(e, now) {
+    const p = panelRect(e.col, e.row);
+    S.bolts.push({
+      row: e.row,
+      x: p.x + p.w / 2,
+      speed: G.pw / boltPanelMs(S.deletions),   // px per ms, travelling left
+      heavy: e.type === "guard",
+    });
+    sfx.bolt();
+  }
+
+  // dt rather than the clock: bolts move in real time, and the early return
+  // freezes them for pause and the interlevel card alike.
+  function updateBolts(now, dt) {
+    if (S.mode !== "playing" || S.paused) return;
+    const pr = panelRect(S.player.col, S.player.row);
+    const px = pr.x + pr.w / 2;
+    const hitR = G.pw * 0.3;
+    for (let i = S.bolts.length - 1; i >= 0; i--) {
+      const b = S.bolts[i];
+      b.x -= b.speed * dt;
+      if (b.row === S.player.row && now >= S.hurtUntil && Math.abs(b.x - px) <= hitR) {
+        S.bolts.splice(i, 1);
+        takeHit(now);
+        continue;
+      }
+      if (b.x < G.gx - G.pw * 0.5) S.bolts.splice(i, 1);
+    }
+  }
+
+  function takeHit(now) {
+    S.hurtUntil = now + HIT_IFRAME_MS;
+    S.fx.hurtT0 = now;
+    S.timeLeft = Math.max(0, S.timeLeft - HIT_TIME_PENALTY);
+    S.chain = 0;
+    S.charge.downAt = null; S.charge.full = false;   // a hit spills your charge
+    const p = panelRect(S.player.col, S.player.row);
+    S.fx.popups.push({
+      x: p.x + p.w / 2, y: p.y - 8, t0: now,
+      text: "HIT −" + HIT_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
+    });
+    S.fx.sparks.push({ x: p.x + p.w / 2, y: p.y + p.h * 0.3, t0: now });
+    sfx.hurt();
+    renderStats();
+    // the clock running out is the frame loop's call, same as any other drain
   }
 
   // ---------- shooting ----------
@@ -1245,6 +1291,80 @@ export function mountBusterWhack(container, options = {}) {
     }
   }
 
+  // shared firing line for both sides, so a bolt visibly occupies the lane
+  // the player's own tracer runs down
+  const laneY = (row) => panelRect(0, row).y + G.ph * 0.78 - G.ph * 1.15 * 0.42;
+
+  // The telegraph is the whole fairness budget: the lane the shot will sweep
+  // fills toward the player as the aim completes, and a chevron marks the row
+  // at the player's edge so the threat is readable without looking away.
+  function drawAim(now) {
+    if (S.mode !== "playing") return;
+    const am = aimMs(S.deletions);
+    for (const e of S.enemies) {
+      if (!e.willAttack || e.fired || e.state !== "up") continue;
+      const q = Math.min(1, (now - e.t0) / am);
+      const p = panelRect(e.col, e.row);
+      const x1 = p.x + p.w / 2;
+      const y = laneY(e.row);
+      const pulse = 0.55 + 0.45 * Math.sin(now / 42);
+
+      ctx.save();
+      ctx.fillStyle = "#ff5470";
+      ctx.globalAlpha = 0.05 + 0.13 * q;
+      ctx.fillRect(G.gx + 3, p.y + 3, x1 - G.gx - 3, p.h - 6);
+
+      ctx.globalAlpha = (0.2 + 0.4 * q) * pulse;
+      ctx.strokeStyle = "#ff5470";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 7]);
+      ctx.beginPath();
+      ctx.moveTo(G.gx + 6, y);
+      ctx.lineTo(x1, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = q > 0.75 ? "#ffd23f" : "#ff5470";
+      ctx.beginPath();
+      ctx.moveTo(G.gx + 4, y);
+      ctx.lineTo(G.gx + 15, y - 7);
+      ctx.lineTo(G.gx + 15, y + 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawBolts(now) {
+    for (const b of S.bolts) {
+      const y = laneY(b.row);
+      const r = b.heavy ? 11 : 8;
+      const grad = ctx.createLinearGradient(b.x + r * 6, 0, b.x, 0);
+      grad.addColorStop(0, "rgba(255,84,112,0)");
+      grad.addColorStop(1, b.heavy ? "#ff9f45" : "#ff5470");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = r * 0.8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(b.x + r * 6, y);
+      ctx.lineTo(b.x, y);
+      ctx.stroke();
+      ctx.lineCap = "butt";
+
+      ctx.fillStyle = b.heavy ? "#ffd23f" : "#ff8ba0";
+      ctx.beginPath();
+      ctx.moveTo(b.x - r, y);
+      ctx.lineTo(b.x, y - r * 0.8);
+      ctx.lineTo(b.x + r * 0.7, y);
+      ctx.lineTo(b.x, y + r * 0.8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(b.x - r * 0.3, y - 2, r * 0.5, 4);
+    }
+  }
+
   function drawPlayer(now) {
     const p = panelRect(S.player.col, S.player.row);
     const eRecoil = S.fx.recoil.value(now);
@@ -1253,6 +1373,9 @@ export function mountBusterWhack(container, options = {}) {
     const bw = G.pw * 0.34, bh = G.ph * 1.15;
     const cx = p.x + p.w / 2 + rx;
     const baseY = p.y + p.h * 0.78;
+
+    const flicker = now < S.hurtUntil && Math.floor(now / 70) % 2 === 0;
+    if (flicker) ctx.globalAlpha = 0.35;
 
     ctx.fillStyle = "#4f8dff";
     ctx.fillRect(cx - bw / 2, baseY - bh, bw, bh);
@@ -1263,6 +1386,7 @@ export function mountBusterWhack(container, options = {}) {
     const rayY = baseY - bh * 0.42;
     ctx.fillStyle = "#ffd23f";
     ctx.fillRect(cx + bw / 2 - 2, rayY - 5, bw * 0.55, 10);
+    ctx.globalAlpha = 1;
 
     const cdn = S.charge.downAt;
     if (cdn !== null && S.mode === "playing") {
@@ -1533,6 +1657,12 @@ export function mountBusterWhack(container, options = {}) {
       ctx.fillText("OVERCLOCK ×" + bonusFactor(S.deletions).toFixed(2), barX + 60, barY + 24);
     }
 
+    const ht = now - S.fx.hurtT0;
+    if (S.mode === "playing" && ht >= 0 && ht < 190) {
+      ctx.fillStyle = "rgba(255,84,112," + (0.18 * (1 - ht / 190)).toFixed(3) + ")";
+      ctx.fillRect(0, 0, G.w, G.h);
+    }
+
     if (S.mode === "playing" && S.paused) {
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(27,34,51,0.75)";
@@ -1565,15 +1695,26 @@ export function mountBusterWhack(container, options = {}) {
       move(padState.dc, padState.dr, S.clock);
     }
     updateEnemies(S.clock);
+    updateBolts(S.clock, dt);
 
     const now = S.clock;
     ctx.clearRect(0, 0, G.w, G.h);
+
+    const ht = now - S.fx.hurtT0;
+    const shake = ht >= 0 && ht < HURT_SHAKE_MS ? (1 - ht / HURT_SHAKE_MS) * 7 : 0;
+    ctx.save();
+    if (shake) ctx.translate(Math.sin(ht / 18) * shake, Math.cos(ht / 13) * shake * 0.6);
+
     drawPanels();
+    drawAim(now);
     const { rayY, busterX } = drawPlayer(now);
     for (const e of S.enemies) drawEnemy(now, e);
+    drawBolts(now);
     drawShots(now, rayY, busterX);
     drawSparks(now);
     drawPopups(now);
+    ctx.restore();
+
     drawHUD(now);
 
     rafId = requestAnimationFrame(frame);
@@ -1654,6 +1795,7 @@ export function mountBusterWhack(container, options = {}) {
     S.mode = "interlevel";
     S.charge.downAt = null;
     S.charge.full = false;
+    S.bolts.length = 0;   // don't resume the run into a bolt you can't see coming
     S.timeLeft = Math.min(TIME_CAP, S.timeLeft + STAGE_BONUS);
     sfx.rankup();
     renderStats();

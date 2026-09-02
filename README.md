@@ -1,9 +1,9 @@
 # Buster Whack
 
 A virus-busting, whack-a-mole arcade minigame. Tap the mole panels before
-they sink, chain hits for score multipliers, and survive the escalating
-"overclock" as the run speeds up. Built with plain Canvas 2D — no build step,
-no dependencies.
+they sink, chain hits for score multipliers, dodge the fire they send back,
+and survive the escalating "overclock" as the run speeds up. Built with plain
+Canvas 2D — no build step, no dependencies.
 
 It ships as a single ES module that renders into a Shadow DOM, so it drops
 into any page (or any "artifact"/widget host) without its CSS, element IDs,
@@ -78,6 +78,9 @@ mountBusterWhack(container: HTMLElement, options?: {
 
 - Move: on-screen analog ring, arrow keys, or WASD
 - Fire: tap / click / Space — hold to charge a stronger shot
+- Dodge: from 12 deletions on, viruses shoot back. A virus about to fire
+  marks its row with a dashed line and a chevron at your edge of the field —
+  move off that row. A hit costs 2.5s off the clock and breaks your chain.
 - `P` or `Esc`: pause · `M`: mute
 
 ## Development
