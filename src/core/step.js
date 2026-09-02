@@ -81,6 +81,12 @@ function firePressed(state, events) {
 }
 
 function fireReleased(state, events) {
+  // `canFire` *is* "nothing is holding the button". A release with nothing
+  // pressed is not ours — a stray pointerup elsewhere on the page, a keyup for
+  // a keydown we never took — and must not spend a charge or re-arm the latch.
+  // The shell keys releases to the source that pressed; this is the core
+  // refusing to be confused even if some other shell does not.
+  if (state.canFire) return;
   state.canFire = true;
   if (state.charge.downAt !== null && state.charge.full &&
       state.mode === "playing" && !state.paused) {
