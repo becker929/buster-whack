@@ -29,6 +29,20 @@ export const ARENA_CLEAR_PTS = 1500;
 export const ARENA_ENTRY_DELAY_MS = 650;  // the beat between stepping in and the wave waking
 export const CAM_TAU_MS = 170;            // camera ease: 63% of the way per TAU
 
+// An arena guards the road with a POOL of viruses, dealt in waves. A wave is
+// the group that joins the board together; its members stay until deleted,
+// and the next wave is dealt only once the whole wave is dead. The road opens
+// when the pool is spent. So "enemies on screen" and "enemies guarding the
+// road" are different numbers: arena 0 is four viruses in two waves of two.
+// Ramps by arena index, independent of the stage-gate syllabus.
+export const ARENA_WAVE_GAP_MS = 550;     // the beat between a wave dying and the next dealing
+export const REFIRE_MS = 1400;            // a persistent attacker re-aims this long after firing
+export function arenaPlan(idx) {
+  const pool = Math.min(16, 4 + 2 * idx);
+  const waveSize = Math.min(5, 2 + Math.floor(idx / 2));
+  return { pool, waveSize };
+}
+
 export const MODES = [
   { id: "classic", name: "CLASSIC", blurb: "hold the line",  advancing: false },
   { id: "advance", name: "ADVANCE", blurb: "take the board", advancing: true },

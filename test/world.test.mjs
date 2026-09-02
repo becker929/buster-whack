@@ -17,12 +17,31 @@ function advanceGame(seed = 3) {
   return s;
 }
 
-/** Stage an active wave whose viruses are all dead, so the next tick ends it. */
-function stageWipedWave(s, kills, virusCount = 1) {
+/**
+ * Stage an active wave whose viruses are all dead, so the next tick ends it.
+ * By default it is the arena's last wave (the pool is marked spent), so the
+ * wipe opens the road; pass `final: false` to leave pool behind it.
+ */
+function stageWipedWave(s, kills, virusCount = 1, final = true) {
+  const a = activeArena(s.world);
+  if (final) a.dealt = a.pool;
   s.waveState = "active";
   s.wave = { index: s.waveIdx, size: virusCount, virusCount, kills, startedAt: s.clock,
              deadline: s.clock + 1e9, queue: [] };
   s.enemies.length = 0;
+}
+
+/** Spawn every queued slot now and mark the wave fully dealt onto the board. */
+function dealQueue(s) {
+  for (const slot of s.wave.queue) slot.at = s.clock;
+  step(s, 16, []);
+}
+
+/** Delete every live virus of the current wave and let the wave end. */
+function wipeBoard(s) {
+  s.wave.kills = s.wave.virusCount;
+  s.enemies.length = 0;
+  return step(s, 16, []);
 }
 
 test("a fresh world is one enemy-held arena at the origin", () => {
@@ -207,4 +226,130 @@ test("classic's camera is pinned at the origin for the whole run", () => {
     step(s, 16, i % 7 === 0 ? [{ type: "firePressed" }, { type: "fireReleased" }] : []);
     assert.equal(s.cam, 0);
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// The arena pool: waves are dealt from it, persist, and the road opens when it
+// is spent.
+// ---------------------------------------------------------------------------
+
+test("arena 0 guards its road with four viruses in two waves of two", () => {
+  const plan = C.arenaPlan(0);
+  assert.deepEqual(plan, { pool: 4, waveSize: 2 });
+  // and the ramp grows both numbers without ever exceeding the board
+  for (let i = 0; i < 40; i++) {
+    const p = C.arenaPlan(i);
+    assert.ok(p.waveSize <= C.MAX_ALIVE && p.waveSize <= (C.COLS - C.PCOLS) * C.ROWS);
+    assert.ok(p.pool >= p.waveSize);
+  }
+});
+
+test("the second wave is not dealt until the first is entirely dead; the road opens after the pool", () => {
+  const s = advanceGame(5);
+  const a = activeArena(s.world);
+  s.nextSpawnAt = s.clock;
+  step(s, 16, []);                                   // wave 1 planned
+  assert.ok(s.wave, "wave 1 should be dealt");
+  assert.equal(s.wave.virusCount, 2, "two join at once");
+  assert.equal(a.dealt, 2);
+  dealQueue(s);
+  const w1 = s.enemies.filter((e) => e.type !== "ally");
+  assert.equal(w1.length, 2);
+  assert.ok(w1.every((e) => e.persistent), "pool viruses persist");
+
+  // kill one: nothing new arrives, however long you wait
+  s.enemies.splice(s.enemies.indexOf(w1[0]), 1);
+  s.wave.kills = 1;
+  for (let i = 0; i < 300; i++) step(s, 16, []);
+  assert.equal(a.dealt, 2, "the pool must not deal while a wave member lives");
+  assert.equal(s.world.segs.length, 1);
+
+  // kill the other: the wave ends, and the next is dealt after a beat
+  let ev = wipeBoard(s);
+  assert.ok(ev.some((e) => e.type === "waveEnded" && e.cleared));
+  assert.ok(!ev.some((e) => e.type === "arenaCleared"), "two of four is not the road");
+  assert.equal(s.world.segs.length, 1);
+  assert.ok(Number.isFinite(s.nextSpawnAt) && s.nextSpawnAt - s.clock <= C.ARENA_WAVE_GAP_MS + 1);
+  for (let i = 0; i < 60 && !s.wave; i++) step(s, 16, []);
+  assert.ok(s.wave, "wave 2 should be dealt");
+  assert.equal(s.wave.virusCount, 2);
+  assert.equal(a.dealt, 4, "the pool is now spent");
+  dealQueue(s);
+
+  // wipe it: the road opens
+  ev = wipeBoard(s);
+  assert.ok(ev.some((e) => e.type === "arenaCleared"), "four of four opens the road");
+  assert.equal(s.world.segs.length, 3);
+  assert.equal(s.nextSpawnAt, Infinity);
+});
+
+test("a pool virus never sinks on its own", () => {
+  const s = advanceGame(5);
+  s.nextSpawnAt = s.clock;
+  step(s, 16, []);
+  dealQueue(s);
+  const v = s.enemies.find((e) => e.persistent);
+  assert.ok(v);
+  // Fund the clock: the run must not end mid-test, or game-over clears the
+  // board and the assertion below would fail for the wrong reason.
+  s.timeLeft = 120;
+  for (let i = 0; i < 60000 / 16; i++) step(s, 16, []);   // a full minute
+  assert.equal(s.mode, "playing", "the run must still be live for this to mean anything");
+  assert.ok(s.enemies.includes(v), "still on the board");
+  assert.notEqual(v.state, "sinking");
+});
+
+test("a persistent attacker re-aims after firing instead of going quiet", () => {
+  const s = advanceGame(5);
+  s.stageIdx = C.UNLOCK.retaliate;   // retaliation unlocked
+  s.nextSpawnAt = s.clock;
+  step(s, 16, []);
+  dealQueue(s);
+  const v = s.enemies.find((e) => e.persistent && e.type === "mett");
+  assert.ok(v && v.willAttack, "an unlocked pool mett always shoots");
+  let fired = 0, aims = 0;
+  for (let i = 0; i < 8000 / 16; i++) {
+    for (const ev of step(s, 16, [])) {
+      if (ev.type === "enemyFired") fired++;
+      if (ev.type === "enemyAim") aims++;
+    }
+  }
+  assert.ok(fired >= 3, `expected repeated volleys over 8s, got ${fired}`);
+  assert.ok(aims >= fired, "every volley is telegraphed");
+});
+
+test("in classic nothing persists and rares still appear in the composition path", () => {
+  const s = newGame({ seed: 5, spawn: true });
+  for (let i = 0; i < 200; i++) step(s, 16, []);
+  assert.ok(s.enemies.every((e) => !e.persistent));
+});
+
+test("a square that has scrolled off the left edge cannot be stood on", () => {
+  const s = advanceGame(5);
+  stageWipedWave(s, 1);
+  step(s, 16, []);
+  // pretend the view has moved on to column 3.4: columns 0..2 are gone
+  s.cam = 3.4; s.camAnchor = 3.4;
+  s.player.col = 4; s.player.row = 1;
+  s.lastMoveAt = -1e9;
+  step(s, 0, [{ type: "move", dc: -1, dr: 0 }]);
+  assert.equal(s.player.col, 3, "column 3 is still partly on screen");
+  s.lastMoveAt = -1e9;
+  step(s, 0, [{ type: "move", dc: -1, dr: 0 }]);
+  assert.equal(s.player.col, 3, "column 2 has scrolled past: a wall");
+});
+
+test("the camera only ever moves right", () => {
+  const s = advanceGame(5);
+  stageWipedWave(s, 1);
+  step(s, 16, []);
+  s.player.col = 5;
+  for (let i = 0; i < 200; i++) step(s, 16, []);
+  const far = s.cam;
+  assert.ok(far > 3, "the view should have led toward the road");
+  // walking back left must not drag the view back with you
+  s.player.col = 4;
+  for (let i = 0; i < 200; i++) step(s, 16, []);
+  assert.ok(s.cam >= far - 1e-9, `camera retreated from ${far} to ${s.cam}`);
 });

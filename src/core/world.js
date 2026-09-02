@@ -18,7 +18,7 @@
  * renderer, as a translate. Deterministic: road heights come from state.rng.
  */
 
-import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE } from "./constants.js";
+import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE, arenaPlan } from "./constants.js";
 
 export const TILE = {
   PLAYER: "player",
@@ -35,7 +35,13 @@ export function createWorld() {
 }
 
 function arena(x0, idx) {
-  return { kind: "arena", x0, cols: COLS, idx, owner: "enemy", entered: idx === 0 };
+  const plan = arenaPlan(idx);
+  return {
+    kind: "arena", x0, cols: COLS, idx, owner: "enemy", entered: idx === 0,
+    // the guard: how many viruses hold this road, how many join at once, and
+    // how many have been dealt so far. Only advance reads these.
+    pool: plan.pool, waveSize: plan.waveSize, dealt: 0,
+  };
 }
 
 /** The arena the player is fighting in or walking toward: always the last one. */

@@ -180,11 +180,15 @@ function move(state, dc, dr, events) {
   // moves in the other -- the ring presses both axes on a diagonal, and a
   // wall should not cancel the half of the input that was fine. In classic
   // this is exactly the old clamp to the player's half.
+  //
+  // And never a square that has already scrolled off the left edge of the
+  // window: the camera only moves right, so that wall only ever advances.
   const world = state.world;
+  const wall = Math.floor(state.cam || 0);
   let col = state.player.col, row = state.player.row;
   const sc = Math.sign(dc), sr = Math.sign(dr);
   for (let i = 0; i < Math.abs(dc); i++) {
-    if (col + sc < 0 || !walkable(world, col + sc, row)) break;
+    if (col + sc < wall || !walkable(world, col + sc, row)) break;
     col += sc;
   }
   for (let i = 0; i < Math.abs(dr); i++) {
@@ -323,9 +327,11 @@ function updateWorld(state, events) {
   // out of a taken arena as you cross its right half and settles into the
   // lock position as you arrive, with no jump at either end.
   const fighting = a.entered && a.owner === "enemy";
-  const target = fighting
-    ? a.x0
-    : Math.max(state.camAnchor, Math.min(a.x0, state.player.col - 1));
+  const want = fighting ? a.x0 : Math.min(a.x0, state.player.col - 1);
+  // monotonic: the view slides forward with you and never back, so a square
+  // that has left the screen is gone for good
+  state.camAnchor = Math.max(state.camAnchor, want);
+  const target = state.camAnchor;
   const dt = Math.max(0, now - state.camClock);
   state.camClock = now;
   const d = target - state.cam;
@@ -394,17 +400,25 @@ function planWave(state) {
   const now = state.clock;
   const idx = state.waveIdx;
   const stage = state.stageIdx;
-  const size = C.waveSize(stage);
+  let size = C.waveSize(stage);
   const form = C.FORMATIONS[Math.floor(state.rng() * C.FORMATIONS.length)];
   const rot = Math.floor(state.rng() * C.ROWS);
   const stagger = C.waveStaggerMs(idx);
 
   // formations are authored against the origin arena; shift them to this one
-  const ax0 = activeArena(state.world).x0;
+  const arena = activeArena(state.world);
+  const ax0 = arena.x0;
+  const advancing = C.modeById(state.modeId).advancing;
+  if (advancing) {
+    // deal from the pool: as many as join at once, never more than remain
+    size = Math.min(arena.waveSize, arena.pool - arena.dealt, C.MAX_ALIVE);
+    arena.dealt += size;
+  }
   const slots = [];
   for (let i = 0; i < size; i++) {
     const [col, row] = form.slots[i];
-    slots.push({ col: col + ax0, row: (row + rot) % C.ROWS, type: "mett", at: now + i * stagger });
+    slots.push({ col: col + ax0, row: (row + rot) % C.ROWS, type: "mett", at: now + i * stagger,
+                 persistent: advancing });
   }
 
   // the heavy: one armored anchor the wave forms around
@@ -433,7 +447,7 @@ function planWave(state) {
 
   // the jackpot leads the wave in, alone on the first beat, because it is only
   // up for RARE_LIFE and has to be seen the instant it arrives
-  if (stage >= C.UNLOCK.rare && state.rng() < C.rareWaveChance(stage, state.timeLeft)) {
+  if (!advancing && stage >= C.UNLOCK.rare && state.rng() < C.rareWaveChance(stage, state.timeLeft)) {
     const spot = freeSlot(state, slots);
     if (spot) {
       for (const s of slots) s.at += C.RARE_LIFE * 0.5;
@@ -471,9 +485,13 @@ function spawnFromSlot(state, slot, events) {
   const type = slot.type;
   const boltKind = C.boltKindFor(type);
   const armed = state.stageIdx >= C.UNLOCK.retaliate && canRetaliate(type);
-  const willAttack = armed && state.rng() < C.attackChance(state.deletions, type);
+  // a persistent virus that never shot would be a target dummy: once
+  // retaliation is unlocked, every pool virus that can shoot, does
+  const willAttack = slot.persistent ? armed : armed && state.rng() < C.attackChance(state.deletions, type);
   state.enemies.push({
     col: slot.col, row: slot.row, type, state: "rising", t0: now,
+    persistent: !!slot.persistent,
+    refireAt: Infinity,
     riseMs: type === "ally" ? C.ALLY_RISE_MS : C.RISE_MS,
     hp: type === "hopper" ? 2 : 1,
     lastHop: now, hopT0: -1e9,
@@ -522,6 +540,17 @@ function endWave(state, events) {
   state.nextSpawnAt = now + lull;
   state.wave = null;
   if (cleared && C.modeById(state.modeId).advancing) {
+    const guard = activeArena(state.world);
+    if (guard.dealt < guard.pool) {
+      // the pool is not spent: the next wave joins after a beat
+      state.nextSpawnAt = now + C.ARENA_WAVE_GAP_MS;
+      events.push({
+        type: "waveEnded", index: wave.index, size: wave.size,
+        virusCount: wave.virusCount, kills: wave.kills, cleared,
+        timeBonus: 0, points: 0, lullMs: C.ARENA_WAVE_GAP_MS,
+      });
+      return;
+    }
     // The arena is yours. The next one wakes only when you step into it, so
     // the walk is a true lull -- the road is the breath between fights.
     const { cleared: a, road, next } = clearArena(state.world, state.rng);
@@ -584,6 +613,7 @@ function updateWave(state, events) {
 // ---------- enemy state machine ----------
 
 function lifeOf(state, e) {
+  if (e.persistent) return Infinity;   // stays until deleted; the road depends on it
   if (e.type === "rare") return C.RARE_LIFE;
   const base = e.type === "hopper" ? C.HOPPER_LIFE : C.upMs(state.deletions);
   if (!e.willAttack) return base;
@@ -622,6 +652,16 @@ function updateEnemies(state, events) {
         // A hopper about to shoot plants itself: the telegraph would be
         // unreadable if the lane moved under it, and a stationary hopper is
         // the window you get in exchange for the speed of its bolt.
+        // a persistent attacker is not a one-shot: after a cooldown it draws
+        // a fresh telegraph, so a wave that stays on the board keeps pressing.
+        // `break` here, because `t` was measured against the old t0 and would
+        // otherwise fire the new telegraph on this very frame.
+        if (e.persistent && e.fired && now >= e.refireAt) {
+          e.fired = false;
+          e.t0 = now;
+          events.push({ type: "enemyAim", col: e.col, row: e.row, boltKind: e.boltKind });
+          break;
+        }
         const aiming = e.willAttack && !e.fired;
         if (e.type === "hopper" && !aiming && now - e.lastHop >= C.HOP_MS) {
           hopTo(state, e, events);
@@ -630,6 +670,7 @@ function updateEnemies(state, events) {
         if (aiming && t >= aimOf(state, e)) {
           fireBolt(state, e, events);
           e.fired = true;
+          e.refireAt = now + C.REFIRE_MS;
           e.lastHop = now;                 // and it does not bolt the same frame
         }
         if (t >= lifeOf(state, e)) { e.state = "sinking"; e.t0 = now; }
