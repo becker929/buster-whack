@@ -42,6 +42,12 @@ straight from a public GitHub repo — no publishing step needed. Pin `@main`
 to a tag (e.g. `@v1.0.0`) once you cut a release, so embeds don't break
 under you.
 
+Some hosts (sandboxed artifact/widget frames, pages with a strict
+`Content-Security-Policy`) block cross-origin module imports at runtime. There
+you have to include the module at build time instead — bundle it, or paste
+`src/buster-whack.js` inline into a `<script type="module">`. It has no
+dependencies, so either works as-is.
+
 If you'd rather install it as a package:
 
 ```bash
