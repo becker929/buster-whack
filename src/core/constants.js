@@ -101,11 +101,12 @@ export const BOMB_BLAST_MS = 460;
 // the ferry, act two back along the same links. Exits-per-row and sunsets
 // come later; for now the route is a line so the story arrives on time.
 export const TOWER_COLS = 6;
-export const TOWER_EVERY = 3;
+export const TOWER_EVERY = 10;
 // Every roost once before any repeats (bible: regions.json strip.route_v3),
-// then the sunset-order returns.
+// then the sunset-order returns. The Substation comes before the Elevator so
+// the person there can warn of the crew's numbers.
 export const STORY_ROUTE = [
-  "roost.01", "roost.02", "roost.03", "roost.05", "roost.06", "roost.04", "roost.08", "roost.07",
+  "roost.01", "roost.02", "roost.03", "roost.05", "roost.06", "roost.04", "roost.07", "roost.08",
   "roost.05", "roost.03", "roost.02", "roost.04", "roost.01",
 ];
 // Who stands on each tower: the keeper mid-floor, a companion off to the
@@ -125,11 +126,11 @@ export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
 
 // The story's unlocks, keyed to arenas so that the tower before each one is
 // where a person announces it (there are no cards in the story). Towers stand
-// before arenas 3, 6, 9, ...: the Tower warns of steel before 6, the Annex
-// asks you to spare the runners before 9, and so on.
+// before arenas 10, 20, 30, ...: the Tower warns of steel before 10, the
+// Annex asks you to spare the runners before 20, and so on.
 export const STORY_UNLOCK = {
-  guard: 6, ally: 9, retaliate: 12, hopper: 15, sentinel1: 21,
-  sentinel2: 30, swarm: 39, sentinel3: 48, unlimited: ROAD_END,
+  guard: 10, ally: 20, retaliate: 30, hopper: 40, sentinel1: 50,
+  swarm: 60, sentinel2: 70, sentinel3: 90, unlimited: ROAD_END,
 };
 export const unlockTable = (mode) => (mode.story ? STORY_UNLOCK : ADV_UNLOCK);
 

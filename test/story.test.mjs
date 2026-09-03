@@ -98,19 +98,19 @@ test("pressing the button with an empty stash says so instead of doing nothing",
   assert.ok(find(ev2, "talk") && !find(ev2, "bombEmpty"), "beside the keeper it is TALK, not a refusal");
 });
 
-test("towers arrive on the route, one before every third arena, and announce themselves", () => {
+test("towers arrive on the route, one before every tenth arena, and announce themselves", () => {
   const s = story();
   const roosts = () => s.world.segs.filter((g) => g.kind === "tower").map((g) => g.roost);
   assert.deepEqual(roosts(), ["roost.01"]);
   // wipe arenas by hand the way the core does, and watch the strip grow
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 2 * C.TOWER_EVERY; i++) {
     const a = activeArena(s.world);
     const next = a.idx + 1;
     const roost = next % C.TOWER_EVERY === 0 ? C.STORY_ROUTE[s.routeIdx] : null;
     clearArena(s.world, s.rng, { tower: roost || undefined });
     if (roost) s.routeIdx++;
   }
-  assert.deepEqual(roosts(), ["roost.01", "roost.02", "roost.03"], "a tower before arenas 3 and 6");
+  assert.deepEqual(roosts(), ["roost.01", "roost.02", "roost.03"], "a tower before arenas 10 and 20");
   const t2 = s.world.segs.find((g) => g.kind === "tower" && g.roost === "roost.02");
   assert.equal(t2.entered, false);
   assert.equal(t2.npcs[0].id, "npc.keeper.02");
@@ -136,7 +136,7 @@ test("the core lays the tower itself when a guard is wiped in the story", () => 
     s.wave = { index: 0, size: 1, virusCount: 1, kills: 1, queue: [], spawned: 1, ended: false, t0: s.clock, lullMs: 0 };
     s.waveState = "active";
   }
-  // the second wipe is arena 1 -> next idx 2, no tower; a tower comes before idx 3
+  // the second wipe is arena 1 -> next idx 2, no tower; a tower comes before idx 10
   assert.ok(activeArena(s.world).idx >= 1);
 });
 
@@ -173,7 +173,7 @@ test("classic and the arcade modes still drain from the first frame: arena 0 is 
 
 import { createStory } from "../src/shell/story.js";
 
-test("the route visits every roost once before any repeat, a tower before every third arena", () => {
+test("the route visits every roost once before any repeat, a tower before every tenth arena", () => {
   const first = C.STORY_ROUTE.slice(0, 8);
   assert.equal(new Set(first).size, 8, "eight distinct roosts first");
   for (let i = 1; i <= 8; i++) assert.ok(first.includes("roost.0" + i), "roost.0" + i + " is on the first pass");
@@ -225,34 +225,53 @@ test("the story has no cards: unlocks follow the towers that announce them", () 
   assert.equal(s.mode, "playing", "no interlevel card in the story");
 });
 
-test("the words arrive in order: intro, arrival and hail, exchanges on TALK, READ counts reads", async () => {
+test("the story shell shows nothing on its own: TALK opens, advances, closes", async () => {
   const said = [];
-  const st = createStory({ say: (who, text, now) => said.push({ who: who.length, text: text.length, now: !!now }) });
-  const canon = await st.ready;
-  assert.ok(canon, "the vault opened");
+  let placed = "";
+  const st = createStory({ say: (who, text) => said.push([who.length, text.length]), hush: () => said.push("hush"),
+                           place: (t) => { placed = t; } });
+  await st.ready;
   st.handleAll([{ type: "runStarted", modeId: "story", story: true }]);
-  assert.equal(said.length, 5, "four beats of intro and Wren's first word");
-  said.length = 0;
+  assert.deepEqual(said.filter((x) => x !== "hush"), [], "the opening plays nothing by itself");
   st.handleAll([{ type: "towerEntered", roost: "roost.01", x0: 0 }]);
-  assert.equal(said.length, 3, "name over place, the description, then the keeper speaks first");
-  assert.equal(canon.state.get("day"), 1);
+  assert.deepEqual(said.filter((x) => x !== "hush"), [], "arrival announces nothing");
+  assert.ok(placed.length > 0, "but the place label is set");
+  assert.equal(st.open, false);
+  assert.equal(st.label("npc.keeper.01"), null, "no conversation: the button reads its verb");
+
   said.length = 0;
   st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 1 }]);
-  assert.equal(said.length, 3, "an exchange: the keeper, Wren, the keeper");
-  assert.equal(said[0].now, true, "and it interrupts");
-  assert.equal(said[1].who, 4, "the middle beat is Wren's");
+  assert.equal(said.length, 1, "one press, one beat");
+  assert.equal(st.open, true);
+  assert.equal(st.label("npc.keeper.01"), "next");
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 2 }]);
+  assert.equal(said.length, 2, "the next press shows the next beat, nothing more");
+  assert.equal(said[1][0], "Wren".length, "the second beat is the player's");
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 3 }]);
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 4 }]);
+  assert.equal(st.label("npc.keeper.01"), "done", "on the last beat the button offers to end it");
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 5 }]);
+  assert.equal(st.open, false, "the last press closes the box");
+  assert.equal(said[said.length - 1], "hush");
+  assert.equal(st.canon.state.get("talks.keeper.01"), 1, "a finished conversation counts once");
+
+  // the next press opens the next conversation; walking away closes it
   said.length = 0;
-  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 99 }]);
-  assert.ok(said.length >= 1, "past the end the last open exchange repeats");
-  st.handleAll([{ type: "towerEntered", roost: "roost.08", x0: 60 }]);
-  said.length = 0;
-  st.handleAll([{ type: "talk", npc: "item.journal.steward", verb: "read", count: 1 }]);
-  assert.equal(canon.state.get("reads.item.journal.steward"), 1, "READ counts toward the journal's gate");
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 6 }]);
   assert.equal(said.length, 1);
-  st.handleAll([{ type: "talk", npc: "item.journal.steward", verb: "read", count: 3 }]);
-  assert.equal(said.length, 2, "the third read is the gated last entry, now open");
-  st.handleAll([{ type: "talk", npc: "boss.ferryman", verb: "talk", count: 1 }]);
-  assert.equal(canon.state.get("talks.ferryman"), 1, "the ferryman's talks feed his gates");
+  st.leave();
+  assert.equal(st.open, false);
+  assert.equal(st.canon.state.get("talks.keeper.01"), 1, "an abandoned conversation does not count");
+
+  // READ works the same way and feeds the reads key
+  st.handleAll([{ type: "towerEntered", roost: "roost.08", x0: 60 }]);
+  st.handleAll([{ type: "talk", npc: "item.journal.steward", verb: "read", count: 1 }]);
+  st.handleAll([{ type: "talk", npc: "item.journal.steward", verb: "read", count: 2 }]);
+  assert.equal(st.canon.state.get("reads.item.journal.steward"), 1);
+  assert.equal(st.canon.unlocked("S01"), true, "entered the elevator and read the journal: S01 opens");
+  // leaving the tower for the road clears the label
+  st.handleAll([{ type: "arenaEntered", index: 7, x0: 66 }]);
+  assert.equal(placed, "");
 });
 
 test("the view holds a whole tower: walking across it scrolls nothing, leaving it does", () => {

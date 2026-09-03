@@ -30,3 +30,11 @@ Strings resealed as `strings.v2` (254 ids, from 136). The vault was opened in th
 Bible: `entities.json` gains the companions, the runner (`ally`) and the verbs; `regions.json` → `strip.route_v3` is the linear route the strip takes until exits exist (no roost repeats in the first eight towers); `string_ids.json` regenerated for `strings.v2`.
 
 Engine: STORY is the only mode; the arcade cards are off in it; unlocks keyed to the towers that announce them.
+
+## v4 — 2026-09-03 — Claude (engine + authoring session)
+
+`strings.v3`, 235 ids. Every line rewritten plain and short after play feedback: the longest string is under half the previous longest (157 vs 315 chars), a conversation is about 30% shorter end to end, and nothing is said in a roundabout way except by one character whose riddling is named in-world as a fault. Conversation ids are now `<npc>.c<N>.<beat>`; the old `hail.*`/`talk.*.[abc]`/`intro.*` ids are gone. All gated ids are unchanged.
+
+Engine: nothing plays on its own any more. TALK opens a conversation, TALK shows the next beat, TALK on the last beat closes it; walking away from the person closes it. Arrival at a tower sets a small place label and says nothing. Towers stand before every tenth arena (was third), and the story's unlocks moved with them (10, 20, 30 ...). The Substation now precedes the Elevator on the route so its keeper can give the crew's warning.
+
+Open for the next author: the Elevator has nobody to warn of the Sweepers' second rank at 70; Tolling's line covers it in advance. Sunsets, carry and the endings still wait on their mechanics.

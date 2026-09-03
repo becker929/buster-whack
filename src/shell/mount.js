@@ -8,7 +8,7 @@ import { step } from "../core/step.js";
 import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView, contextVerb } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode, renderBombs, renderSay, denyBomb, setControls, deckInset, placeTouchControls } from "./dom.js";
+         renderModes, selectMode, renderBombs, renderSay, renderPlace, denyBomb, setControls, deckInset, placeTouchControls } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createStory } from "./story.js";
 import { createInput } from "./input.js";
@@ -129,38 +129,16 @@ export function mountBusterWhack(container, options = {}) {
   }
 
   // ---------- story ----------
-  // Lines are a strip over the board that fades on its own. The timer is the
-  // shell's; the core never waits on text.
+  // Lines are a strip over the board. Nothing here has a timer: the box
+  // opens, advances and closes on the context button only.
 
-  // a beat stays up long enough to read: a floor, plus time per character
-  const sayMs = (text) => Math.min(9000, 2200 + 42 * text.length);
-  let sayTimer = null;
-  let sayQueue = [];
-  function hush() {
-    if (sayTimer) { win.clearTimeout(sayTimer); sayTimer = null; }
-    sayQueue = [];
-    renderSay(els, "", "");
-  }
-  function sayNext() {
-    sayTimer = null;
-    const next = sayQueue.shift();
-    if (!next) { renderSay(els, "", ""); return; }
-    renderSay(els, next[0], next[1]);
-    sayTimer = win.setTimeout(sayNext, sayMs(next[1]));
-  }
   const story = createStory({
-    // beats queue rather than replace, so an arrival's two both land; a line
-    // the player asked for (TALK) interrupts and clears what was waiting
-    say: (who, text, now) => {
-      if (now) { hush(); sayQueue.push([who, text]); sayNext(); return; }
-      sayQueue.push([who, text]);
-      if (!sayTimer) sayNext();
-    },
-    hush,
+    say: (who, text) => renderSay(els, who, text),
+    hush: () => renderSay(els, "", ""),
+    place: (text) => renderPlace(els, text),
     // never the text; only that it could not be opened, and why
     onError: (e) => { try { win.console.warn("buster-whack: canon unavailable:", e && e.message); } catch (err) {} },
   });
-  cleanupFns.push(hush);
 
   function showInterlevel(ev) {
     const v = interlevelView(state, ev.stage, ev.timeBonus === undefined ? STAGE_BONUS : ev.timeBonus);
@@ -203,6 +181,12 @@ export function mountBusterWhack(container, options = {}) {
       case "runStarted":   hideOverlay(els); applyControls(ev.modeId); break;
       case "resumed":      hideOverlay(els); break;
       case "bombEmpty":    denyBomb(els); break;
+      case "talk": {
+        const ctxv = contextVerb(state);
+        verb = (ctxv.npc && story.label(ctxv.npc)) || ctxv.verb;
+        refreshStats();
+        break;
+      }
       case "stageGate":    showInterlevel(ev); break;
       case "gameOver":
         if (ev.newBest) {
@@ -243,8 +227,11 @@ export function mountBusterWhack(container, options = {}) {
     story.handleAll(events);
     for (const ev of events) handleEvent(ev);
 
-    // the context button reads from where you stand
-    const cv = contextVerb(state).verb;
+    // the context button reads from where you stand, and from the state of
+    // the conversation with the person there; walking off closes their box
+    const ctxv = contextVerb(state);
+    if (story.open && (ctxv.verb === "bomb" || story.label(ctxv.npc) === null)) story.leave();
+    const cv = (ctxv.npc && story.label(ctxv.npc)) || ctxv.verb;
     if (cv !== verb) { verb = cv; refreshStats(); }
 
     // Continuous audio (music transport, the charge sweep, the low-time alarm)

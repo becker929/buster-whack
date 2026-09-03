@@ -94,7 +94,9 @@ right, and the round context button above FIRE. The board takes taps.
 - Fire: hold FIRE to charge — release for the strong shot.
 - Context button: BOMB when you carry one; **TALK** beside a person on a
   tower; **READ** beside something written. Lines appear as a strip over the
-  board, never a screen of their own.
+  board, never a screen of their own, and you set the pace: TALK opens a
+  conversation, NEXT shows the next line, DONE closes it. Nothing plays on its
+  own, and walking away from the person closes the box.
 - Dodge: viruses shoot back once the people on the road have warned you they
   will. A virus about to fire marks its row with a dashed line and a chevron
   at your edge of the field — move off that row. A hit costs 2.5s of pulse
@@ -109,9 +111,10 @@ right, and the round context button above FIRE. The board takes taps.
 ## The game
 
 One strip, one representation. The strip opens on a *tower* — a roost of the
-Rookery, your own ground with people on it — and every third arena after that
+Rookery, your own ground with people on it — and every tenth arena after that
 another tower stands on the road, following the route through the bible's
-roosts: every roost once before any repeats. Between towers the road is held
+roosts: every roost once before any repeats. A small label under LEVEL names
+the roost you are standing in. Between towers the road is held
 against you: wipe an arena's wave and the whole arena becomes yours, a road
 opens off its right edge, and the next arena wakes only when you step in. Roads
 are three columns long and either full height or a single middle row, so some
@@ -120,8 +123,7 @@ the fight starts.
 
 There are no cards. What is coming next on the road — steel, runners to spare,
 fire coming back, the fast ones, the ones that open on a beat — is said by the
-people at the tower before it, in their own words. Arriving at a tower
-announces it; the keeper speaks first; TALK is an exchange.
+people at the tower before it, in plain words, when you ask.
 
 The arcade layouts this grew out of (CLASSIC, ADVANCE, ONE HAND) are retired:
 off the menu, kept in the code under their ids for their tests and goldens.

@@ -299,6 +299,20 @@ export const TEMPLATE = `
     transition: opacity 180ms ease, transform 180ms ease;
   }
   #say.on { opacity: 1; transform: none; }
+  /* where you are: a quiet label under LEVEL, set on arrival at a tower */
+  #place {
+    position: absolute;
+    left: 28px;
+    top: 74px;
+    color: var(--bw-ink-dim);
+    font: 600 11px/1 var(--bw-mono);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 240ms ease;
+  }
+  #place.on { opacity: 1; }
   #say b { display: block; color: var(--bw-accent); font-size: 11px; letter-spacing: 0.22em; margin-bottom: 3px; }
   #say b:empty { display: none; }
   #bombBtn.talk {
@@ -732,6 +746,7 @@ export const TEMPLATE = `
 
     <div id="deck" aria-hidden="true"></div>
     <div id="say" role="status" aria-live="polite"><b id="sayWho"></b><span id="sayText"></span></div>
+    <div id="place" aria-live="polite"></div>
     <button id="pauseBtn" aria-label="Pause">II</button>
     <button id="bombBtn" class="empty" aria-label="Throw bomb"><span id="bombLabel">BOMB</span><b id="bombCount">0</b></button>
     <button id="fireBtn" aria-label="Fire"><span>FIRE</span><span class="glyph">&#9679;</span></button>
@@ -744,7 +759,7 @@ const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "spModes", "spModeRule", "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "bombBtn", "bombCount", "bombLabel", "muteFlag", "deck",
-  "say", "sayWho", "sayText",
+  "say", "sayWho", "sayText", "place",
 ];
 
 /**
@@ -909,7 +924,7 @@ export function placeTouchControls(els, G) {
  */
 export function renderBombs(els, n, verb = "bomb") {
   const talk = verb !== "bomb";
-  const label = verb === "read" ? "READ" : talk ? "TALK" : "BOMB";
+  const label = { read: "READ", talk: "TALK", next: "NEXT", done: "DONE" }[verb] || "BOMB";
   els.bombCount.textContent = String(n);
   els.bombLabel.textContent = label;
   els.bombBtn.setAttribute("aria-label", talk ? label[0] + label.slice(1).toLowerCase() : "Throw bomb");
@@ -922,6 +937,12 @@ export function denyBomb(els) {
   els.bombBtn.classList.remove("deny");
   void els.bombBtn.offsetWidth;   // restart the animation on a rapid second press
   els.bombBtn.classList.add("deny");
+}
+
+/** The place label: the roost you are standing in, or nothing on the road. */
+export function renderPlace(els, text) {
+  els.place.textContent = text || "";
+  els.place.classList.toggle("on", !!text);
 }
 
 /** A line over the board. Empty text takes it down. */
