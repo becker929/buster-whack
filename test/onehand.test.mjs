@@ -1,7 +1,8 @@
 // ONE HAND: the default mode, built for a phone in one hand. The board is the
-// movement surface (swipe a step, tap a square), steps are rationed at half a
-// charge with the next one held rather than dropped, and CLASSIC is retired
-// from the menu but still answers to its name for the goldens.
+// movement surface (a floating stick under the thumb, or a tap on a square),
+// steps are rationed at half a charge with the next one held rather than
+// dropped, and CLASSIC is retired from the menu but still answers to its name
+// for the goldens.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -179,24 +180,71 @@ test("a bottom inset lifts the board clear of the deck and changes nothing witho
   assert.equal(c.bottomInset, 240);
 });
 
-// ---------- the shell's swipe / tap tracker ----------
+// ---------- the board as a stick ----------
 
-test("a drag steps in its dominant direction and keeps stepping as it goes", () => {
-  const seen = [];
-  const m = createTouchMove((i) => seen.push(i));
+test("a held stick walks at the ration, not the ring's repeat rate", () => {
+  const s = oneHand();
+  s.player.col = 0; s.player.row = 1;
+  s.lastMoveAt = -1e9;
+  const hold = { dc: 1, dr: 0 };
+  step(s, 16, { actions: [], hold });
+  assert.equal(at(s), "1,1", "the first step is immediate");
+  step(s, C.MOVE_REPEAT_MS + 16, { actions: [], hold });
+  assert.equal(at(s), "1,1", "past the ring's repeat window nothing happens yet");
+  step(s, C.TAP_MOVE_MS, { actions: [], hold });
+  assert.equal(at(s), "2,1", "the second step lands at the ration");
+  // a flick: held for one frame inside the ration still lands its one step
+  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
+  assert.equal(at(s), "2,1");
+  step(s, C.TAP_MOVE_MS, { actions: [], hold: null });
+  assert.equal(at(s), "2,0", "the flick's step lands when the ration ends");
+  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
+  assert.equal(at(s), "2,0", "and a centred stick walks nowhere");
+});
+
+test("a flick with the ration ready is one step, not one now and one later", () => {
+  const s = oneHand();
+  s.player.col = 0; s.player.row = 1;
+  s.lastMoveAt = -1e9;
+  const hold = { dc: 1, dr: 0 };
+  for (let i = 0; i < 4; i++) step(s, 16, { actions: [], hold });   // a 64ms flick
+  assert.equal(at(s), "1,1", "the flick stepped once, immediately");
+  assert.equal(s.queuedMove, null, "and did not also queue a second for the lift");
+  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
+  assert.equal(at(s), "1,1");
+  // rocking to a new direction inside the ration is a new push: its step is held
+  step(s, 16, { actions: [], hold: { dc: 1, dr: 0 } });
+  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
+  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
+  assert.equal(at(s), "2,0", "the first push stepped at once; the rocked direction landed after the ration");
+});
+
+// ---------- the shell's stick / tap tracker ----------
+
+test("pushing the stick holds a direction until it centres or lifts", () => {
+  const m = createTouchMove(() => { throw new Error("no intent expected"); });
+  assert.equal(m.hold(), null);
   assert.equal(m.down(7, 100, 100), true);
-  m.move(7, 110, 104);                                  // under the swipe threshold
-  assert.deepEqual(seen, []);
-  m.move(7, 140, 104);                                  // right
-  assert.deepEqual(seen, [{ type: "move", dc: 1, dr: 0 }]);
-  m.move(7, 150, 150);                                  // down, from the new anchor
-  assert.deepEqual(seen.at(-1), { type: "move", dc: 0, dr: 1 });
-  m.up(7, 150, 150);
-  assert.equal(seen.length, 2, "lifting after a swipe is not a tap");
+  m.move(7, 110, 104);                                  // inside the dead zone
+  assert.equal(m.hold(), null);
+  m.move(7, 140, 104);                                  // pushed right
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
+  m.move(7, 200, 104);                                  // further out: still just right
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
+  m.move(7, 130, 130);                                  // the 45° band presses both axes
+  assert.deepEqual(m.hold(), { dc: 1, dr: 1 });
+  m.move(7, 100, 60);                                   // up
+  assert.deepEqual(m.hold(), { dc: 0, dr: -1 });
+  m.move(7, 105, 98);                                   // back to centre
+  assert.equal(m.hold(), null, "centring releases the direction");
+  m.move(7, 100, 160);
+  assert.deepEqual(m.hold(), { dc: 0, dr: 1 });
+  assert.equal(m.up(7, 100, 160), false, "a lift after a push is not a tap");
+  assert.equal(m.hold(), null);
   assert.equal(m.pointer, null);
 });
 
-test("a press and lift without a swipe is a tap, in stage coordinates", () => {
+test("a press and lift without a push is a tap, in stage coordinates", () => {
   const seen = [];
   const m = createTouchMove((i) => seen.push(i));
   m.down(3, 40, 60);
@@ -211,9 +259,13 @@ test("the board reads one finger only, and a cancelled one never taps", () => {
   m.down(1, 0, 0);
   assert.equal(m.down(2, 0, 0), false, "a second finger is ignored");
   m.move(2, 300, 0);
+  assert.equal(m.hold(), null, "the second finger cannot push the stick");
   m.up(2, 300, 0);
-  assert.deepEqual(seen, [], "the second finger neither swiped nor tapped");
+  assert.deepEqual(seen, [], "nor tap");
+  m.move(1, 300, 0);
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
   m.cancel(1);
+  assert.equal(m.hold(), null, "a cancel centres the stick");
   assert.equal(m.pointer, null);
   m.up(1, 0, 0);
   assert.deepEqual(seen, [], "no tap for a finger the browser took away");

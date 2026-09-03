@@ -110,10 +110,10 @@ export const ALLY_SPARE_BONUS = 0.5;
 export const CHARGE_MS = 700;
 export const RISE_MS = 220, SINK_MS = 180, HIT_MS = 280;
 export const MOVE_REPEAT_MS = 130;
-// One-hand movement: a tap or a swipe is one step, and steps are rationed at
-// half a charge, so moving and charging are the same rhythm and a position is
-// a commitment rather than a twitch. A step asked for during the cooldown is
-// held and taken the moment it ends.
+// One-hand movement: a tap is one step and a held stick is one step per
+// ration, at half a charge either way, so moving and charging are the same
+// rhythm and a position is a commitment rather than a twitch. A step asked for
+// during the cooldown is held and taken the moment it ends.
 export const TAP_MOVE_MS = CHARGE_MS / 2;
 // A tap this far outside the grid (in panels) still lands on the nearest row:
 // the top row's upper half is thin under a thumb.
@@ -126,10 +126,11 @@ export const TAP_SLACK = 0.4;
 //
 // ONE HAND is built for a phone held in one hand: the bottom of the stage is a
 // two-button deck (FIRE left, BOMB right) where a keyboard would sit, and the
-// board itself is the movement surface -- swipe to step, tap a square to go
-// there. ADVANCE keeps the ring and the quarter-circle FIRE for two thumbs.
+// board itself is the movement surface -- a floating stick under the thumb,
+// or a tap on a square to go there. ADVANCE keeps the ring and the
+// quarter-circle FIRE for two thumbs.
 export const MODES = [
-  { id: "onehand", name: "ONE HAND", blurb: "swipe · tap · fire", advancing: true,
+  { id: "onehand", name: "ONE HAND", blurb: "stick · tap · fire", advancing: true,
     controls: "touch", moveMs: TAP_MOVE_MS },
   { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
     controls: "pad", moveMs: MOVE_REPEAT_MS },

@@ -83,11 +83,13 @@ you choose them.
 the stage is a two-button deck where a keyboard would sit — a big rounded FIRE
 on the left and BOMB on the right — and the board itself is how you move:
 
-- Move: **swipe** on the board for one step in that direction, or **tap a
-  square** to go straight there. Steps are rationed at half a charge (350 ms);
-  a step asked for during the ration is held and taken the moment it ends, so
-  a quick double-tap means "there, then there". A tap has to land on ground you
-  can stand on that you could also walk to — a narrow road is still a funnel.
+- Move: the board is a **floating stick** — touch it anywhere, push in a
+  direction and hold to walk that way; flick for a single step; let it centre
+  or lift to stop. Or **tap a square** to go straight there. Both are rationed
+  at half a charge (350 ms) per step; a step asked for during the ration is
+  held and taken the moment it ends, so a quick double-tap means "there, then
+  there". A tap has to land on ground you can stand on that you could also walk
+  to — a narrow road is still a funnel.
 - Fire: hold FIRE to charge — release for the strong shot.
 - Bomb: tap BOMB (lit while you carry one).
 
@@ -118,7 +120,7 @@ Roads are three columns long and either full height or a single middle row, so
 some crossings funnel you. The view scrolls with you and locks onto each arena
 when the fight starts.
 
-- **ONE HAND** — swipe · tap · fire. The one-thumb layout above.
+- **ONE HAND** — stick · tap · fire. The one-thumb layout above.
 - **ADVANCE** — ring + fire. The same road with the two-thumb layout.
 
 CLASSIC (one fixed arena, hold the line) is retired from the menu. Its rule set

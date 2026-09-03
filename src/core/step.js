@@ -54,7 +54,20 @@ export function step(state, dtMs, intents = {}) {
     }
   }
 
-  if (hold && (hold.dc || hold.dr)) move(state, hold.dc, hold.dr, events);
+  // A held direction re-asks every frame. Each distinct push (a new direction
+  // counts as one) is stamped, so a flick that ends inside the ration still
+  // lands its one step, while a push that already stepped does not also queue
+  // a second for the lift.
+  if (hold && (hold.dc || hold.dr)) {
+    const hd = state.holdDir;
+    if (!hd || hd.dc !== hold.dc || hd.dr !== hold.dr) {
+      state.holdDir = { dc: hold.dc, dr: hold.dr };
+      state.holdT0 = state.clock;
+    }
+    move(state, hold.dc, hold.dr, events, true);
+  } else {
+    state.holdDir = null;
+  }
   flushQueuedMove(state, events);
 
   updateEnemies(state, events);
@@ -182,7 +195,9 @@ const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
  * A step asked for during the cooldown is not dropped: in one-hand a thumb
  * that taps twice quickly means "there, then there", and swallowing the second
  * makes the ration feel like lag. The latest ask wins; it is taken the moment
- * the cooldown ends, and only if it is still legal then. Ring and keyboard
+ * the cooldown ends, and only if it is still legal then. The board's stick
+ * rides on the same queue: held, it re-asks every frame, so a hold walks at
+ * the ration and a flick inside it still lands its one step. Ring and keyboard
  * modes keep their old drop, which is what their repeat-while-held relies on.
  */
 function queueMove(state, q) {
@@ -201,9 +216,13 @@ function flushQueuedMove(state, events) {
   else move(state, q.dc, q.dr, events);
 }
 
-function move(state, dc, dr, events) {
+function move(state, dc, dr, events, fromHold = false) {
   if (state.mode !== "playing" || state.paused) return;
-  if (!moveReady(state)) { queueMove(state, { kind: "by", dc, dr }); return; }
+  if (!moveReady(state)) {
+    // a hold that has already stepped since it began is walking, not asking
+    if (!fromHold || state.lastMoveAt < state.holdT0) queueMove(state, { kind: "by", dc, dr });
+    return;
+  }
   state.lastMoveAt = state.clock;
   // The world decides where you may stand: your own ground and the road,
   // never an enemy tile, never off the map. Each axis is resolved on its own,
@@ -342,6 +361,8 @@ function resetGame(state, events, modeId) {
   state.player.col = 1; state.player.row = 1;
   state.queuedMove = null;
   state.lastMoveAt = -1e9;
+  state.holdDir = null;
+  state.holdT0 = -1e9;
   state.enemies.length = 0;
   state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
   state.waveIdx = 0;

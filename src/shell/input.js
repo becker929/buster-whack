@@ -101,57 +101,64 @@ export function createFireLatch(dispatch) {
   };
 }
 
-// A drag has to travel this far (CSS px) before it is a swipe rather than a
-// tap; a thumb's own tremor is well under it. Re-anchored after each step, so
-// a long drag keeps stepping at the core's ration.
-const SWIPE_PX = 26;
+// The stick's dead zone (CSS px): a finger has to leave it before the board
+// reads a direction, and a lift that never left it is a tap on a square.
+const STICK_DEAD_PX = 26;
 
 /**
- * One-hand's movement surface: the board itself.
+ * One-hand's movement surface: the board itself, as a floating control stick.
  *
- *   swipe -> one step in the dominant direction, then re-anchor so a continued
- *            drag steps again
- *   tap   -> "go to this square", handed to the core as raw stage coordinates;
- *            the core resolves them through its own layout and camera
+ * Touching the board plants the stick where the finger lands. Push out of the
+ * dead zone and the direction is *held* -- the core steps that way at its own
+ * ration, over and over, until the finger comes back to centre or lifts. So a
+ * flick is one step and a hold is a walk, both paced exactly like a tap. A
+ * lift that never left the dead zone is a tap: "go to this square", handed to
+ * the core as raw stage coordinates for it to resolve through its own layout
+ * and camera.
  *
- * Tracks a single pointer, by identity, the way the ring does: the FIRE thumb's
- * movement must never steer. Pure and DOM-free so it is unit-tested directly;
- * the wiring below feeds it pointer events.
+ * Diagonals press both axes, as the ring does. Tracks a single pointer, by
+ * identity: the FIRE thumb's movement must never steer. Pure and DOM-free so it
+ * is unit-tested directly; the wiring below feeds it pointer events.
  *
  * @param {(intent: object) => void} dispatch
  */
 export function createTouchMove(dispatch) {
-  let id = null, ax = 0, ay = 0, swiped = false;
+  let id = null, ax = 0, ay = 0, dc = 0, dr = 0, pushed = false;
   return {
     /** Whose finger is on the board, or null. */
     get pointer() { return id; },
+    /** The held direction, polled each frame, or null at centre / with no finger. */
+    hold() { return id !== null && (dc || dr) ? { dc, dr } : null; },
     down(src, x, y) {
       if (id !== null || src === undefined) return false;
-      id = src; ax = x; ay = y; swiped = false;
+      id = src; ax = x; ay = y; dc = 0; dr = 0; pushed = false;
       return true;
     },
     move(src, x, y) {
       if (id === null || src !== id) return false;
       const dx = x - ax, dy = y - ay;
-      if (Math.hypot(dx, dy) < SWIPE_PX) return false;
-      swiped = true;
-      ax = x; ay = y;
-      if (Math.abs(dx) >= Math.abs(dy)) dispatch({ type: "move", dc: Math.sign(dx), dr: 0 });
-      else dispatch({ type: "move", dc: 0, dr: Math.sign(dy) });
-      return true;
+      const d = Math.hypot(dx, dy);
+      let ndc = 0, ndr = 0;
+      if (d >= STICK_DEAD_PX) {
+        pushed = true;
+        if (dx / d > PAD_AXIS) ndc = 1; else if (dx / d < -PAD_AXIS) ndc = -1;
+        if (dy / d > PAD_AXIS) ndr = 1; else if (dy / d < -PAD_AXIS) ndr = -1;
+      }
+      dc = ndc; dr = ndr;
+      return pushed;
     },
-    /** Lift: a finger that never swiped was a tap on a square. */
+    /** Lift: a finger that never pushed the stick was a tap on a square. */
     up(src, x, y) {
       if (id === null || src !== id) return false;
-      const wasTap = !swiped;
-      id = null;
+      const wasTap = !pushed;
+      id = null; dc = 0; dr = 0;
       if (wasTap) dispatch({ type: "tapAt", x, y });
       return wasTap;
     },
-    /** The pointer went away without a proper lift: no tap, no step. */
+    /** The pointer went away without a proper lift: no tap, and the stick centres. */
     cancel(src) {
       if (id === null || (src !== undefined && src !== id)) return false;
-      id = null;
+      id = null; dc = 0; dr = 0;
       return true;
     },
   };
@@ -281,9 +288,11 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     on(triggerEl, "lostpointercapture", (e) => latch.release(e.pointerId));
   }
 
-  // ---------- one-hand: swipe / tap on the board ----------
+  // ---------- one-hand: the board as a stick, and taps ----------
   // Coordinates are stage-relative CSS px, which is the space the core's
-  // layout is in. The canvas fills the stage, so its rect is the stage's.
+  // layout is in. The canvas fills the stage, so its rect is the stage's. The
+  // held direction is polled by the frame loop through `hold()` below, and the
+  // core paces the steps at the mode's ration -- there is no repeat here.
 
   const mover = createTouchMove(dispatch);
   const stagePt = (e) => {
@@ -424,9 +433,10 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
   installGestureGuards({ els, on, focusStage });
 
   return {
+    // whichever surface is live: the ring in pad modes, the board's stick in one-hand
     hold: () => (padState.id !== null && (padState.dc || padState.dr)
       ? { dc: padState.dc, dr: padState.dr }
-      : null),
+      : mover.hold()),
     focus: focusStage,
     /** Switch the scheme for the run that just started; ends any drag in progress. */
     setControls(next) {

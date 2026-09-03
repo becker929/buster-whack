@@ -650,7 +650,7 @@ test("one-hand is the default: PRESS START gives the deck, not the ring", async 
   assert.ok(boardFoot <= deck.y, `the board (foot ${boardFoot}) sits clear of the deck (top ${deck.y})`);
 });
 
-test("one-hand: a tap on a square moves there and never fires; a swipe steps", async (ctx) => {
+test("one-hand: a tap on a square moves there and never fires; the stick walks", async (ctx) => {
   const page = await ctx.open("/");
   const api = makePage(page);
   const { snap, rect } = api;
@@ -681,20 +681,36 @@ test("one-hand: a tap on a square moves there and never fires; a swipe steps", a
   const s3 = await snap();
   assert.equal(s3.col + "," + s3.row, "0,2", "the held step lands when the ration ends");
 
-  // a swipe: one step per threshold crossing, in the dominant direction
+  // the stick: a flick is one step; a hold walks at the ration
+  await wait(400);                                      // let the ration clear
   const from = squareAt(stage, s0.G, 0, 2);
   await t.down(4, from.x, from.y);
   await wait(30);
   await t.move(4, from.x + 60, from.y + 6);
   await wait(30);
   await t.up(4);
-  await wait(120);
+  await wait(420);
   const s4 = await snap();
-  assert.equal(s4.col + "," + s4.row, "1,2", "a swipe right is one step right");
-  assert.equal(s4.shots, s0.shots, "no swipe ever fires");
+  assert.equal(s4.col + "," + s4.row, "1,2", "a flick right is one step right");
+  assert.equal(s4.shots, s0.shots, "the stick never fires");
+
+  await t.down(5, from.x, from.y);
+  await wait(30);
+  await t.move(5, from.x, from.y - 70);                 // push up and hold
+  await wait(120);
+  const s5 = await snap();
+  assert.equal(s5.col + "," + s5.row, "1,1", "the first step of a hold is immediate");
+  await wait(200);
+  assert.equal((await snap()).row, 1, "…and the next waits for the ration");
+  await wait(300);
+  const s6 = await snap();
+  assert.equal(s6.col + "," + s6.row, "1,0", "a hold walks a step per ration");
+  await t.up(5);
+  await wait(500);
+  assert.equal((await snap()).col + "," + (await snap()).row, "1,0", "lifting stops the walk at the wall");
 });
 
-test("one-hand: a charge held on FIRE survives a swipe and a tap on the board", async (ctx) => {
+test("one-hand: a charge held on FIRE survives the stick and a tap on the board", async (ctx) => {
   const page = await ctx.open("/");
   const api = makePage(page);
   const { snap, rect } = api;
@@ -716,7 +732,7 @@ test("one-hand: a charge held on FIRE survives a swipe and a tap on the board", 
   const a = squareAt(stage, s0.G, 1, 1);
   await t.down(2, a.x, a.y);
   await wait(30);
-  await t.move(2, a.x, a.y - 60);          // swipe up
+  await t.move(2, a.x, a.y - 60);          // push the stick up
   await wait(30);
   await t.up(2);
   await wait(100);
@@ -726,7 +742,7 @@ test("one-hand: a charge held on FIRE survives a swipe and a tap on the board", 
 
   const moved = await snap();
   assert.notEqual(moved.col + "," + moved.row, charged.col + "," + charged.row, "the board thumb moved the player");
-  assert.equal(moved.shots, charged.shots, "*** neither the swipe nor the tap fired the held charge ***");
+  assert.equal(moved.shots, charged.shots, "*** neither the stick nor the tap fired the held charge ***");
   assert.equal(moved.chargeFull, true);
   assert.equal(moved.canFire, false, "the latch is still FIRE's");
 
