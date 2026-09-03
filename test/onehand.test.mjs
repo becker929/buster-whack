@@ -253,6 +253,40 @@ test("a press and lift without a push is a tap, in stage coordinates", () => {
   assert.deepEqual(seen, [{ type: "tapAt", x: 45, y: 58 }]);
 });
 
+test("a finger planted off the board (on FIRE) steers but never taps a square", () => {
+  const seen = [];
+  const m = createTouchMove((i) => seen.push(i));
+  m.down(9, 200, 700, false);            // landed on FIRE, mid-charge
+  m.move(9, 200, 640);                   // push up
+  assert.deepEqual(m.hold(), { dc: 0, dr: -1 }, "the stick works from FIRE");
+  m.up(9, 200, 640);
+  assert.deepEqual(seen, [], "a lift after a push is not a tap");
+  m.down(9, 200, 700, false);
+  assert.equal(m.up(9, 202, 701), false, "a plain lift on FIRE is FIRE's release, not a tap");
+  assert.deepEqual(seen, []);
+});
+
+test("a board finger takes the stick from a thumb resting on FIRE, never from one pushing", () => {
+  const seen = [];
+  const m = createTouchMove((i) => seen.push(i));
+  m.down(1, 200, 700, false);            // thumb on FIRE, idle
+  assert.equal(m.down(2, 100, 300), true, "the board finger takes over");
+  m.move(1, 200, 600);
+  assert.equal(m.hold(), null, "the FIRE thumb no longer steers");
+  m.move(2, 160, 300);
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
+  m.up(2, 160, 300);
+  m.down(2, 100, 300); m.up(2, 100, 300);
+  assert.deepEqual(seen, [{ type: "tapAt", x: 100, y: 300 }], "and its taps land");
+  m.down(1, 200, 700, false);
+  m.move(1, 200, 600);                   // now the FIRE thumb is pushing
+  assert.equal(m.down(3, 100, 300), false, "a pushing stick is not taken");
+  assert.deepEqual(m.hold(), { dc: 0, dr: -1 });
+  m.up(1, 200, 600);
+  m.down(4, 100, 300);                   // board first
+  assert.equal(m.down(5, 200, 700, false), false, "FIRE never takes the stick from the board");
+});
+
 test("the board reads one finger only, and a cancelled one never taps", () => {
   const seen = [];
   const m = createTouchMove((i) => seen.push(i));

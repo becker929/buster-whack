@@ -123,15 +123,26 @@ const STICK_DEAD_PX = 26;
  * @param {(intent: object) => void} dispatch
  */
 export function createTouchMove(dispatch) {
-  let id = null, ax = 0, ay = 0, dc = 0, dr = 0, pushed = false;
+  let id = null, ax = 0, ay = 0, dc = 0, dr = 0, pushed = false, tappable = true;
   return {
-    /** Whose finger is on the board, or null. */
+    /** Whose finger is on the stick, or null. */
     get pointer() { return id; },
     /** The held direction, polled each frame, or null at centre / with no finger. */
     hold() { return id !== null && (dc || dr) ? { dc, dr } : null; },
-    down(src, x, y) {
-      if (id !== null || src === undefined) return false;
-      id = src; ax = x; ay = y; dc = 0; dr = 0; pushed = false;
+    /**
+     * A finger lands. The stick can be planted anywhere on the stage -- the
+     * board, the FIRE button mid-charge, the dead space -- but only a finger
+     * that landed on the board can be a tap on a square when it lifts: a
+     * lift on FIRE is FIRE's business.
+     */
+    down(src, x, y, canTap = true) {
+      if (src === undefined) return false;
+      // One stick. A thumb resting on FIRE holds it idly; a second finger on
+      // the board takes it over, so the two-thumb grip (charge on FIRE, steer
+      // and tap on the board) still works. A stick that is being pushed is
+      // never taken.
+      if (id !== null && !(canTap && !pushed && !tappable)) return false;
+      id = src; ax = x; ay = y; dc = 0; dr = 0; pushed = false; tappable = canTap;
       return true;
     },
     move(src, x, y) {
@@ -147,10 +158,10 @@ export function createTouchMove(dispatch) {
       dc = ndc; dr = ndr;
       return pushed;
     },
-    /** Lift: a finger that never pushed the stick was a tap on a square. */
+    /** Lift: a board finger that never pushed the stick was a tap on a square. */
     up(src, x, y) {
       if (id === null || src !== id) return false;
-      const wasTap = !pushed;
+      const wasTap = !pushed && tappable;
       id = null; dc = 0; dr = 0;
       if (wasTap) dispatch({ type: "tapAt", x, y });
       return wasTap;
@@ -288,39 +299,40 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     on(triggerEl, "lostpointercapture", (e) => latch.release(e.pointerId));
   }
 
-  // ---------- one-hand: the board as a stick, and taps ----------
+  // ---------- one-hand: the stage as a stick, the board as tap targets ----------
+  // The stick plants wherever the finger lands on the game -- the board, the
+  // FIRE button while a charge is held, the dead space -- so one thumb can
+  // hold a charge and walk at the same time. Listened for on the root in the
+  // bubble phase: FIRE's own pointerdown does not stop propagation (its press
+  // is a latch, not a tap), while BOMB and pause do, so those stay taps.
   // Coordinates are stage-relative CSS px, which is the space the core's
-  // layout is in. The canvas fills the stage, so its rect is the stage's. The
-  // held direction is polled by the frame loop through `hold()` below, and the
-  // core paces the steps at the mode's ration -- there is no repeat here.
+  // layout is in; the canvas fills the stage, so its rect is the stage's. The
+  // held direction is polled by the frame loop through `hold()` below, and
+  // the core paces the steps at the mode's ration -- there is no repeat here.
 
   const mover = createTouchMove(dispatch);
   const stagePt = (e) => {
     const r = els.cv.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   };
-  on(els.cv, "pointerdown", (e) => {
+  on(els.bwRoot, "pointerdown", (e) => {
     if (!touch()) return;
-    try { els.cv.setPointerCapture(e.pointerId); } catch (err) {}
-    mover.down(e.pointerId, ...stagePt(e));
+    if (!els.splash.classList.contains("hidden")) return;   // the start card is not the stage
+    const onBoard = e.target === els.cv;
+    // the board captures its own finger so a drag off the canvas keeps
+    // steering; FIRE already captured its pointer in its own handler
+    if (onBoard) { try { els.cv.setPointerCapture(e.pointerId); } catch (err) {} }
+    mover.down(e.pointerId, ...stagePt(e), onBoard);
   });
-  on(els.cv, "pointermove", (e) => {
+  on(els.bwRoot, "pointermove", (e) => {
     if (mover.pointer !== e.pointerId) return;
     e.preventDefault();
     mover.move(e.pointerId, ...stagePt(e));
   });
-  on(els.cv, "pointerup", (e) => { if (mover.pointer === e.pointerId) mover.up(e.pointerId, ...stagePt(e)); });
-  on(els.cv, "pointercancel", (e) => mover.cancel(e.pointerId));
+  on(els.bwRoot, "pointerup", (e) => { if (mover.pointer === e.pointerId) mover.up(e.pointerId, ...stagePt(e)); });
+  on(els.bwRoot, "pointercancel", (e) => mover.cancel(e.pointerId));
   on(els.cv, "lostpointercapture", (e) => mover.cancel(e.pointerId));
   on(win, "blur", () => mover.cancel());
-
-  // the bomb button is a tap: no latch, no capture, nothing to release
-  on(els.bombBtn, "pointerdown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onGesture();
-    dispatch({ type: "bomb" });
-  });
 
   // Window-level, so a release that lands anywhere still reaches us — but only
   // the pointer that actually pressed can act on it.

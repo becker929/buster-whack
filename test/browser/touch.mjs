@@ -753,6 +753,44 @@ test("one-hand: a charge held on FIRE survives the stick and a tap on the board"
   assert.equal(after.canFire, true);
 });
 
+test("one-hand: the FIRE thumb itself can walk while it holds the charge", async (ctx) => {
+  const page = await ctx.open("/");
+  const api = makePage(page);
+  const { snap, rect } = api;
+  const t = makeTouch(await ctx.cdp(page));
+  const start = await rect("spStart");
+  await t.tap(start.cx, start.cy);
+  await wait(300);
+  await api.quiesce();
+  await page.evaluate(() => { globalThis.__bwState.player.col = 1; globalThis.__bwState.player.row = 1; });
+  const fire = await rect("fireBtn");
+
+  await t.down(1, fire.cx, fire.cy);
+  await wait(900);
+  const charged = await snap();
+  assert.equal(charged.chargeFull, true, "the charge is held on FIRE");
+
+  await t.move(1, fire.cx, fire.cy - 70);        // push the stick up, without lifting
+  await wait(150);
+  const up = await snap();
+  assert.equal(up.col + "," + up.row, "1,0", "the FIRE thumb steered the player up");
+  assert.equal(up.chargeFull, true, "and the charge is still held");
+  assert.equal(up.canFire, false, "and the latch is still FIRE's");
+  assert.equal(up.shots, charged.shots, "nothing fired");
+
+  await t.move(1, fire.cx + 70, fire.cy - 70);   // rock to the right
+  await wait(500);
+  const right = await snap();
+  assert.equal(right.col + "," + right.row, "2,0", "rocking steps at the ration");
+
+  await t.up(1);
+  await wait(150);
+  const after = await snap();
+  assert.equal(after.shots, charged.shots + 1, "lifting FIRE fires the charged shot");
+  assert.equal(after.canFire, true);
+  assert.equal(after.col + "," + after.row, "2,0", "a lift on FIRE is never a tap on a square");
+});
+
 // ---------- driver ----------
 
 async function freePort() {

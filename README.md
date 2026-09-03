@@ -84,9 +84,10 @@ the stage is one big rounded FIRE button where a keyboard would sit, the board
 rests directly on it so the thumb rolls from squares to trigger, a BOMB bar
 sits just above the board, and the board itself is how you move:
 
-- Move: the board is a **floating stick** — touch it anywhere, push in a
-  direction and hold to walk that way; flick for a single step; let it centre
-  or lift to stop. Or **tap a square** to go straight there. Both are rationed
+- Move: the whole stage is a **floating stick** — touch anywhere, the board or
+  FIRE itself, push in a direction and hold to walk that way; flick for a
+  single step; let it centre or lift to stop. So the thumb holding a charge on
+  FIRE can walk without letting go. Or **tap a square** to go straight there. Both are rationed
   at half a charge (350 ms) per step; a step asked for during the ration is
   held and taken the moment it ends, so a quick double-tap means "there, then
   there". A tap has to land on ground you can stand on that you could also walk
