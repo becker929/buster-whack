@@ -77,6 +77,9 @@ export function createState(opts = {}) {
     holdDir: null,             // the direction a stick/ring is holding this frame, { dc, dr }
     holdT0: -1e9,              // when that push began: a push gets one held step, never two
     talks: {},                 // story: TALK presses per npc id; the shell picks the line
+    routeIdx: 1,               // story: the next tower on STORY_ROUTE
+    hop: null,                 // touch modes: the step in flight, { fromCol, fromRow, toCol, toRow, t0, committed }
+    path: null,                // touch modes: the square a far tap is walking to, { col, row }
     rank: null,
     // hit-stop: freeze the simulation clock for `hitStopMs` once `clock`
     // reaches `hitStopAt` (which is when the tracer actually lands).

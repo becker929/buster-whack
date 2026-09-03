@@ -447,7 +447,7 @@ test("index.html plays from the keyboard with no clicks at all", async (ctx) => 
   assert.notEqual((await snap()).col, before.col, "ArrowRight moves the player");
 
   await page.keyboard.press("ArrowDown");
-  await wait(200);
+  await wait(600);                       // inside the hop ration: held, then hopped, then committed
   assert.notEqual((await snap()).row, before.row, "ArrowDown moves the player");
 
   // and Space still charges + fires
@@ -650,7 +650,7 @@ test("one-hand is the default: PRESS START gives the deck, not the ring", async 
   assert.ok(Math.abs(bomb.x - (stage.x + s.G.gx)) < 1 && Math.abs(bomb.w - s.G.pw * 6) < 1, "BOMB is as wide as the board");
 });
 
-test("one-hand: a tap on a square moves there and never fires; the stick walks", async (ctx) => {
+test("one-hand: a tap on a square hops there and never fires; the stick walks", async (ctx) => {
   const page = await ctx.open("/");
   const api = makePage(page);
   const { snap, rect } = api;
@@ -662,52 +662,64 @@ test("one-hand: a tap on a square moves there and never fires; the stick walks",
   const s0 = await snap();
   const stage = await rect("stage");
 
-  const p = squareAt(stage, s0.G, 2, 0);
+  // beside you: one hop, committed at the top of the arc
+  const p = squareAt(stage, s0.G, 2, 1);
   await t.tap(p.x, p.y);
-  await wait(120);
+  await wait(60);
+  const mid = await snap();
+  assert.equal(mid.col + "," + mid.row, "1,1", "a hop takes time: not there yet");
+  await wait(110);                                      // past the commit, still inside the ration
   const s1 = await snap();
-  assert.equal(s1.col + "," + s1.row, "2,0", "the tapped square is where you land");
+  assert.equal(s1.col + "," + s1.row, "2,1", "the tapped square is where you land");
   assert.equal(s1.shots, s0.shots, "the board is not a FIRE surface in one-hand");
   assert.equal(s1.canFire, true, "and it never touched the latch");
 
   // a second tap inside the ration is held, then taken
-  const q = squareAt(stage, s0.G, 0, 2);
+  const q = squareAt(stage, s0.G, 2, 2);
   await t.tap(q.x, q.y);
-  await wait(60);
+  await wait(30);
   const s2 = await snap();
-  assert.equal(s2.col + "," + s2.row, "2,0", "inside the ration nothing moves yet");
-  assert.deepEqual(s2.queued, { kind: "to", col: 0, row: 2 }, "the step is held");
-  await wait(450);
+  assert.equal(s2.col + "," + s2.row, "2,1", "inside the ration nothing moves yet");
+  assert.deepEqual(s2.queued, { kind: "to", col: 2, row: 2 }, "the step is held");
+  await wait(600);
   const s3 = await snap();
-  assert.equal(s3.col + "," + s3.row, "0,2", "the held step lands when the ration ends");
+  assert.equal(s3.col + "," + s3.row, "2,2", "the held step lands when the ration ends");
+
+  // further away: a path, one hop per ration, never a teleport
+  const far = squareAt(stage, s0.G, 0, 0);
+  await t.tap(far.x, far.y);
+  await wait(200);
+  const walking = await snap();
+  assert.notEqual(walking.col + "," + walking.row, "0,0", "two rations in, not there yet");
+  assert.ok(walking.col + walking.row < 4, "but under way");
+  await wait(1600);
+  const arrived = await snap();
+  assert.equal(arrived.col + "," + arrived.row, "0,0", "the path walked itself there");
 
   // the stick: a flick is one step; a hold walks at the ration
-  await wait(400);                                      // let the ration clear
-  const from = squareAt(stage, s0.G, 0, 2);
+  const from = squareAt(stage, s0.G, 0, 0);
   await t.down(4, from.x, from.y);
   await wait(30);
   await t.move(4, from.x + 60, from.y + 6);
   await wait(30);
   await t.up(4);
-  await wait(420);
+  await wait(500);
   const s4 = await snap();
-  assert.equal(s4.col + "," + s4.row, "1,2", "a flick right is one step right");
+  assert.equal(s4.col + "," + s4.row, "1,0", "a flick right is one step right");
   assert.equal(s4.shots, s0.shots, "the stick never fires");
 
   await t.down(5, from.x, from.y);
   await wait(30);
-  await t.move(5, from.x, from.y - 70);                 // push up and hold
-  await wait(120);
+  await t.move(5, from.x, from.y + 70);                 // push down and hold
+  await wait(220);
   const s5 = await snap();
-  assert.equal(s5.col + "," + s5.row, "1,1", "the first step of a hold is immediate");
-  await wait(200);
-  assert.equal((await snap()).row, 1, "…and the next waits for the ration");
-  await wait(300);
+  assert.equal(s5.col + "," + s5.row, "1,1", "the first hop of a hold commits");
+  await wait(520);
   const s6 = await snap();
-  assert.equal(s6.col + "," + s6.row, "1,0", "a hold walks a step per ration");
+  assert.equal(s6.col + "," + s6.row, "1,2", "a hold walks a hop per ration");
   await t.up(5);
   await wait(500);
-  assert.equal((await snap()).col + "," + (await snap()).row, "1,0", "lifting stops the walk at the wall");
+  assert.equal((await snap()).col + "," + (await snap()).row, "1,2", "lifting stops the walk at the wall");
 });
 
 test("one-hand: a charge held on FIRE survives the stick and a tap on the board", async (ctx) => {
@@ -813,19 +825,21 @@ test("the bar above the board works: TALK beside the keeper, a refusal with no b
   assert.equal(await page.evaluate(() => document.getElementById("game").shadowRoot.getElementById("bombBtn").classList.contains("deny")), true,
     "the bar shakes on an empty press");
 
-  // beside the keeper the same bar is TALK, and a press puts a line up
-  await wait(5200);   // let the arrival line fade
+  // beside the keeper the same bar is TALK, and a press puts a line up at
+  // once, interrupting the arrival beats still showing
   const p = squareAt(stage, s0.G, 2, 1);
   await t.tap(p.x, p.y);
-  await wait(200);
+  await wait(300);
   assert.equal((await snap()).col, 2);
   assert.equal(await label(), "TALK");
-  assert.equal((await say()).on, false);
+  const before = await page.evaluate(() => document.getElementById("game").shadowRoot.getElementById("sayText").textContent);
   await t.tap(bomb.cx, bomb.cy);
   await wait(250);
   const line = await say();
   assert.equal(line.on, true, "TALK put a line over the board");
   assert.ok(line.len > 0);
+  const after = await page.evaluate(() => document.getElementById("game").shadowRoot.getElementById("sayText").textContent);
+  assert.notEqual(after, before, "the keeper's line replaced the arrival beat");
   assert.equal((await snap()).shots, s0.shots, "the bar never fires the buster");
 });
 

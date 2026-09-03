@@ -4,7 +4,40 @@
  */
 
 import { OC_START, bonusFactor, level, multOf, TIME_CAP, modeById } from "./constants.js";
+import * as C from "./constants.js";
 import { activeArena, npcBeside } from "./world.js";
+
+/**
+ * Where the player's sprite is, mid-hop: fractional column and row, the lift
+ * of the arc, and the squash of crouch and landing. Pure, so the renderer and
+ * a test see the same curve. Standing still, it is the square itself.
+ */
+export function hopPose(state, now) {
+  const h = state.hop;
+  const still = { col: state.player.col, row: state.player.row, lift: 0, sx: 1, sy: 1, phase: "still" };
+  if (!h) return still;
+  const t = now - h.t0;
+  if (t < 0 || t >= C.HOP_TOTAL_MS) return still;
+  if (t < C.HOP_WINDUP_MS) {
+    const k = t / C.HOP_WINDUP_MS;
+    return { col: h.fromCol, row: h.fromRow, lift: 0, sx: 1 + 0.12 * k, sy: 1 - 0.14 * k, phase: "windup" };
+  }
+  const m = t - C.HOP_WINDUP_MS;
+  if (m < C.HOP_MOVE_MS) {
+    const k = m / C.HOP_MOVE_MS;
+    const e = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);   // ease in-out
+    return {
+      col: h.fromCol + (h.toCol - h.fromCol) * e,
+      row: h.fromRow + (h.toRow - h.fromRow) * e,
+      lift: Math.sin(Math.PI * k),
+      sx: 1 - 0.08 * Math.sin(Math.PI * k), sy: 1 + 0.12 * Math.sin(Math.PI * k),
+      phase: "move",
+    };
+  }
+  const st = (m - C.HOP_MOVE_MS) / C.HOP_SETTLE_MS;
+  const d = Math.sin(Math.PI * st) * (1 - st);
+  return { col: h.toCol, row: h.toRow, lift: 0, sx: 1 + 0.16 * d, sy: 1 - 0.2 * d, phase: "settle" };
+}
 
 /**
  * What the context button does right now: TALK beside a keeper, BOMB

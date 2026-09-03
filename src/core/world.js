@@ -19,7 +19,7 @@
  */
 
 import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE, arenaPlan,
-         TOWER_COLS, FIRST_TOWER } from "./constants.js";
+         TOWER_COLS, STORY_ROUTE, towerSpec } from "./constants.js";
 
 export const TILE = {
   PLAYER: "player",
@@ -35,15 +35,16 @@ export const TILE = {
  */
 export function createWorld(opts = {}) {
   if (!opts.story) return { segs: [arena(0, 0)] };
-  return { segs: [tower(0, FIRST_TOWER), arena(TOWER_COLS, 0, false)] };
+  return { segs: [tower(0, STORY_ROUTE[0], true), arena(TOWER_COLS, 0, false)] };
 }
 
 /** A roost on the strip: the player's own ground, with people on it. */
-function tower(x0, spec) {
+function tower(x0, roost, entered = false) {
+  const spec = towerSpec(roost);
   return {
-    kind: "tower", x0, cols: TOWER_COLS, roost: spec.roost,
-    npcs: spec.npcs.map((n) => ({ ...n })),
-    entered: true,
+    kind: "tower", x0, cols: TOWER_COLS, roost,
+    npcs: spec.npcs.map((n) => ({ ...n, col: x0 + n.col })),
+    entered,
   };
 }
 
@@ -127,7 +128,7 @@ export const inArena = (a, wx) => wx >= a.x0 && wx < a.x0 + a.cols;
  * right edge, and the next arena is placed at the road's end. Returns the road
  * and the new arena so the caller can announce them.
  */
-export function clearArena(world, rng) {
+export function clearArena(world, rng, opts = {}) {
   const a = activeArena(world);
   a.owner = "player";
   const narrow = rng() < NARROW_ROAD_CHANCE;
@@ -137,7 +138,16 @@ export function clearArena(world, rng) {
     cols: ROAD_COLS,
     rows: narrow ? 1 : ROWS,
   };
-  const next = arena(road.x0 + road.cols, a.idx + 1);
-  world.segs.push(road, next);
-  return { cleared: a, road, next };
+  world.segs.push(road);
+  let x = road.x0 + road.cols;
+  // in the story a tower may stand at the road's end, before the next guard
+  let t = null;
+  if (opts.tower) {
+    t = tower(x, opts.tower);
+    world.segs.push(t);
+    x += t.cols;
+  }
+  const next = arena(x, a.idx + 1);
+  world.segs.push(next);
+  return { cleared: a, road, tower: t, next };
 }

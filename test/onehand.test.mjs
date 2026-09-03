@@ -50,21 +50,31 @@ test("the one-hand step ration is about half a charge", () => {
   assert.equal(C.modeById("advance").moveMs, C.MOVE_REPEAT_MS, "the ring keeps its repeat rate");
 });
 
+// A hop takes time: the square changes at the top of the arc (HOP_COMMIT_MS)
+// and the next step is allowed a ration (TAP_MOVE_MS) after the last began.
+const commit = (s) => step(s, C.HOP_COMMIT_MS, []);
+const ration = (s) => step(s, C.TAP_MOVE_MS, []);
+
 // ---------- the ration ----------
 
 test("a second step inside the ration is held, then taken when it ends", () => {
   const s = oneHand();
   step(s, 16, [{ type: "move", dc: 0, dr: -1 }]);
-  assert.equal(at(s), "1,0");
+  assert.ok(s.hop, "the first step is a hop in flight");
+  assert.equal(at(s), "1,1", "not there yet");
+  commit(s);
+  assert.equal(at(s), "1,0", "the square changes at the top of the arc");
   step(s, 16, [{ type: "move", dc: 0, dr: 1 }]);
   assert.equal(at(s), "1,0", "the second step waits");
   assert.deepEqual(s.queuedMove, { kind: "by", dc: 0, dr: 1 });
-  step(s, C.TAP_MOVE_MS - 40, []);
+  step(s, C.TAP_MOVE_MS - C.HOP_COMMIT_MS - 40 - 16, []);
   assert.equal(at(s), "1,0", "still inside the ration");
-  const ev = step(s, 40, []);
-  assert.equal(at(s), "1,1", "the held step lands the moment the ration ends");
-  assert.equal(s.queuedMove, null);
-  assert.ok(find(ev, "playerMoved"));
+  assert.equal(s.queuedMove !== null, true);
+  step(s, 40, []);
+  assert.equal(s.queuedMove, null, "the held step starts the moment the ration ends");
+  assert.ok(s.hop && s.hop.toRow === 1);
+  commit(s);
+  assert.equal(at(s), "1,1");
 });
 
 test("the latest ask wins, and a pause drops the held step", () => {
@@ -76,15 +86,17 @@ test("the latest ask wins, and a pause drops the held step", () => {
   step(s, 16, []);
   assert.equal(s.queuedMove, null, "a pause clears the queue");
   step(s, 0, [{ type: "pause" }]);
-  step(s, C.TAP_MOVE_MS, []);
-  assert.equal(at(s), "2,1", "nothing lands after the pause");
+  ration(s); ration(s);
+  assert.equal(at(s), "2,1", "only the first step ever landed");
 });
 
-test("in advance a step inside the repeat window is dropped, as before", () => {
+test("in advance a step inside the repeat window is dropped, as before, and lands at once", () => {
   const s = newGame();
   step(s, 0, [{ type: "startRun", modeId: "advance" }]);
   s.nextSpawnAt = Infinity; s.enemies.length = 0;
   step(s, 16, [{ type: "move", dc: 0, dr: -1 }]);
+  assert.equal(at(s), "1,0", "ring modes step on the spot");
+  assert.equal(s.hop, null);
   step(s, 16, [{ type: "move", dc: 0, dr: 1 }]);
   assert.equal(s.queuedMove, null, "no queue outside one-hand");
   step(s, C.MOVE_REPEAT_MS, []);
@@ -93,51 +105,95 @@ test("in advance a step inside the repeat window is dropped, as before", () => {
 
 // ---------- taps ----------
 
-test("a tap on a standable square goes there in one step, with a ripple", () => {
+test("a tap on the square beside you is one hop, with a ripple", () => {
   const s = oneHand();
   const n0 = s.fx.ripples.length;
-  const ev = tap(s, 2, 0, 16);
-  assert.equal(at(s), "2,0", "two columns and a row away, in one step");
-  assert.equal(count(ev, "playerMoved"), 1);
+  const ev = tap(s, 2, 1, 16);
+  assert.ok(find(ev, "hop"));
   assert.equal(s.fx.ripples.length, n0 + 1, "the square acknowledges the tap");
   assert.equal(s.fx.ripples.at(-1).col, 2);
+  commit(s);
+  assert.equal(at(s), "2,1");
+  assert.equal(s.path, null, "arrived: nothing left to walk");
+});
+
+test("a tap further away walks there one square at a time, never diagonally", () => {
+  const s = oneHand();
+  tap(s, 2, 0, 16);                                    // two columns... one column and one row away
+  assert.deepEqual(s.path, { col: 2, row: 0 });
+  assert.ok(s.hop, "the first hop starts at once");
+  const h = s.hop;
+  assert.equal(Math.abs(h.toCol - h.fromCol) + Math.abs(h.toRow - h.fromRow), 1, "one square");
+  commit(s);
+  assert.notEqual(at(s), "2,0", "not there yet");
+  ration(s);                                           // the second hop starts at the ration
+  commit(s);
+  assert.equal(at(s), "2,0", "arrived after two rations");
+  assert.equal(s.path, null);
+  const s2 = oneHand();
+  tap(s2, 0, 0, 16);
+  let hops = 1;
+  for (let i = 0; i < 6 && s2.path; i++) { ration(s2); if (s2.hop) hops++; }
+  assert.equal(at(s2), "0,0");
+  assert.equal(hops, 2, "two squares away is two hops");
+});
+
+test("a stick push replaces a path being walked; a hit stops it", () => {
+  const s = oneHand();
+  s.player.col = 0; s.player.row = 0;
+  tap(s, 2, 2, 16);                                    // a long walk: four hops
+  assert.ok(s.path);
+  ration(s);
+  step(s, 16, { actions: [], hold: { dc: 0, dr: 1 } });
+  assert.equal(s.path, null, "the stick is a new directive");
+  const s2 = oneHand();
+  s2.player.col = 0; s2.player.row = 0;
+  tap(s2, 2, 2, 16);
+  assert.ok(s2.path);
+  s2.hurtUntil = -1e9;
+  s2.bolts.push({ row: s2.player.row, x: s2.G.gx + s2.G.pw * (s2.player.col + 0.5), speed: 0, heavy: false, kind: "slow" });
+  for (let i = 0; i < 6 && s2.path; i++) step(s2, 16, []);
+  assert.equal(s2.path, null, "a hit is the world's directive");
 });
 
 test("a tap on an enemy square, off the board, or on your own square does nothing", () => {
   const s = oneHand();
   const t = s.lastMoveAt;
   tap(s, 4, 1, 16);
-  assert.equal(at(s), "1,1", "enemy ground is not standable");
+  assert.equal(s.hop, null, "enemy ground is not standable");
   step(s, 0, [{ type: "tapAt", x: -50, y: -50 }]);
   step(s, 0, [{ type: "tapAt", x: s.G.w + 10, y: s.G.gy }]);
-  assert.equal(at(s), "1,1");
   tap(s, 1, 1);
+  assert.equal(s.hop, null);
   assert.equal(at(s), "1,1");
   assert.equal(s.lastMoveAt, t, "no ration is spent on a refused tap");
   assert.equal(s.queuedMove, null, "and nothing is queued for it");
+  assert.equal(s.path, null);
 });
 
 test("a tap just above the top row still lands on the top row", () => {
   const s = oneHand();
   const c = centre(s, 1, 0);
   step(s, 16, [{ type: "tapAt", x: c.x, y: s.G.gy - s.G.ph * (C.TAP_SLACK - 0.05) }]);
+  commit(s);
   assert.equal(at(s), "1,0");
   const s2 = oneHand();
   step(s2, 16, [{ type: "tapAt", x: c.x, y: s2.G.gy - s2.G.ph * (C.TAP_SLACK + 0.2) }]);
+  commit(s2);
   assert.equal(at(s2), "1,1", "further out than the slack is not a tap on the board");
 });
 
 test("a tap inside the ration is held and taken later, pickup included", () => {
   const s = oneHand();
-  s.pickups.push({ col: 0, row: 0, kind: "bomb" });
+  s.pickups.push({ col: 0, row: 1, kind: "bomb" });
   step(s, 16, [{ type: "move", dc: 1, dr: 0 }]);
-  tap(s, 0, 0, 16);
-  assert.equal(at(s), "2,1");
-  assert.deepEqual(s.queuedMove, { kind: "to", col: 0, row: 0 });
-  const ev = step(s, C.TAP_MOVE_MS, []);
-  assert.equal(at(s), "0,0");
-  assert.equal(s.bombs, 1, "the held step still walks onto the pickup");
-  assert.ok(find(ev, "pickup"));
+  tap(s, 0, 1, 16);
+  assert.deepEqual(s.queuedMove, { kind: "to", col: 0, row: 1 });
+  ration(s);                                           // the queue lays the path and hops back
+  assert.equal(s.queuedMove, null);
+  for (let i = 0; i < 4 && (s.path || s.hop); i++) ration(s);
+  assert.equal(at(s), "0,1");
+  assert.equal(s.bombs, 1, "the walk still takes the pickup");
 });
 
 test("taps resolve through the camera, and never behind the left wall", () => {
@@ -149,12 +205,13 @@ test("taps resolve through the camera, and never behind the left wall", () => {
   step(s, 16, []);                                     // entering arms the arena
   if (s.mode === "interlevel") step(s, 0, [{ type: "resume" }]);
   s.nextSpawnAt = Infinity;
-  tap(s, next.x0 + 2, 0, 16);
-  assert.equal(at(s), (next.x0 + 2) + ",0", "the tapped square is the one under the thumb, scrolled");
-  // a square that has scrolled off the left edge: standable ground, but gone
-  step(s, C.TAP_MOVE_MS, []);
-  step(s, 0, [{ type: "tapAt", x: s.G.gx - s.G.pw * 1.5, y: s.G.gy + s.G.ph * 0.5 }]);
-  assert.equal(at(s), (next.x0 + 2) + ",0", "behind the wall is refused");
+  tap(s, next.x0 + 2, 1, 16);
+  commit(s);
+  assert.equal(at(s), (next.x0 + 2) + ",1", "the tapped square is the one under the thumb, scrolled");
+  ration(s);
+  step(s, 0, [{ type: "tapAt", x: s.G.gx - s.G.pw * 1.5, y: s.G.gy + s.G.ph * 1.5 }]);
+  assert.equal(s.path, null, "behind the wall is refused");
+  assert.equal(s.hop, null);
 });
 
 test("a tap across a narrow road's void is refused: the funnel must be walked", () => {
@@ -162,11 +219,86 @@ test("a tap across a narrow road's void is refused: the funnel must be walked", 
   clearArena(s.world, () => 0.1);                       // < NARROW_ROAD_CHANCE: one-row road
   const road = s.world.segs[1];
   assert.equal(road.rows, 1);
-  s.player.col = 5; s.player.row = 0;
+  s.player.col = 5; s.player.row = 1;
   tap(s, road.x0 + 1, 0, 16);
-  assert.equal(at(s), "5,0", "void is not standable");
+  assert.equal(s.hop, null, "void is not standable");
   tap(s, road.x0 + 1, 1, C.TAP_MOVE_MS);
-  assert.equal(at(s), (road.x0 + 1) + ",1", "the road's own row is");
+  assert.deepEqual(s.path, { col: road.x0 + 1, row: 1 }, "the road's own row is");
+});
+
+// ---------- the board as a stick ----------
+
+test("a held stick walks at the ration, not the ring's repeat rate", () => {
+  const s = oneHand();
+  s.player.col = 0; s.player.row = 1;
+  s.lastMoveAt = -1e9;
+  const hold = { dc: 1, dr: 0 };
+  step(s, 16, { actions: [], hold });
+  assert.ok(s.hop && s.hop.toCol === 1, "the first hop starts at once");
+  commit(s);
+  assert.equal(at(s), "1,1");
+  step(s, C.MOVE_REPEAT_MS, { actions: [], hold });
+  assert.equal(at(s), "1,1", "past the ring's repeat window nothing more happens");
+  step(s, C.TAP_MOVE_MS, { actions: [], hold });
+  commit(s);
+  assert.equal(at(s), "2,1", "the second hop lands a ration later");
+  // a flick: held for one frame inside the ration still lands its one step
+  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
+  assert.equal(at(s), "2,1");
+  ration(s); commit(s);
+  assert.equal(at(s), "2,0", "the flick's step lands when the ration ends");
+  ration(s); ration(s);
+  assert.equal(at(s), "2,0", "and a centred stick walks nowhere");
+});
+
+test("a flick with the ration ready is one step, not one now and one later", () => {
+  const s = oneHand();
+  s.player.col = 0; s.player.row = 1;
+  s.lastMoveAt = -1e9;
+  const hold = { dc: 1, dr: 0 };
+  for (let i = 0; i < 4; i++) step(s, 16, { actions: [], hold });   // a 64ms flick
+  assert.ok(s.hop, "the flick hopped once, immediately");
+  assert.equal(s.queuedMove, null, "and did not also queue a second for the lift");
+  ration(s); ration(s);
+  assert.equal(at(s), "1,1");
+  // rocking to a new direction inside the ration is a new push: its step is held
+  step(s, 16, { actions: [], hold: { dc: 1, dr: 0 } });
+  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
+  ration(s); ration(s); ration(s);
+  assert.equal(at(s), "2,0", "the first push stepped at once; the rocked direction landed after the ration");
+});
+
+test("a diagonal press hops along one axis only", () => {
+  const s = oneHand();
+  step(s, 16, [{ type: "move", dc: 1, dr: -1 }]);
+  const h = s.hop;
+  assert.ok(h);
+  assert.equal(Math.abs(h.toCol - h.fromCol) + Math.abs(h.toRow - h.fromRow), 1);
+});
+
+// ---------- the shell's stick / tap tracker ----------
+
+test("pushing the stick holds one direction until it centres or lifts", () => {
+  const m = createTouchMove(() => { throw new Error("no intent expected"); });
+  assert.equal(m.hold(), null);
+  assert.equal(m.down(7, 100, 100), true);
+  m.move(7, 110, 104);                                  // inside the dead zone
+  assert.equal(m.hold(), null);
+  m.move(7, 140, 104);                                  // pushed right
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
+  m.move(7, 200, 104);                                  // further out: still just right
+  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
+  m.move(7, 130, 135);                                  // a diagonal push reads the larger axis
+  assert.deepEqual(m.hold(), { dc: 0, dr: 1 });
+  m.move(7, 100, 60);                                   // up
+  assert.deepEqual(m.hold(), { dc: 0, dr: -1 });
+  m.move(7, 105, 98);                                   // back to centre
+  assert.equal(m.hold(), null, "centring releases the direction");
+  m.move(7, 100, 160);
+  assert.deepEqual(m.hold(), { dc: 0, dr: 1 });
+  assert.equal(m.up(7, 100, 160), false, "a lift after a push is not a tap");
+  assert.equal(m.hold(), null);
+  assert.equal(m.pointer, null);
 });
 
 // ---------- the layout above the deck ----------
@@ -178,70 +310,6 @@ test("a bottom inset rests the board on the deck and changes nothing without one
   assert.equal(c.gy + c.ph * C.ROWS, 700 - 240, "the board's foot is exactly the deck's top edge");
   assert.ok(c.gy >= 80 + 54 + 12, "and there is room for the HUD and the BOMB bar above it");
   assert.equal(c.bottomInset, 240);
-});
-
-// ---------- the board as a stick ----------
-
-test("a held stick walks at the ration, not the ring's repeat rate", () => {
-  const s = oneHand();
-  s.player.col = 0; s.player.row = 1;
-  s.lastMoveAt = -1e9;
-  const hold = { dc: 1, dr: 0 };
-  step(s, 16, { actions: [], hold });
-  assert.equal(at(s), "1,1", "the first step is immediate");
-  step(s, C.MOVE_REPEAT_MS + 16, { actions: [], hold });
-  assert.equal(at(s), "1,1", "past the ring's repeat window nothing happens yet");
-  step(s, C.TAP_MOVE_MS, { actions: [], hold });
-  assert.equal(at(s), "2,1", "the second step lands at the ration");
-  // a flick: held for one frame inside the ration still lands its one step
-  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
-  assert.equal(at(s), "2,1");
-  step(s, C.TAP_MOVE_MS, { actions: [], hold: null });
-  assert.equal(at(s), "2,0", "the flick's step lands when the ration ends");
-  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
-  assert.equal(at(s), "2,0", "and a centred stick walks nowhere");
-});
-
-test("a flick with the ration ready is one step, not one now and one later", () => {
-  const s = oneHand();
-  s.player.col = 0; s.player.row = 1;
-  s.lastMoveAt = -1e9;
-  const hold = { dc: 1, dr: 0 };
-  for (let i = 0; i < 4; i++) step(s, 16, { actions: [], hold });   // a 64ms flick
-  assert.equal(at(s), "1,1", "the flick stepped once, immediately");
-  assert.equal(s.queuedMove, null, "and did not also queue a second for the lift");
-  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
-  assert.equal(at(s), "1,1");
-  // rocking to a new direction inside the ration is a new push: its step is held
-  step(s, 16, { actions: [], hold: { dc: 1, dr: 0 } });
-  step(s, 16, { actions: [], hold: { dc: 0, dr: -1 } });
-  step(s, C.TAP_MOVE_MS * 2, { actions: [], hold: null });
-  assert.equal(at(s), "2,0", "the first push stepped at once; the rocked direction landed after the ration");
-});
-
-// ---------- the shell's stick / tap tracker ----------
-
-test("pushing the stick holds a direction until it centres or lifts", () => {
-  const m = createTouchMove(() => { throw new Error("no intent expected"); });
-  assert.equal(m.hold(), null);
-  assert.equal(m.down(7, 100, 100), true);
-  m.move(7, 110, 104);                                  // inside the dead zone
-  assert.equal(m.hold(), null);
-  m.move(7, 140, 104);                                  // pushed right
-  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
-  m.move(7, 200, 104);                                  // further out: still just right
-  assert.deepEqual(m.hold(), { dc: 1, dr: 0 });
-  m.move(7, 130, 130);                                  // the 45° band presses both axes
-  assert.deepEqual(m.hold(), { dc: 1, dr: 1 });
-  m.move(7, 100, 60);                                   // up
-  assert.deepEqual(m.hold(), { dc: 0, dr: -1 });
-  m.move(7, 105, 98);                                   // back to centre
-  assert.equal(m.hold(), null, "centring releases the direction");
-  m.move(7, 100, 160);
-  assert.deepEqual(m.hold(), { dc: 0, dr: 1 });
-  assert.equal(m.up(7, 100, 160), false, "a lift after a push is not a tap");
-  assert.equal(m.hold(), null);
-  assert.equal(m.pointer, null);
 });
 
 test("a press and lift without a push is a tap, in stage coordinates", () => {

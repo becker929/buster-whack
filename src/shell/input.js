@@ -116,7 +116,7 @@ const STICK_DEAD_PX = 26;
  * the core as raw stage coordinates for it to resolve through its own layout
  * and camera.
  *
- * Diagonals press both axes, as the ring does. Tracks a single pointer, by
+ * One axis at a time -- a hop is never diagonal. Tracks a single pointer, by
  * identity: the FIRE thumb's movement must never steer. Pure and DOM-free so it
  * is unit-tested directly; the wiring below feeds it pointer events.
  *
@@ -152,8 +152,8 @@ export function createTouchMove(dispatch) {
       let ndc = 0, ndr = 0;
       if (d >= STICK_DEAD_PX) {
         pushed = true;
-        if (dx / d > PAD_AXIS) ndc = 1; else if (dx / d < -PAD_AXIS) ndc = -1;
-        if (dy / d > PAD_AXIS) ndr = 1; else if (dy / d < -PAD_AXIS) ndr = -1;
+        // one axis, the larger: a hop is never diagonal
+        if (Math.abs(dx) >= Math.abs(dy)) ndc = Math.sign(dx); else ndr = Math.sign(dy);
       }
       dc = ndc; dr = ndr;
       return pushed;

@@ -18,7 +18,7 @@
  */
 
 import * as C from "../core/constants.js";
-import { hudView } from "../core/select.js";
+import { hudView, hopPose } from "../core/select.js";
 import { tileAt, segmentAt, TILE } from "../core/world.js";
 
 const { EASE, impulseValue, TAU, RING_GAP } = C;
@@ -495,13 +495,15 @@ function drawGhost(ctx, state, now) {
 
 function drawPlayer(ctx, state, now, rm) {
   const G = state.G;
-  const p = panel(G, state.player.col, state.player.row);
+  // mid-hop the sprite is between squares: crouch, arc, landing squash
+  const pose = hopPose(state, now);
+  const p = panel(G, pose.col, pose.row);
   const eRecoil = impulseValue(state.fx.recoil, now);
   const rx = -state.fx.recoil.spec.px * eRecoil;
 
-  const bw = G.pw * 0.34, bh = G.ph * 1.15;
+  const bw = G.pw * 0.34 * pose.sx, bh = G.ph * 1.15 * pose.sy;
   const cx = p.x + p.w / 2 + rx;
-  const baseY = p.y + p.h * 0.78;
+  const baseY = p.y + p.h * 0.78 - pose.lift * G.ph * 0.55;
   const coreY = baseY - bh * 0.5;
 
   const cdn = state.charge.downAt;
@@ -577,7 +579,7 @@ function drawPlayer(ctx, state, now, rm) {
       ctx.globalAlpha = 1;
     }
   }
-  drawStepRation(ctx, state, now, p);
+  drawStepRation(ctx, state, now, panel(G, state.player.col, state.player.row));
   return { rayY, busterX: cx + bw / 2 + bw * 0.55 };
 }
 
@@ -601,8 +603,9 @@ function drawStepRation(ctx, state, now, p) {
     ctx.fillStyle = "#4f8dff";
     ctx.fillRect(x0, y, w * frac, 2);
   }
-  const q = state.queuedMove;
-  if (q && q.kind === "to") {
+  // the square a tap is walking to -- held for the ration, or at the end of a path
+  const q = state.path || (state.queuedMove && state.queuedMove.kind === "to" ? state.queuedMove : null);
+  if (q) {
     const tp = panel(state.G, q.col, q.row);
     ctx.save();
     ctx.setLineDash([5, 4]);

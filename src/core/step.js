@@ -68,7 +68,9 @@ export function step(state, dtMs, intents = {}) {
   } else {
     state.holdDir = null;
   }
+  updateHop(state, events);
   flushQueuedMove(state, events);
+  runPath(state, events);
 
   updateEnemies(state, events);
   updateBolts(state, adv, events);
@@ -190,6 +192,8 @@ function fireReleased(state, events) {
 /** The step ration for this run's mode: one-hand paces steps at half a charge. */
 const moveMs = (state) => C.modeById(state.modeId).moveMs || C.MOVE_REPEAT_MS;
 const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
+/** Touch modes hop; ring modes step on the spot. */
+const hops = (state) => C.modeById(state.modeId).controls === "touch";
 
 /**
  * A step asked for during the cooldown is not dropped: in one-hand a thumb
@@ -201,7 +205,7 @@ const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
  * modes keep their old drop, which is what their repeat-while-held relies on.
  */
 function queueMove(state, q) {
-  if (C.modeById(state.modeId).controls !== "touch") return;
+  if (!hops(state)) return;
   state.queuedMove = q;
 }
 
@@ -216,26 +220,39 @@ function flushQueuedMove(state, events) {
   else move(state, q.dc, q.dr, events);
 }
 
+/**
+ * A step in a direction. Any direction pressed is a new directive: a path
+ * being walked is dropped for it.
+ */
 function move(state, dc, dr, events, fromHold = false) {
   if (state.mode !== "playing" || state.paused) return;
+  if (!(dc || dr)) return;
+  state.path = null;
   if (!moveReady(state)) {
     // a hold that has already stepped since it began is walking, not asking
     if (!fromHold || state.lastMoveAt < state.holdT0) queueMove(state, { kind: "by", dc, dr });
     return;
   }
-  state.lastMoveAt = state.clock;
-  // The world decides where you may stand: your own ground and the road,
-  // never an enemy tile, never off the map. Each axis is resolved on its own,
-  // one tile at a time, so a diagonal press blocked in one direction still
-  // moves in the other -- the ring presses both axes on a diagonal, and a
-  // wall should not cancel the half of the input that was fine. In classic
-  // this is exactly the old clamp to the player's half.
-  //
-  // And never a square that has already scrolled off the left edge of the
-  // view: the camera only moves right, so that wall only ever advances.
+  // Touch modes hop one square, never diagonally: the larger axis wins.
+  if (hops(state) && dc && dr) { if (Math.abs(dc) >= Math.abs(dr)) dr = 0; else dc = 0; }
+  const [col, row] = stepFrom(state, state.player.col, state.player.row, dc, dr);
+  go(state, col, row, events);
+}
+
+/**
+ * Resolve a press into the square it reaches. The world decides where you may
+ * stand: your own ground and the road, never an enemy tile, never off the map.
+ * Each axis is resolved on its own, one tile at a time, so a diagonal press
+ * blocked in one direction still moves in the other -- the ring presses both
+ * axes on a diagonal, and a wall should not cancel the half of the input that
+ * was fine. In classic this is exactly the old clamp to the player's half.
+ *
+ * And never a square that has already scrolled off the left edge of the
+ * view: the camera only moves right, so that wall only ever advances.
+ */
+function stepFrom(state, col, row, dc, dr) {
   const world = state.world;
   const wall = Math.floor(state.cam || 0);
-  let col = state.player.col, row = state.player.row;
   const sc = Math.sign(dc), sr = Math.sign(dr);
   for (let i = 0; i < Math.abs(dc); i++) {
     if (col + sc < wall || !walkable(world, col + sc, row)) break;
@@ -246,46 +263,107 @@ function move(state, dc, dr, events, fromHold = false) {
     if (nr < 0 || nr >= C.ROWS || !walkable(world, col, nr)) break;
     row = nr;
   }
-  land(state, col, row, events);
+  return [col, row];
+}
+
+/** Spend the ration on a step to (col,row): a hop in touch modes, a landing otherwise. */
+function go(state, col, row, events) {
+  state.lastMoveAt = state.clock;
+  if (!hops(state)) { land(state, col, row, events); return; }
+  // a hop still in the air when the next begins lands first: no square is
+  // ever skipped, whatever the frame timing
+  const prev = state.hop;
+  if (prev && !prev.committed) { prev.committed = true; land(state, prev.toCol, prev.toRow, events); }
+  if (col === state.player.col && row === state.player.row) { state.hop = null; return; }
+  state.hop = {
+    fromCol: state.player.col, fromRow: state.player.row, toCol: col, toRow: row,
+    t0: state.clock, committed: false,
+  };
+  events.push({ type: "hop", fromCol: state.player.col, fromRow: state.player.row, col, row });
 }
 
 /**
- * Go to a square: one-hand's tap. The square has to be standable, still on
- * screen, and reachable on foot -- a narrow road is a funnel, and a tap on the
- * far bank must not hop the void it exists to make you walk around. Any
- * distance in one step: the ration is the cost, not the length of the walk.
+ * The hop in flight: the square you count as standing on changes at the top
+ * of the arc, and the hop is over after the landing settles. Every frame.
+ */
+function updateHop(state, events) {
+  const h = state.hop;
+  if (!h) return;
+  const t = state.clock - h.t0;
+  if (!h.committed && t >= C.HOP_COMMIT_MS) {
+    h.committed = true;
+    land(state, h.toCol, h.toRow, events);
+  }
+  if (t >= C.HOP_TOTAL_MS) state.hop = null;
+}
+
+/**
+ * Go to a square: one-hand's tap. Beside you it is one hop; further away it
+ * lays a path and the hops follow it, one per ration, until any new
+ * directive replaces it. The square has to be standable, still on screen,
+ * and reachable on foot -- a narrow road is a funnel, and a tap on the far
+ * bank must not hop the void it exists to make you walk around.
  */
 function moveTo(state, col, row, events) {
   if (state.mode !== "playing" || state.paused) return;
-  if (col === state.player.col && row === state.player.row) return;
+  if (col === state.player.col && row === state.player.row) { state.path = null; return; }
   if (!reachable(state, col, row)) return;
-  if (!moveReady(state)) { queueMove(state, { kind: "to", col, row }); return; }
-  state.lastMoveAt = state.clock;
   ripple(state, col, row, "#4f8dff", state.clock, 1);
-  land(state, col, row, events);
+  state.path = { col, row };
+  runPath(state, events);
+}
+
+/** Take the next step of the path when the ration allows. Every frame. */
+function runPath(state, events) {
+  const p = state.path;
+  if (!p) return;
+  if (state.mode !== "playing" || state.paused) { state.path = null; return; }
+  if (p.col === state.player.col && p.row === state.player.row) { state.path = null; return; }
+  if (!moveReady(state)) return;
+  const next = nextStep(state, p.col, p.row);
+  if (!next) { state.path = null; return; }     // the way closed: stop where you are
+  go(state, next[0], next[1], events);
+}
+
+/**
+ * The first square of a shortest walk from the player to (col,row), or null
+ * if there is none. Four-connected over standable squares on screen, so a
+ * path never cuts a corner or hops a gap.
+ */
+function nextStep(state, col, row) {
+  const world = state.world;
+  const wall = Math.floor(state.cam || 0);
+  if (row < 0 || row >= C.ROWS || col < wall) return null;
+  if (!walkable(world, col, row)) return null;
+  const end = worldEnd(world);
+  const key = (c, r) => c * C.ROWS + r;
+  const from = key(state.player.col, state.player.row);
+  const parent = new Map([[from, null]]);
+  const open = [[state.player.col, state.player.row]];
+  let head = 0;
+  while (head < open.length) {
+    const [c, r] = open[head++];
+    if (c === col && r === row) {
+      // walk back to the square after the start
+      let k = key(c, r);
+      while (parent.get(k) !== from) k = parent.get(k);
+      return [Math.floor(k / C.ROWS), k % C.ROWS];
+    }
+    for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+      if (nc < wall || nc >= end || nr < 0 || nr >= C.ROWS) continue;
+      const nk = key(nc, nr);
+      if (parent.has(nk) || !walkable(world, nc, nr)) continue;
+      parent.set(nk, key(c, r));
+      open.push([nc, nr]);
+    }
+  }
+  return null;
 }
 
 /** Is (col,row) standable and joined to the player by standable squares? */
 function reachable(state, col, row) {
-  const world = state.world;
-  const wall = Math.floor(state.cam || 0);
-  if (row < 0 || row >= C.ROWS || col < wall) return false;
-  if (!walkable(world, col, row)) return false;
-  const end = worldEnd(world);
-  const key = (c, r) => c * C.ROWS + r;
-  const seen = new Set([key(state.player.col, state.player.row)]);
-  const open = [[state.player.col, state.player.row]];
-  while (open.length) {
-    const [c, r] = open.pop();
-    if (c === col && r === row) return true;
-    for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
-      if (nc < wall || nc >= end || nr < 0 || nr >= C.ROWS) continue;
-      if (seen.has(key(nc, nr)) || !walkable(world, nc, nr)) continue;
-      seen.add(key(nc, nr));
-      open.push([nc, nr]);
-    }
-  }
-  return false;
+  if (col === state.player.col && row === state.player.row) return true;
+  return nextStep(state, col, row) !== null;
 }
 
 /**
@@ -301,7 +379,13 @@ function tapAt(state, x, y, events) {
   let row = Math.floor(wy);
   if (row === -1 && wy >= -C.TAP_SLACK) row = 0;
   if (row === C.ROWS && wy < C.ROWS + C.TAP_SLACK) row = C.ROWS - 1;
-  moveTo(state, Math.floor(wx), row, events);
+  const col = Math.floor(wx);
+  if (!moveReady(state) && hops(state)) {
+    // inside the ration: held, like any other step asked for early
+    if (reachable(state, col, row)) queueMove(state, { kind: "to", col, row });
+    return;
+  }
+  moveTo(state, col, row, events);
 }
 
 /** Arrive on a square: pickups, the afterimage, and the event. */
@@ -342,6 +426,9 @@ function resetGame(state, events, modeId) {
   state.modeId = cfg.id;
   state.world = createWorld({ story: !!cfg.story });
   state.talks = {};
+  state.routeIdx = 1;
+  state.hop = null;
+  state.path = null;
   state.arenasCleared = 0;
   state.bombs = 0;
   state.bombsInFlight.length = 0;
@@ -452,6 +539,14 @@ function updateWorld(state, events) {
   // Stepping in is the wave boundary: the arena wakes a beat later. Arena 0
   // is born entered, which is how classic and the opening of advance share a
   // single opening lull.
+  // Stepping onto a tower is arrival: the shell announces it from the canon.
+  for (const seg of state.world.segs) {
+    if (seg.kind === "tower" && !seg.entered && state.player.col >= seg.x0) {
+      seg.entered = true;
+      events.push({ type: "towerEntered", roost: seg.roost, x0: seg.x0 });
+    }
+  }
+
   if (!a.entered && state.player.col >= a.x0) {
     a.entered = true;
     state.camAnchor = a.x0;
@@ -749,7 +844,12 @@ function endWave(state, events) {
     }
     // The arena is yours. The next one wakes only when you step into it, so
     // the walk is a true lull -- the road is the breath between fights.
-    const { cleared: a, road, next } = clearArena(state.world, state.rng);
+    // in the story a tower stands before every TOWER_EVERY-th arena, the next
+    // roost on the route, so the people arrive on a schedule you can feel
+    const story = !!C.modeById(state.modeId).story;
+    const roost = story && (guard.idx + 1) % C.TOWER_EVERY === 0 ? C.STORY_ROUTE[state.routeIdx] : null;
+    const { cleared: a, road, tower, next } = clearArena(state.world, state.rng, { tower: roost || undefined });
+    if (tower) state.routeIdx++;
     state.arenasCleared++;
     // a bomb on the road: always on the first one so it is found, often after
     if (a.idx === 0 || state.rng() < C.BOMB_PICKUP_CHANCE) {
@@ -1090,6 +1190,7 @@ function takeHit(state, events) {
   state.timeLeft = Math.max(0, state.timeLeft - C.HIT_TIME_PENALTY);
   breakChain(state, events, "hurt");
   state.charge.downAt = null; state.charge.full = false;   // a hit spills your charge
+  state.path = null;                                        // and stops an auto-walk: the world spoke
   const p = panel(state, state.player.col, state.player.row);
   state.fx.popups.push({
     x: p.x + p.w / 2, y: p.y - 8, t0: now,

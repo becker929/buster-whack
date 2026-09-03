@@ -134,15 +134,26 @@ export function mountBusterWhack(container, options = {}) {
 
   const SAY_MS = 4800;
   let sayTimer = null;
+  let sayQueue = [];
   function hush() {
     if (sayTimer) { win.clearTimeout(sayTimer); sayTimer = null; }
+    sayQueue = [];
     renderSay(els, "", "");
   }
+  function sayNext() {
+    sayTimer = null;
+    const next = sayQueue.shift();
+    if (!next) { renderSay(els, "", ""); return; }
+    renderSay(els, next[0], next[1]);
+    sayTimer = win.setTimeout(sayNext, SAY_MS);
+  }
   const story = createStory({
-    say: (who, text) => {
-      if (sayTimer) win.clearTimeout(sayTimer);
-      renderSay(els, who, text);
-      sayTimer = win.setTimeout(hush, SAY_MS);
+    // beats queue rather than replace, so an arrival's two both land; a line
+    // the player asked for (TALK) interrupts and clears what was waiting
+    say: (who, text, now) => {
+      if (now) { hush(); sayQueue.push([who, text]); sayNext(); return; }
+      sayQueue.push([who, text]);
+      if (!sayTimer) sayNext();
     },
     hush,
     // never the text; only that it could not be opened, and why

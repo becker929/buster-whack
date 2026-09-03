@@ -67,14 +67,14 @@ test("the context bar is wired: an empty press refuses, and beside the keeper it
 
     // one step right puts the player beside the keeper (start 1,1; keeper 3,1)
     g.key("keydown", "ArrowRight");
-    await sleep(60);
+    await sleep(320);                                 // a hop takes time to commit
     assert.equal(g.el("bombLabel").textContent, "TALK", "the bar reads TALK beside the keeper");
-    await sleep(5000);                                // the arrival line fades
-    assert.equal(g.el("say").classList.contains("on"), false);
+    const before = g.el("sayText").textContent;      // the arrival beat is still up
     g.press("bombBtn");
     await sleep(120);
     assert.equal(g.el("say").classList.contains("on"), true, "TALK put a line up");
     assert.ok(g.el("sayText").textContent.length > 0);
+    assert.notEqual(g.el("sayText").textContent, before, "and it interrupted the arrival beat");
   } finally {
     g.game.destroy();
   }

@@ -95,14 +95,41 @@ export const BOMB_BLAST_MS = 460;
 // ---------- towers (story) ----------
 // A tower is a roost on the strip: a wide segment of the player's own ground
 // with keeper and item tiles, and the guard fight at its far edge is the
-// arena that follows it. The first tower of the prototype is roost.01 with
-// its keeper mid-floor; the bible (canon/bible/regions.json, `strip`) says
-// how the rest of the graph will be laid down.
+// arena that follows it. The strip opens on the first tower; after that a
+// tower stands before every TOWER_EVERY-th arena, following STORY_ROUTE
+// through the bible's link graph (canon/bible/regions.json) -- act one out to
+// the ferry, act two back along the same links. Exits-per-row and sunsets
+// come later; for now the route is a line so the story arrives on time.
 export const TOWER_COLS = 6;
-export const FIRST_TOWER = {
-  roost: "roost.01",
-  npcs: [{ id: "npc.keeper.01", col: 3, row: 1 }],
+export const TOWER_EVERY = 3;
+export const STORY_ROUTE = [
+  "roost.01", "roost.02", "roost.03", "roost.05", "roost.06",
+  "roost.05", "roost.03", "roost.02", "roost.04",
+];
+// who stands on each tower (bible: entities.json `home`), mid-floor
+export const TOWER_SPECS = {
+  "roost.01": { npcs: [{ id: "npc.keeper.01", col: 3, row: 1 }] },
+  "roost.02": { npcs: [{ id: "npc.keeper.02", col: 3, row: 1 }] },
+  "roost.03": { npcs: [{ id: "npc.keeper.03", col: 3, row: 1 }] },
+  "roost.04": { npcs: [{ id: "npc.keeper.04", col: 3, row: 1 }] },
+  "roost.05": { npcs: [{ id: "npc.keeper.05", col: 3, row: 1 }] },
+  "roost.06": { npcs: [{ id: "boss.ferryman", col: 3, row: 1 }] },
+  "roost.07": { npcs: [] },
+  "roost.08": { npcs: [] },
 };
+export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
+
+// ---------- the hop (touch modes) ----------
+// A step is a hop, one square, never diagonal: a crouch, the arc, a landing
+// squash, and the rest of the ration as cooldown. The square you count as
+// standing on changes at the top of the arc, so a bolt reads the sprite where
+// it is. A tap further than one square away lays a path and the hops follow
+// it, one per ration, until any new directive replaces it.
+export const HOP_WINDUP_MS = 50;
+export const HOP_MOVE_MS = 150;
+export const HOP_SETTLE_MS = 90;
+export const HOP_TOTAL_MS = HOP_WINDUP_MS + HOP_MOVE_MS + HOP_SETTLE_MS;
+export const HOP_COMMIT_MS = HOP_WINDUP_MS + HOP_MOVE_MS / 2;
 
 // ---------- clock ----------
 

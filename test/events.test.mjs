@@ -14,7 +14,7 @@ const VOCABULARY = new Set([
   "waveStart", "waveEnded",
   "arenaEntered", "arenaCleared",
   "bombThrown", "bombBlast", "pickupSpawned", "pickup", "sentinelHit",
-  "talk", "towerEntered", "bombEmpty",
+  "talk", "towerEntered", "bombEmpty", "hop",
 ]);
 
 test("a long random run only ever emits known event types", () => {
