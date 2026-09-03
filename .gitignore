@@ -6,3 +6,8 @@ dist/
 # Visual harness scratch: rendered frames, contact sheets and failure diffs.
 # The goldens themselves live in test/visual/golden/ and ARE committed.
 .visual/
+
+# canon: never commit unsealed prose
+*.plain.*
+/plain/
+canon/tmp/

@@ -18,26 +18,39 @@
  * renderer, as a translate. Deterministic: road heights come from state.rng.
  */
 
-import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE, arenaPlan } from "./constants.js";
+import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE, arenaPlan,
+         TOWER_COLS, FIRST_TOWER } from "./constants.js";
 
 export const TILE = {
   PLAYER: "player",
   ENEMY: "enemy",
   ROAD: "road",
+  NPC: "npc",       // a keeper or item on a tower: not standable, talked to from beside
   VOID: "void",
 };
 
-/** A fresh world: one enemy-held arena at the origin. */
-export function createWorld() {
+/**
+ * A fresh world: one enemy-held arena at the origin -- or, in the story, a
+ * tower at the origin with the first arena as its guard beyond it.
+ */
+export function createWorld(opts = {}) {
+  if (!opts.story) return { segs: [arena(0, 0)] };
+  return { segs: [tower(0, FIRST_TOWER), arena(TOWER_COLS, 0, false)] };
+}
+
+/** A roost on the strip: the player's own ground, with people on it. */
+function tower(x0, spec) {
   return {
-    segs: [arena(0, 0)],
+    kind: "tower", x0, cols: TOWER_COLS, roost: spec.roost,
+    npcs: spec.npcs.map((n) => ({ ...n })),
+    entered: true,
   };
 }
 
-function arena(x0, idx) {
+function arena(x0, idx, entered = idx === 0) {
   const plan = arenaPlan(idx);
   return {
-    kind: "arena", x0, cols: COLS, idx, owner: "enemy", entered: idx === 0,
+    kind: "arena", x0, cols: COLS, idx, owner: "enemy", entered,
     // the guard: how many viruses hold this road, how many join at once, and
     // how many have been dealt so far. Only advance reads these.
     pool: plan.pool, waveSize: plan.waveSize, dealt: 0,
@@ -77,6 +90,9 @@ export function tileAt(world, wx, row) {
   if (s.kind === "road") {
     return s.rows === ROWS || row === ROAD_MID_ROW ? TILE.ROAD : TILE.VOID;
   }
+  if (s.kind === "tower") {
+    return s.npcs.some((n) => n.col === wx && n.row === row) ? TILE.NPC : TILE.PLAYER;
+  }
   if (s.owner === "player") return TILE.PLAYER;
   return wx - s.x0 < PCOLS ? TILE.PLAYER : TILE.ENEMY;
 }
@@ -85,6 +101,22 @@ export function tileAt(world, wx, row) {
 export function walkable(world, wx, row) {
   const t = tileAt(world, wx, row);
   return t === TILE.PLAYER || t === TILE.ROAD;
+}
+
+/** The npc on a tower tile, or null. */
+export function npcAt(world, wx, row) {
+  const s = segmentAt(world, wx);
+  if (!s || s.kind !== "tower") return null;
+  return s.npcs.find((n) => n.col === wx && n.row === row) || null;
+}
+
+/** The npc beside (4-neighbour of) a square, or null: who TALK would address. */
+export function npcBeside(world, wx, row) {
+  for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const n = npcAt(world, wx + dc, row + dr);
+    if (n) return n;
+  }
+  return null;
 }
 
 /** Is world column `wx` inside arena `a`? */

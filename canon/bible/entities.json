@@ -1,0 +1,293 @@
+{
+  "player": {
+    "kind": "player",
+    "stats": {
+      "hp": 100,
+      "carry": 9,
+      "pulse": 10
+    },
+    "strings": "player.*",
+    "engine": {
+      "hp": "the run clock: a hit costs seconds, zero is the end of the run",
+      "carry": "stash capacity; the bomb stash is the first slot",
+      "pulse": "reserved"
+    }
+  },
+  "npc.keeper.01": {
+    "kind": "keeper",
+    "home": "roost.01",
+    "carry": 4,
+    "stays_if_uncarried": true,
+    "strings": "npc.keeper.01.*",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent; CARRY from the same button once talked to"
+    }
+  },
+  "npc.keeper.02": {
+    "kind": "keeper",
+    "home": "roost.02",
+    "carry": 3,
+    "strings": "npc.keeper.02.*",
+    "provides": [
+      "ui.map",
+      "ui.schedule"
+    ],
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent; CARRY from the same button once talked to"
+    }
+  },
+  "npc.keeper.03": {
+    "kind": "keeper",
+    "home": "roost.03",
+    "carry": 12,
+    "hard_carry": true,
+    "strings": "npc.keeper.03.*",
+    "trades": true,
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent; CARRY from the same button once talked to"
+    }
+  },
+  "npc.keeper.04": {
+    "kind": "keeper",
+    "home": "roost.04",
+    "carry": 5,
+    "strings": "npc.keeper.04.*",
+    "provides": [
+      "craft.shard"
+    ],
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent; CARRY from the same button once talked to"
+    }
+  },
+  "npc.keeper.05": {
+    "kind": "keeper",
+    "home": "roost.05",
+    "carry": 0,
+    "fits_thin": true,
+    "strings": "npc.keeper.05.*",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent; CARRY from the same button once talked to"
+    }
+  },
+  "boss.foreman": {
+    "kind": "boss",
+    "home": "roost.07",
+    "hp": 220,
+    "faction": "sweepers",
+    "talkable": false,
+    "strings": "boss.foreman.*",
+    "engine": {
+      "tile": "guard",
+      "verb": "none: a fight at the far edge of roost.07"
+    }
+  },
+  "boss.ferryman": {
+    "kind": "boss",
+    "home": "roost.06",
+    "hp": 400,
+    "faction": "meridian",
+    "talkable": true,
+    "fight_only_on": "reclaim",
+    "strings": "boss.ferryman.*",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.hidden.01": {
+    "kind": "npc",
+    "home": "roost.06",
+    "gated_by": "S04",
+    "strings": "npc.hidden.01.*",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.hidden.02": {
+    "kind": "npc",
+    "home": "roost.08",
+    "present": false,
+    "via_item": "item.journal.steward",
+    "strings": "npc.hidden.02.*"
+  },
+  "npc.hidden.03": {
+    "kind": "npc",
+    "home": null,
+    "offscreen": true,
+    "gated_by": "S08",
+    "strings": "npc.hidden.03.*"
+  },
+  "enemy.rot.01": {
+    "kind": "enemy",
+    "family": "rot",
+    "hp": 20,
+    "habitat": [
+      "tower.guard"
+    ],
+    "engine": {
+      "family": "mett",
+      "tier": 1,
+      "hits": 1
+    }
+  },
+  "enemy.rot.02": {
+    "kind": "enemy",
+    "family": "rot",
+    "hp": 45,
+    "habitat": [
+      "tower.guard"
+    ],
+    "engine": {
+      "family": "mett",
+      "tier": 2,
+      "hits": 2
+    }
+  },
+  "enemy.rot.03": {
+    "kind": "enemy",
+    "family": "rot",
+    "hp": 90,
+    "habitat": [
+      "tower.guard"
+    ],
+    "engine": {
+      "family": "mett",
+      "tier": 3,
+      "hits": 2
+    }
+  },
+  "enemy.static.01": {
+    "kind": "enemy",
+    "family": "static",
+    "hp": 15,
+    "habitat": [
+      "road.thin"
+    ],
+    "engine": {
+      "family": "hopper",
+      "tier": 1,
+      "hits": 1
+    }
+  },
+  "enemy.static.02": {
+    "kind": "enemy",
+    "family": "static",
+    "hp": 40,
+    "habitat": [
+      "road.thin"
+    ],
+    "scales_with": "roosts.dark",
+    "engine": {
+      "family": "hopper",
+      "tier": 2,
+      "hits": 2
+    }
+  },
+  "enemy.static.03": {
+    "kind": "enemy",
+    "family": "static",
+    "hp": 120,
+    "habitat": [
+      "road.thin"
+    ],
+    "min_dark": 4,
+    "engine": {
+      "family": "hopper",
+      "tier": 3,
+      "hits": 2
+    }
+  },
+  "enemy.sweeper.01": {
+    "kind": "enemy",
+    "family": "sweepers",
+    "hp": 30,
+    "habitat": [
+      "tower.dark",
+      "roost.06"
+    ],
+    "engine": {
+      "family": "sentinel",
+      "tier": 1,
+      "hits": 1
+    }
+  },
+  "enemy.sweeper.02": {
+    "kind": "enemy",
+    "family": "sweepers",
+    "hp": 70,
+    "engine": {
+      "family": "sentinel",
+      "tier": 2,
+      "hits": 2
+    }
+  },
+  "enemy.sweeper.03": {
+    "kind": "enemy",
+    "family": "sweepers",
+    "hp": 110,
+    "engine": {
+      "family": "sentinel",
+      "tier": 3,
+      "hits": 3
+    }
+  },
+  "item.journal.steward": {
+    "kind": "item",
+    "found_in": "roost.08",
+    "readable": true,
+    "reads_tracked": true
+  },
+  "item.clause.04": {
+    "kind": "item",
+    "from": "npc.keeper.03",
+    "on": "carry"
+  },
+  "item.notice.sunset": {
+    "kind": "item",
+    "from": "npc.keeper.02",
+    "act": 1
+  },
+  "item.list.dot": {
+    "kind": "item",
+    "from": "npc.keeper.01",
+    "gated_by": "S06"
+  },
+  "shard.spell": {
+    "kind": "shard",
+    "effect": "parry_next",
+    "cost": 1,
+    "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  },
+  "shard.weather": {
+    "kind": "shard",
+    "effect": "summon:enemy.static.02:your_row",
+    "cost": 2,
+    "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  },
+  "shard.bell": {
+    "kind": "shard",
+    "effect": "all_fire_now",
+    "cost": 3,
+    "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  },
+  "shard.sock": {
+    "kind": "shard",
+    "effect": "untargetable:1400ms",
+    "cost": 2,
+    "from": "roost.05",
+    "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  },
+  "shard.footnote": {
+    "kind": "shard",
+    "effect": "repeat_last_shot:0.5",
+    "cost": 1,
+    "from": "npc.keeper.03",
+    "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  }
+}

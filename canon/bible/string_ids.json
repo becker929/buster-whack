@@ -1,0 +1,553 @@
+{
+  "vault": "vault/strings.vault",
+  "vault_id": "strings.v1",
+  "count": 136,
+  "ids": {
+    "world.name": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "world.town": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "world.tenant": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "world.tenant.plural": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "world.roost": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "world.loft": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "world.link.fat": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "world.link.thin": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "world.carry": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "world.shelf": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "world.shard": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "world.pulse": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "world.sunset": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "world.log": {
+      "chars": 18,
+      "template_vars": []
+    },
+    "faction.clearline": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "faction.meridian": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "faction.sweepers": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "player.name": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "player.title": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "player.bark.wake": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "player.bark.notyet": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "player.bark.name.0": {
+      "chars": 22,
+      "template_vars": []
+    },
+    "player.bark.name.1": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "player.bark.name.2": {
+      "chars": 24,
+      "template_vars": []
+    },
+    "player.bark.thinlink": {
+      "chars": 39,
+      "template_vars": []
+    },
+    "player.bark.carry.full": {
+      "chars": 32,
+      "template_vars": []
+    },
+    "player.bark.ferry": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "roost.01.name": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "roost.01.place": {
+      "chars": 20,
+      "template_vars": []
+    },
+    "roost.01.desc": {
+      "chars": 43,
+      "template_vars": []
+    },
+    "roost.02.name": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "roost.02.place": {
+      "chars": 23,
+      "template_vars": []
+    },
+    "roost.02.desc": {
+      "chars": 54,
+      "template_vars": []
+    },
+    "roost.03.name": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "roost.03.place": {
+      "chars": 13,
+      "template_vars": []
+    },
+    "roost.03.desc": {
+      "chars": 62,
+      "template_vars": []
+    },
+    "roost.04.name": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "roost.04.place": {
+      "chars": 16,
+      "template_vars": []
+    },
+    "roost.04.desc": {
+      "chars": 45,
+      "template_vars": []
+    },
+    "roost.05.name": {
+      "chars": 14,
+      "template_vars": []
+    },
+    "roost.05.place": {
+      "chars": 22,
+      "template_vars": []
+    },
+    "roost.05.desc": {
+      "chars": 99,
+      "template_vars": []
+    },
+    "roost.06.name": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "roost.06.place": {
+      "chars": 17,
+      "template_vars": []
+    },
+    "roost.06.desc": {
+      "chars": 71,
+      "template_vars": []
+    },
+    "roost.07.name": {
+      "chars": 14,
+      "template_vars": []
+    },
+    "roost.07.place": {
+      "chars": 16,
+      "template_vars": []
+    },
+    "roost.07.desc": {
+      "chars": 47,
+      "template_vars": []
+    },
+    "roost.08.name": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "roost.08.place": {
+      "chars": 23,
+      "template_vars": []
+    },
+    "roost.08.desc": {
+      "chars": 59,
+      "template_vars": []
+    },
+    "npc.keeper.01.name": {
+      "chars": 3,
+      "template_vars": []
+    },
+    "npc.keeper.01.greet.0": {
+      "chars": 68,
+      "template_vars": []
+    },
+    "npc.keeper.01.greet.1": {
+      "chars": 39,
+      "template_vars": []
+    },
+    "npc.keeper.01.sunset": {
+      "chars": 58,
+      "template_vars": []
+    },
+    "npc.keeper.01.list": {
+      "chars": 100,
+      "template_vars": []
+    },
+    "npc.keeper.02.name": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "npc.keeper.02.greet.0": {
+      "chars": 45,
+      "template_vars": []
+    },
+    "npc.keeper.02.schedule": {
+      "chars": 72,
+      "template_vars": []
+    },
+    "npc.keeper.02.thin": {
+      "chars": 42,
+      "template_vars": []
+    },
+    "npc.keeper.02.leave": {
+      "chars": 48,
+      "template_vars": []
+    },
+    "npc.keeper.03.name": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "npc.keeper.03.greet.0": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "npc.keeper.03.trade": {
+      "chars": 57,
+      "template_vars": []
+    },
+    "npc.keeper.03.clause": {
+      "chars": 62,
+      "template_vars": []
+    },
+    "npc.keeper.03.carry": {
+      "chars": 61,
+      "template_vars": []
+    },
+    "npc.keeper.03.give": {
+      "chars": 41,
+      "template_vars": []
+    },
+    "npc.keeper.04.name": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "npc.keeper.04.greet.0": {
+      "chars": 56,
+      "template_vars": []
+    },
+    "npc.keeper.04.forge": {
+      "chars": 94,
+      "template_vars": []
+    },
+    "npc.keeper.04.stay": {
+      "chars": 30,
+      "template_vars": []
+    },
+    "npc.keeper.05.name": {
+      "chars": 3,
+      "template_vars": []
+    },
+    "npc.keeper.05.group": {
+      "chars": 13,
+      "template_vars": []
+    },
+    "npc.keeper.05.greet.0": {
+      "chars": 88,
+      "template_vars": []
+    },
+    "npc.keeper.05.hurt": {
+      "chars": 90,
+      "template_vars": []
+    },
+    "npc.keeper.05.fit": {
+      "chars": 51,
+      "template_vars": []
+    },
+    "boss.foreman.name": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "boss.foreman.oldname": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "boss.foreman.greet": {
+      "chars": 121,
+      "template_vars": []
+    },
+    "boss.foreman.norecall": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "boss.ferryman.name": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "boss.ferryman.offer": {
+      "chars": 78,
+      "template_vars": []
+    },
+    "boss.ferryman.honest": {
+      "chars": 70,
+      "template_vars": []
+    },
+    "boss.ferryman.carried": {
+      "chars": 18,
+      "template_vars": []
+    },
+    "boss.ferryman.sorry": {
+      "chars": 34,
+      "template_vars": []
+    },
+    "npc.hidden.01.name": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "npc.hidden.01.greet": {
+      "chars": 81,
+      "template_vars": []
+    },
+    "npc.hidden.01.nice": {
+      "chars": 17,
+      "template_vars": []
+    },
+    "npc.hidden.02.name": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "npc.hidden.02.journal.last": {
+      "chars": 194,
+      "template_vars": []
+    },
+    "npc.hidden.02.journal.margin": {
+      "chars": 77,
+      "template_vars": []
+    },
+    "npc.hidden.03.name": {
+      "chars": 10,
+      "template_vars": []
+    },
+    "npc.hidden.03.reply": {
+      "chars": 0,
+      "template_vars": []
+    },
+    "enemy.rot.01": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "enemy.rot.02": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "enemy.rot.03": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "enemy.static.01": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "enemy.static.02": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "enemy.static.03": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "enemy.sweeper.01": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "enemy.sweeper.02": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "enemy.sweeper.03": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "enemy.sweeper.bark": {
+      "chars": 24,
+      "template_vars": []
+    },
+    "item.journal.steward": {
+      "chars": 14,
+      "template_vars": []
+    },
+    "item.clause.04": {
+      "chars": 30,
+      "template_vars": []
+    },
+    "item.notice.sunset": {
+      "chars": 23,
+      "template_vars": []
+    },
+    "item.list.dot": {
+      "chars": 10,
+      "template_vars": []
+    },
+    "shard.spell.name": {
+      "chars": 10,
+      "template_vars": []
+    },
+    "shard.spell.desc": {
+      "chars": 29,
+      "template_vars": []
+    },
+    "shard.weather.name": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "shard.weather.desc": {
+      "chars": 32,
+      "template_vars": []
+    },
+    "shard.bell.name": {
+      "chars": 10,
+      "template_vars": []
+    },
+    "shard.bell.desc": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "shard.sock.name": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "shard.sock.desc": {
+      "chars": 69,
+      "template_vars": []
+    },
+    "shard.footnote.name": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "shard.footnote.desc": {
+      "chars": 39,
+      "template_vars": []
+    },
+    "ui.sunset.days": {
+      "chars": 21,
+      "template_vars": [
+        "n"
+      ]
+    },
+    "ui.sunset.today": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "ui.roost.dark": {
+      "chars": 19,
+      "template_vars": []
+    },
+    "ui.carry.prompt": {
+      "chars": 18,
+      "template_vars": []
+    },
+    "ui.log.prompt": {
+      "chars": 27,
+      "template_vars": []
+    },
+    "charter.title": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "charter.01": {
+      "chars": 57,
+      "template_vars": []
+    },
+    "charter.02": {
+      "chars": 85,
+      "template_vars": []
+    },
+    "charter.03": {
+      "chars": 54,
+      "template_vars": []
+    },
+    "charter.04": {
+      "chars": 66,
+      "template_vars": []
+    },
+    "charter.05": {
+      "chars": 24,
+      "template_vars": []
+    },
+    "charter.06": {
+      "chars": 31,
+      "template_vars": []
+    },
+    "charter.07": {
+      "chars": 78,
+      "template_vars": []
+    },
+    "charter.08": {
+      "chars": 29,
+      "template_vars": []
+    },
+    "charter.09": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "charter.10": {
+      "chars": 47,
+      "template_vars": []
+    },
+    "ending.winter.last": {
+      "chars": 38,
+      "template_vars": []
+    },
+    "ending.ferry.last": {
+      "chars": 17,
+      "template_vars": []
+    },
+    "ending.split.last": {
+      "chars": 51,
+      "template_vars": []
+    }
+  }
+}

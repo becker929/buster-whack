@@ -4,7 +4,16 @@
  */
 
 import { OC_START, bonusFactor, level, multOf, TIME_CAP, modeById } from "./constants.js";
-import { activeArena } from "./world.js";
+import { activeArena, npcBeside } from "./world.js";
+
+/**
+ * What the context button does right now: TALK beside a keeper, BOMB
+ * otherwise. One button, read from where you stand.
+ */
+export function contextVerb(state) {
+  const n = npcBeside(state.world, state.player.col, state.player.row);
+  return n ? { verb: "talk", npc: n.id } : { verb: "bomb", npc: null };
+}
 
 /** Hit accuracy as a 0..1 fraction (0 when nothing has been fired). */
 export function accuracy(state) {

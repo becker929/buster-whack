@@ -1,0 +1,201 @@
+[
+  {
+    "id": "S01",
+    "gate": {
+      "all": [
+        {
+          "flag": "entered.roost.08"
+        },
+        {
+          "key": "reads.item.journal.steward",
+          "op": ">=",
+          "value": 1
+        }
+      ]
+    },
+    "unlocks": [
+      "npc.hidden.02.journal.last"
+    ]
+  },
+  {
+    "id": "S02",
+    "gate": {
+      "key": "talks.ferryman",
+      "op": ">=",
+      "value": 4
+    },
+    "unlocks": [
+      "boss.ferryman.carried"
+    ]
+  },
+  {
+    "id": "S03",
+    "gate": {
+      "all": [
+        {
+          "flag": "carried.npc.keeper.05"
+        },
+        {
+          "flag": "entered.roost.08"
+        }
+      ]
+    },
+    "unlocks": [
+      "charter.09",
+      "npc.keeper.05.fit"
+    ]
+  },
+  {
+    "id": "S04",
+    "gate": {
+      "all": [
+        {
+          "key": "roosts.dark",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "key": "talks.ferryman",
+          "op": ">=",
+          "value": 3
+        }
+      ]
+    },
+    "unlocks": [
+      "npc.hidden.01.name",
+      "npc.hidden.01.greet",
+      "npc.hidden.01.nice"
+    ]
+  },
+  {
+    "id": "S05",
+    "gate": {
+      "any": [
+        {
+          "key": "ferried.count",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "all": [
+            {
+              "key": "day",
+              "op": ">=",
+              "value": 8
+            },
+            {
+              "flag": "!carried.npc.keeper.03"
+            }
+          ]
+        }
+      ]
+    },
+    "unlocks": [
+      "boss.ferryman.sorry"
+    ],
+    "engine_note": "see AGENTS.md: engine picks the keeper; ferried.count>=1 -> keeper.02; else keeper.03 if uncarried at (annex sunset - 1 day); else keeper.02. keeper.04 never."
+  },
+  {
+    "id": "S06",
+    "gate": {
+      "flag": "reached.final_roost"
+    },
+    "unlocks": [
+      "npc.keeper.01.list",
+      "item.list.dot"
+    ]
+  },
+  {
+    "id": "S07",
+    "gate": {
+      "all": [
+        {
+          "secret": "S01"
+        },
+        {
+          "key": "reads.item.journal.steward",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    "unlocks": [
+      "npc.hidden.02.journal.margin"
+    ]
+  },
+  {
+    "id": "S08",
+    "gate": {
+      "all": [
+        {
+          "key": "logs.player",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "flag": "reached.final_roost"
+        }
+      ]
+    },
+    "unlocks": [
+      "npc.hidden.03.reply"
+    ],
+    "engine_note": "npc.hidden.03.reply is intentionally empty in strings.v1. See AGENTS.md."
+  },
+  {
+    "id": "C04",
+    "gate": {
+      "flag": "carried.npc.keeper.03"
+    },
+    "unlocks": [
+      "charter.04",
+      "item.clause.04"
+    ]
+  },
+  {
+    "id": "CHARTER",
+    "gate": {
+      "flag": "entered.roost.08"
+    },
+    "unlocks": [
+      "charter.title",
+      "charter.01",
+      "charter.02",
+      "charter.03",
+      "charter.05",
+      "charter.06",
+      "charter.07",
+      "charter.08",
+      "charter.10"
+    ]
+  },
+  {
+    "id": "KEEPER04_STAY",
+    "gate": {
+      "key": "roosts.dark",
+      "op": ">=",
+      "value": 5
+    },
+    "unlocks": [
+      "npc.keeper.04.stay"
+    ]
+  },
+  {
+    "id": "KEEPER02_LEAVE",
+    "gate": {
+      "flag": "carried.npc.keeper.02"
+    },
+    "unlocks": [
+      "npc.keeper.02.leave"
+    ]
+  },
+  {
+    "id": "KEEPER03_GIVE",
+    "gate": {
+      "flag": "carried.npc.keeper.03"
+    },
+    "unlocks": [
+      "npc.keeper.03.give"
+    ]
+  }
+]

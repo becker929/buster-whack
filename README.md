@@ -123,6 +123,28 @@ when the fight starts.
 
 - **ONE HAND** — stick · tap · fire. The one-thumb layout above.
 - **ADVANCE** — ring + fire. The same road with the two-thumb layout.
+- **STORY** — a prototype of where the game is going. The strip opens on a
+  *tower*: your own ground with a keeper standing on it. Beside the keeper the
+  BOMB button becomes TALK, and what they say is a line laid over the board.
+  Walk off the tower's right edge and the guard arena wakes. One
+  representation throughout: no overworld, no dialogue screen.
+
+## Story
+
+The narrative lives in `canon/`, sealed. Everything mechanical about it is
+plain: `canon/bible/` names the roosts, keepers, enemies, items, string ids
+and reveal gates, and `canon/bible/regions.json` → `strip` says how the roost
+graph sits on this game's single strip (towers, roads as exits per row, time
+counted in tower visits). `canon/README.md` and `canon/AGENTS.md` are the
+rules of the house — in short, the person who commissioned the game has asked
+not to read the story before the game shows it, so nothing in `canon/vault/`
+or `canon/secrets/` is opened outside an authoring session, and the runtime
+never logs a decoded string.
+
+The runtime is `src/canon/` (plain JS, dependency-free); the bridge from core
+events to canon state and lines on the board is `src/shell/story.js`. The
+sealed string table is embedded for the bundle by `npm run canon:embed`, and
+the test suite fails if that embed is stale.
 
 CLASSIC (one fixed arena, hold the line) is retired from the menu. Its rule set
 is still in the code under its old id, because every renderer golden is pinned
@@ -153,7 +175,7 @@ src/
     rng.js         mulberry32; the core only ever draws from state.rng
     state.js       createState({ seed, best }) -> state; setLayout(state, w, h)
     step.js        step(state, dtMs, intents) -> events[]
-    select.js      pure selectors (HUD and overlay view models)
+    select.js      pure selectors (HUD and overlay view models, the context verb)
   shell/           everything with a side effect
     audio.js       Web Audio sfx bank, driven by core events
     render.js      draw(ctx, state, now) — canvas only, never touches the DOM

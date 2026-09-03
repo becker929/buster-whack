@@ -19,7 +19,7 @@
 
 import * as C from "../core/constants.js";
 import { hudView } from "../core/select.js";
-import { tileAt, TILE } from "../core/world.js";
+import { tileAt, segmentAt, TILE } from "../core/world.js";
 
 const { EASE, impulseValue, TAU, RING_GAP } = C;
 
@@ -48,6 +48,10 @@ const PANELS_OC = { mine: ["#40252c", "#95483f"], theirs: ["#2b2a35", "#7b5733"]
 // dash so it reads as a way through rather than more floor.
 const ROAD      = ["#121828", "#243050"];
 const ROAD_DASH = "#34416a";
+// a tower's floor: the player's ground, warmer and quieter -- somewhere to
+// stand rather than somewhere to hold
+const TOWER     = ["#2a2436", "#5a4a6e"];
+const KEEPER    = { robe: "#c9b6ff", hood: "#7d63c4", face: "#fff3c4", eye: "#2b1f4a" };
 
 /** A ring that stops just short of a full turn — see C.RING_GAP. */
 function ring(ctx, x, y, r, squash = 1) {
@@ -202,7 +206,9 @@ function drawPanels(ctx, state, now) {
       if (t === TILE.VOID) continue;
       const p = panel(G, c, r);
       const road = t === TILE.ROAD;
-      const [fill, edge] = road ? ROAD : t === TILE.PLAYER ? skin.mine : skin.theirs;
+      const seg = segmentAt(world, c);
+      const onTower = seg && seg.kind === "tower";
+      const [fill, edge] = road ? ROAD : onTower ? TOWER : t === TILE.PLAYER ? skin.mine : skin.theirs;
       ctx.fillStyle = fill;
       ctx.strokeStyle = edge;
       ctx.lineWidth = 2;
@@ -235,6 +241,7 @@ function drawPanels(ctx, state, now) {
         ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
         ctx.globalAlpha = 1;
       }
+      if (t === TILE.NPC) drawKeeper(ctx, p, now, state, c, r);
       // the player's own panel highlight; they can stand on their ground or the road
       if (t !== TILE.ENEMY && c === state.player.col && r === state.player.row) {
         ctx.strokeStyle = "#45e0e8";
@@ -243,6 +250,40 @@ function drawPanels(ctx, state, now) {
     }
   }
   drawRipples(ctx, state, now);
+}
+
+/**
+ * A keeper on a tower tile: a hooded figure, still, with a slow breath. When
+ * the player stands beside them the tile carries the TALK prompt -- a small
+ * lit chevron, the same language as the aim marks.
+ */
+function drawKeeper(ctx, p, now, state, col, row) {
+  const cx = p.x + p.w / 2;
+  const base = p.y + p.h * 0.8;
+  const breathe = 1 + 0.02 * Math.sin(now / 700);
+  const w = p.w * 0.3, h = p.h * 1.0 * breathe;
+  ctx.fillStyle = KEEPER.robe;
+  ctx.fillRect(cx - w / 2, base - h, w, h);
+  ctx.fillStyle = KEEPER.hood;
+  ctx.fillRect(cx - w * 0.6, base - h - h * 0.12, w * 1.2, h * 0.42);
+  ctx.fillStyle = KEEPER.face;
+  ctx.fillRect(cx - w * 0.32, base - h + h * 0.06, w * 0.64, h * 0.2);
+  ctx.fillStyle = KEEPER.eye;
+  ctx.fillRect(cx - w * 0.2, base - h + h * 0.12, 3, 3);
+  ctx.fillRect(cx + w * 0.2 - 3, base - h + h * 0.12, 3, 3);
+  const beside = Math.abs(state.player.col - col) + Math.abs(state.player.row - row) === 1;
+  if (beside) {
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 220);
+    ctx.fillStyle = "#45e0e8";
+    const y = p.y - 6 - 3 * Math.abs(Math.sin(now / 320));
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, y - 8);
+    ctx.lineTo(cx + 6, y - 8);
+    ctx.lineTo(cx, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 }
 
 // An impact ring that grows from the middle of a panel to its edge. Cheap

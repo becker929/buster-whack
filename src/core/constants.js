@@ -92,6 +92,18 @@ export const BOMB_RADIUS = 1;               // tiles either side of the landing 
 export const BOMB_PICKUP_CHANCE = 0.6;      // per road; the first road always has one
 export const BOMB_BLAST_MS = 460;
 
+// ---------- towers (story) ----------
+// A tower is a roost on the strip: a wide segment of the player's own ground
+// with keeper and item tiles, and the guard fight at its far edge is the
+// arena that follows it. The first tower of the prototype is roost.01 with
+// its keeper mid-floor; the bible (canon/bible/regions.json, `strip`) says
+// how the rest of the graph will be laid down.
+export const TOWER_COLS = 6;
+export const FIRST_TOWER = {
+  roost: "roost.01",
+  npcs: [{ id: "npc.keeper.01", col: 3, row: 1 }],
+};
+
 // ---------- clock ----------
 
 export const START_TIME = 30;
@@ -134,6 +146,12 @@ export const MODES = [
     controls: "touch", moveMs: TAP_MOVE_MS },
   { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
     controls: "pad", moveMs: MOVE_REPEAT_MS },
+  // The story, as a prototype: the strip opens on a tower -- a safe segment
+  // with a keeper on it -- and the context button is TALK beside them. The
+  // text comes from the sealed canon through the shell; the core only knows
+  // that a tile is an npc and that you pressed the button next to it.
+  { id: "story", name: "STORY", blurb: "prototype · tower", advancing: true,
+    controls: "touch", moveMs: TAP_MOVE_MS, story: true },
 ];
 // Retired: off the menu, but still resolvable by id. CLASSIC is the fixed
 // six-column board every renderer golden was pinned against, so the harness

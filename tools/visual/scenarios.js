@@ -161,6 +161,26 @@ export const scenarios = [
   },
 
   {
+    name: "story-tower",
+    title: "STORY: the tower, the keeper, the TALK prompt",
+    why: "The story strip opens on a tower: the player's own ground in the tower skin, a keeper on a tile you stand beside rather than on, and the guard arena waiting past the tower's edge with its wave asleep. Standing beside the keeper lights the TALK prompt over them; a press ripples their tile (the line itself is DOM, from the sealed canon, and never in a frame).",
+    seed: 4,
+    width: 390,
+    height: 760,
+    frames: 8,
+    modes: ["playing"],
+    capture: [
+      { at: 1, as: "arrival" },
+      { at: 5, as: "beside" },
+    ],
+    cues: [
+      { at: 0, actions: [{ type: "startRun", modeId: "story" }], inset: 243 },
+      { at: 3, set: { "player.col": 2, "player.row": 1 } },
+      { at: 4, actions: [{ type: "bomb" }] },
+    ],
+  },
+
+  {
     name: "empty-field",
     title: "Empty field",
     why: "Board panels, the player sprite, the player's panel highlight and the resting HUD. The baseline every other scenario is a delta from.",

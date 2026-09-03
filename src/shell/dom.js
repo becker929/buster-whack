@@ -265,6 +265,40 @@ export const TEMPLATE = `
   }
   @media (prefers-reduced-motion: reduce) { #muteFlag.on { animation: none; } }
 
+  /* ---------- story: a line over the board ---------- */
+  /* One representation: text is a strip laid over the play space, never a
+     screen of its own. It sits where the mount puts it (above the BOMB bar in
+     one-hand, under the HUD otherwise) and fades on its own. */
+  #say {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 100px;
+    z-index: 5;
+    padding: 10px 14px;
+    border: 1px solid var(--bw-line);
+    border-left: 3px solid var(--bw-accent);
+    border-radius: 10px;
+    background: rgba(8, 11, 20, 0.86);
+    color: var(--bw-ink);
+    font: 500 13px/1.45 var(--bw-mono);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+  #say.on { opacity: 1; transform: none; }
+  #say b { display: block; color: var(--bw-accent); font-size: 11px; letter-spacing: 0.22em; margin-bottom: 3px; }
+  #say b:empty { display: none; }
+  main.touch #bombBtn.talk {
+    color: var(--bw-ink);
+    border-color: var(--bw-accent);
+    background: linear-gradient(180deg, rgba(69, 224, 232, 0.22), rgba(69, 224, 232, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(69, 224, 232, 0.18);
+  }
+  #bombBtn.talk b { display: none; }
+
   /* splash / interlevel / game-over overlay */
   #overlay {
     position: absolute;
@@ -687,8 +721,9 @@ export const TEMPLATE = `
     </div>
 
     <div id="deck" aria-hidden="true"></div>
+    <div id="say" role="status" aria-live="polite"><b id="sayWho"></b><span id="sayText"></span></div>
     <button id="pauseBtn" aria-label="Pause">II</button>
-    <button id="bombBtn" class="empty" aria-label="Throw bomb">BOMB<b id="bombCount">0</b></button>
+    <button id="bombBtn" class="empty" aria-label="Throw bomb"><span id="bombLabel">BOMB</span><b id="bombCount">0</b></button>
     <button id="fireBtn" aria-label="Fire"><span>FIRE</span><span class="glyph">&#9679;</span></button>
   </main>
 
@@ -698,7 +733,8 @@ export const TEMPLATE = `
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "spModes", "dpad", "aUp", "aDown", "aLeft", "aRight",
-  "pauseBtn", "fireBtn", "bombBtn", "bombCount", "muteFlag", "deck",
+  "pauseBtn", "fireBtn", "bombBtn", "bombCount", "bombLabel", "muteFlag", "deck",
+  "say", "sayWho", "sayText",
 ];
 
 /**
@@ -837,16 +873,38 @@ export function placeTouchControls(els, G) {
   const st = els.bombBtn.style;
   if (!els.stage.classList.contains("touch")) {
     st.left = st.top = st.width = "";
+    els.say.style.top = els.say.style.bottom = "";
     return;
   }
   const h = els.bombBtn.getBoundingClientRect().height || 54;
   st.left = G.gx + "px";
   st.width = G.pw * COLS + "px";
-  st.top = Math.max(0, G.gy - h - 12) + "px";
+  const top = Math.max(0, G.gy - h - 12);
+  st.top = top + "px";
+  // the line strip sits above the button, in the room the layout reserved
+  // (anchored by its bottom edge, so a long line grows upward, not down)
+  els.say.style.top = "auto";
+  els.say.style.bottom = (G.h - top + 10) + "px";
 }
 
 /** The bomb button carries the count; empty, it greys to an outline. */
-export function renderBombs(els, n) {
+/**
+ * The context button: the bomb count, or the verb the board offers where you
+ * stand (TALK beside a keeper). Empty of bombs and with nothing to say, it
+ * greys to an outline.
+ */
+export function renderBombs(els, n, verb = "bomb") {
+  const talk = verb === "talk";
   els.bombCount.textContent = String(n);
-  els.bombBtn.classList.toggle("empty", n <= 0);
+  els.bombLabel.textContent = talk ? "TALK" : "BOMB";
+  els.bombBtn.setAttribute("aria-label", talk ? "Talk" : "Throw bomb");
+  els.bombBtn.classList.toggle("talk", talk);
+  els.bombBtn.classList.toggle("empty", !talk && n <= 0);
+}
+
+/** A line over the board. Empty text takes it down. */
+export function renderSay(els, who, text) {
+  els.sayWho.textContent = who || "";
+  els.sayText.textContent = text || "";
+  els.say.classList.toggle("on", !!text);
 }

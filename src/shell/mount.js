@@ -6,10 +6,11 @@
 import { createState, setLayout } from "../core/state.js";
 import { step } from "../core/step.js";
 import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
-import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
+import { statsView, hudView, interlevelView, gameOverView, contextVerb } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode, renderBombs, setControls, deckInset, placeTouchControls } from "./dom.js";
+         renderModes, selectMode, renderBombs, renderSay, setControls, deckInset, placeTouchControls } from "./dom.js";
 import { createAudio } from "./audio.js";
+import { createStory } from "./story.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
 
@@ -121,10 +122,31 @@ export function mountBusterWhack(container, options = {}) {
 
   // ---------- core events -> DOM ----------
 
+  let verb = "bomb";
   function refreshStats() {
     renderStats(els, statsView(state));
-    renderBombs(els, state.bombs || 0);
+    renderBombs(els, state.bombs || 0, verb);
   }
+
+  // ---------- story ----------
+  // Lines are a strip over the board that fades on its own. The timer is the
+  // shell's; the core never waits on text.
+
+  const SAY_MS = 4800;
+  let sayTimer = null;
+  function hush() {
+    if (sayTimer) { win.clearTimeout(sayTimer); sayTimer = null; }
+    renderSay(els, "", "");
+  }
+  const story = createStory({
+    say: (who, text) => {
+      if (sayTimer) win.clearTimeout(sayTimer);
+      renderSay(els, who, text);
+      sayTimer = win.setTimeout(hush, SAY_MS);
+    },
+    hush,
+  });
+  cleanupFns.push(hush);
 
   function showInterlevel(ev) {
     const v = interlevelView(state, ev.stage, ev.timeBonus === undefined ? STAGE_BONUS : ev.timeBonus);
@@ -203,7 +225,12 @@ export function mountBusterWhack(container, options = {}) {
     const events = step(state, dt, { actions, hold: input.hold() });
 
     audio.handleAll(events);
+    story.handleAll(events);
     for (const ev of events) handleEvent(ev);
+
+    // the context button reads from where you stand
+    const cv = contextVerb(state).verb;
+    if (cv !== verb) { verb = cv; refreshStats(); }
 
     // Continuous audio (music transport, the charge sweep, the low-time alarm)
     // is derived from the same view model the HUD draws, rather than from

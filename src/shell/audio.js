@@ -1163,6 +1163,10 @@ export function createAudio(win) {
       case "pickup":
         seq([76, 83, 88], { step: 0.05, dur: 0.07, gain: 0.1, octave: true });
         break;
+      case "talk":
+        // a word said: two soft notes, no attack to speak of
+        seq([64, 71], { step: 0.07, dur: 0.11, gain: 0.07 });
+        break;
       case "sentinelHit":
         // armour taking a real hit: a ring, not a note
         tone({ wave: "sine", freq: 1320, dur: 0.14, gain: 0.07, filter: "bandpass", cutoff: 1320, q: 12, pan: panOf(ev.col) });

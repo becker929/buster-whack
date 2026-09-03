@@ -1,0 +1,35 @@
+{
+  "description": "Keys the engine must maintain on PlayerState for gates to work.",
+  "numbers": [
+    "day",
+    "roosts.dark",
+    "talks.ferryman",
+    "ferried.count",
+    "logs.player",
+    "reads.item.journal.steward"
+  ],
+  "flags": [
+    "entered.roost.0N",
+    "carried.npc.keeper.0N",
+    "forge.hot",
+    "reached.final_roost",
+    "ending.winter",
+    "ending.ferry",
+    "ending.split"
+  ],
+  "note": "A flag written as '!name' in a gate means 'not set'. Supported by runtime/canon.ts.",
+  "sources": {
+    "day": "tower arrivals (core event arenaEntered on a tower segment)",
+    "roosts.dark": "sunsets so far: floor(day / visits_between_sunsets), applied in sunset_order",
+    "talks.ferryman": "TALK presses on boss.ferryman (core event talk)",
+    "ferried.count": "accepting the ferry at roost.06",
+    "logs.player": "LOG presses at a tower terminal",
+    "reads.item.journal.steward": "READ presses on the journal tile",
+    "entered.roost.0N": "first arrival at that tower",
+    "carried.npc.keeper.0N": "CARRY on that keeper, then arriving at the next tower with them",
+    "forge.hot": "keeper.04's forge lit at roost.04",
+    "reached.final_roost": "arrival at the last tower the schedule leaves lit",
+    "ending.*": "set by the ending reached"
+  },
+  "engine": "src/shell/story.js owns PlayerState and writes these from core events; the core never sees canon text"
+}

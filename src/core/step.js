@@ -17,7 +17,7 @@
  */
 
 import * as C from "./constants.js";
-import { createWorld, activeArena, walkable, clearArena, worldEnd } from "./world.js";
+import { createWorld, activeArena, walkable, clearArena, worldEnd, npcBeside } from "./world.js";
 import { computeRank } from "./select.js";
 
 const panel = (state, col, row) => C.panelRect(state.G, col, row);
@@ -153,7 +153,7 @@ export function applyIntent(state, action, events) {
       if (state.mode === "playing" && !state.paused) togglePause(state, events);
       break;
     case "startRun":     resetGame(state, events, action.modeId); break;
-    case "bomb":         throwBomb(state, events); break;
+    case "bomb":         contextAction(state, events); break;
     case "resume":       resumeFromInterlevel(state, events); break;
     case "endRun":       gameOver(state, events); break;
     default: break;      // shell-only intents (mute, …) never reach here
@@ -340,7 +340,8 @@ function togglePause(state, events) {
 function resetGame(state, events, modeId) {
   const cfg = C.modeById(modeId || state.modeId);
   state.modeId = cfg.id;
-  state.world = createWorld();
+  state.world = createWorld({ story: !!cfg.story });
+  state.talks = {};
   state.arenasCleared = 0;
   state.bombs = 0;
   state.bombsInFlight.length = 0;
@@ -364,7 +365,9 @@ function resetGame(state, events, modeId) {
   state.holdDir = null;
   state.holdT0 = -1e9;
   state.enemies.length = 0;
-  state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
+  // the opening lull, before wave 0 -- unless the strip opens on a tower, in
+  // which case the first arena's guard wakes only when you walk into it
+  state.nextSpawnAt = activeArena(state.world).entered ? state.clock + 500 : Infinity;
   state.waveIdx = 0;
   state.waveState = "lull";
   state.wave = null;
@@ -373,7 +376,10 @@ function resetGame(state, events, modeId) {
   state.bolts.length = 0;
   state.hurtUntil = -1e9;
   state.rank = null;
-  events.push({ type: "runStarted", modeId: cfg.id });
+  events.push({ type: "runStarted", modeId: cfg.id, story: !!cfg.story });
+  // the strip opens on a tower: say where you are
+  const first = state.world.segs[0];
+  if (first.kind === "tower") events.push({ type: "towerEntered", roost: first.roost, x0: first.x0 });
   events.push({ type: "statsChanged" });
 }
 
@@ -978,6 +984,22 @@ function updateBolts(state, dt, events) {
  * Lob a bomb BOMB_RANGE columns ahead along your row. It is ordnance, not a
  * shot: no charge, no hitscan, one per pickup.
  */
+/**
+ * The context button. Beside a keeper it is TALK; anywhere else it is the
+ * bomb. The core records the press and who it was to; the shell turns that
+ * into a line from the sealed canon, so no text ever lives here.
+ */
+function contextAction(state, events) {
+  if (state.mode !== "playing" || state.paused) return;
+  const n = npcBeside(state.world, state.player.col, state.player.row);
+  if (!n) { throwBomb(state, events); return; }
+  state.talks[n.id] = (state.talks[n.id] || 0) + 1;
+  const p = panel(state, n.col, n.row);
+  ripple(state, n.col, n.row, "#ffd23f", state.clock, 1);
+  events.push({ type: "talk", npc: n.id, count: state.talks[n.id], col: n.col, row: n.row,
+                x: p.x + p.w / 2, y: p.y });
+}
+
 function throwBomb(state, events) {
   if (state.mode !== "playing" || state.paused) return;
   if (state.bombs <= 0) return;

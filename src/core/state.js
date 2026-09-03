@@ -76,6 +76,7 @@ export function createState(opts = {}) {
     queuedMove: null,          // one-hand: the step held for the end of the cooldown, { kind:"to",col,row } | { kind:"by",dc,dr }
     holdDir: null,             // the direction a stick/ring is holding this frame, { dc, dr }
     holdT0: -1e9,              // when that push began: a push gets one held step, never two
+    talks: {},                 // story: TALK presses per npc id; the shell picks the line
     rank: null,
     // hit-stop: freeze the simulation clock for `hitStopMs` once `clock`
     // reaches `hitStopAt` (which is when the tracer actually lands).

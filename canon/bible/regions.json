@@ -1,0 +1,297 @@
+{
+  "roosts": {
+    "roost.01": {
+      "strings": [
+        "roost.01.name",
+        "roost.01.place",
+        "roost.01.desc"
+      ]
+    },
+    "roost.02": {
+      "strings": [
+        "roost.02.name",
+        "roost.02.place",
+        "roost.02.desc"
+      ]
+    },
+    "roost.03": {
+      "strings": [
+        "roost.03.name",
+        "roost.03.place",
+        "roost.03.desc"
+      ]
+    },
+    "roost.04": {
+      "strings": [
+        "roost.04.name",
+        "roost.04.place",
+        "roost.04.desc"
+      ]
+    },
+    "roost.05": {
+      "strings": [
+        "roost.05.name",
+        "roost.05.place",
+        "roost.05.desc"
+      ]
+    },
+    "roost.06": {
+      "strings": [
+        "roost.06.name",
+        "roost.06.place",
+        "roost.06.desc"
+      ]
+    },
+    "roost.07": {
+      "strings": [
+        "roost.07.name",
+        "roost.07.place",
+        "roost.07.desc"
+      ]
+    },
+    "roost.08": {
+      "strings": [
+        "roost.08.name",
+        "roost.08.place",
+        "roost.08.desc"
+      ]
+    }
+  },
+  "sunset_order": [
+    "roost.07",
+    "roost.08",
+    "roost.05",
+    "roost.03",
+    "roost.02",
+    "roost.04",
+    "roost.01"
+  ],
+  "never_sunsets": [
+    "roost.06"
+  ],
+  "dark_at_start": [
+    "roost.07",
+    "roost.08"
+  ],
+  "reopens": {
+    "roost.08": {
+      "when": {
+        "flag": "forge.hot"
+      }
+    }
+  },
+  "start": "roost.01",
+  "links": [
+    {
+      "a": "roost.01",
+      "b": "roost.02",
+      "w": "fat"
+    },
+    {
+      "a": "roost.01",
+      "b": "roost.03",
+      "w": "fat"
+    },
+    {
+      "a": "roost.02",
+      "b": "roost.03",
+      "w": "fat"
+    },
+    {
+      "a": "roost.02",
+      "b": "roost.04",
+      "w": "fat"
+    },
+    {
+      "a": "roost.02",
+      "b": "roost.05",
+      "w": "thin"
+    },
+    {
+      "a": "roost.03",
+      "b": "roost.05",
+      "w": "fat"
+    },
+    {
+      "a": "roost.04",
+      "b": "roost.07",
+      "w": "thin"
+    },
+    {
+      "a": "roost.04",
+      "b": "roost.08",
+      "w": "thin"
+    },
+    {
+      "a": "roost.05",
+      "b": "roost.06",
+      "w": "fat"
+    },
+    {
+      "a": "roost.03",
+      "b": "roost.06",
+      "w": "thin"
+    }
+  ],
+  "rules": {
+    "on_sunset": "links touching the roost become thin (their roads drop to one row); after one more sunset they vanish (no exit offered); the roost's tower shows as dark tiles if reached again",
+    "keeper_uncarried_at_sunset": "keeper strings become unavailable for the run",
+    "shelf_per_roost": {
+      "roost.01": 9,
+      "roost.02": 6,
+      "roost.03": 14,
+      "roost.04": 8,
+      "roost.05": 4,
+      "roost.06": 99,
+      "roost.07": 0,
+      "roost.08": 3
+    },
+    "visits_between_sunsets": 3,
+    "day": "a day is one tower arrival; `day` on PlayerState counts arrivals, so the sunset clock runs on travel, not on the wall clock. The 30s fight clock is guard pressure only."
+  },
+  "acts": {
+    "1": [
+      "roost.01",
+      "roost.02",
+      "roost.06"
+    ],
+    "2": [
+      "roost.05",
+      "roost.03",
+      "roost.02"
+    ],
+    "3": [
+      "roost.08",
+      "roost.04",
+      "roost.06",
+      "roost.01"
+    ]
+  },
+  "endings": [
+    "ending.winter",
+    "ending.ferry",
+    "ending.split"
+  ],
+  "exits": {
+    "roost.01": [
+      {
+        "to": "roost.02",
+        "w": "fat"
+      },
+      {
+        "to": "roost.03",
+        "w": "fat"
+      }
+    ],
+    "roost.02": [
+      {
+        "to": "roost.01",
+        "w": "fat"
+      },
+      {
+        "to": "roost.03",
+        "w": "fat"
+      },
+      {
+        "to": "roost.04",
+        "w": "fat"
+      },
+      {
+        "to": "roost.05",
+        "w": "thin"
+      }
+    ],
+    "roost.03": [
+      {
+        "to": "roost.01",
+        "w": "fat"
+      },
+      {
+        "to": "roost.02",
+        "w": "fat"
+      },
+      {
+        "to": "roost.05",
+        "w": "fat"
+      },
+      {
+        "to": "roost.06",
+        "w": "thin"
+      }
+    ],
+    "roost.04": [
+      {
+        "to": "roost.02",
+        "w": "fat"
+      },
+      {
+        "to": "roost.07",
+        "w": "thin"
+      },
+      {
+        "to": "roost.08",
+        "w": "thin"
+      }
+    ],
+    "roost.05": [
+      {
+        "to": "roost.02",
+        "w": "thin"
+      },
+      {
+        "to": "roost.03",
+        "w": "fat"
+      },
+      {
+        "to": "roost.06",
+        "w": "fat"
+      }
+    ],
+    "roost.07": [
+      {
+        "to": "roost.04",
+        "w": "thin"
+      }
+    ],
+    "roost.08": [
+      {
+        "to": "roost.04",
+        "w": "thin"
+      }
+    ],
+    "roost.06": [
+      {
+        "to": "roost.03",
+        "w": "thin"
+      },
+      {
+        "to": "roost.05",
+        "w": "fat"
+      }
+    ]
+  },
+  "strip": {
+    "description": "How the roost graph lives on Buster Whack's single strip. There is no map screen: a roost is a tower (a wide, mostly safe arena with keeper and item tiles and a guard fight at its far edge), a link is a road leaving the tower's right edge, and the three rows are the exits. The road you arrived by is never offered, so a tower shows at most three exits.",
+    "exit_rows": {
+      "1": [
+        1
+      ],
+      "2": [
+        0,
+        2
+      ],
+      "3": [
+        0,
+        1,
+        2
+      ]
+    },
+    "exit_order": "remaining exits sorted by target id take the rows top to bottom",
+    "road_width": {
+      "fat": "full height (3 rows)",
+      "thin": "the one middle row"
+    },
+    "revisits": "the camera only moves right; returning to a roost appends it to the strip again as a new tower segment (the strip is the path taken, not the map)",
+    "camera": "monotonic; a square that has scrolled off the left edge is gone for the run"
+  }
+}

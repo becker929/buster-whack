@@ -22,13 +22,15 @@
   "scripts": {
     "start": "npx serve .",
     "build": "esbuild src/buster-whack.js --bundle --format=esm --outfile=dist/buster-whack.js",
-    "test": "npm run test:unit && npm run test:smoke",
+    "test": "npm run canon:check && npm run test:unit && npm run test:smoke",
     "test:unit": "node --test \"test/*.test.mjs\"",
     "test:smoke": "node test/smoke.mjs",
     "visual": "node tools/visual-check.mjs",
     "visual:update": "node tools/visual-check.mjs --update",
     "visual:proof": "node tools/visual/font-proof.mjs",
-    "frames": "node tools/frames.mjs"
+    "frames": "node tools/frames.mjs",
+    "canon:embed": "node tools/canon-embed.mjs",
+    "canon:check": "node tools/canon-embed.mjs --check"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.53",
