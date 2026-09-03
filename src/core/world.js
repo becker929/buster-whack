@@ -66,6 +66,15 @@ export function activeArena(world) {
   return world.segs[0];
 }
 
+/**
+ * Nowhere a virus holds: on a tower, a road, a taken arena, or before a guard
+ * wakes. The run clock only drains outside a safe zone.
+ */
+export function safeZone(world) {
+  const a = activeArena(world);
+  return !(a.entered && a.owner === "enemy");
+}
+
 /** Right edge (exclusive) of the last segment: where the world currently ends. */
 export function worldEnd(world) {
   const s = world.segs[world.segs.length - 1];

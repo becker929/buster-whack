@@ -85,8 +85,7 @@ rests directly on it so the thumb rolls from squares to trigger, a BOMB bar
 sits just above the board, and the board itself is how you move:
 
 - Move: every step is a **hop**, one square, never diagonal — a crouch, the
-  arc, a landing, and the rest of the ration as cooldown (350 ms a step, half
-  a charge). The square you count as standing on changes at the top of the
+  arc, a landing, and the rest of the ration as cooldown (260 ms a step). The square you count as standing on changes at the top of the
   arc. The whole stage is a **floating stick**: touch anywhere, the board or
   FIRE itself, push in a direction and hold to walk that way; flick for a
   single hop; let it centre or lift to stop. So the thumb holding a charge on
@@ -95,6 +94,8 @@ sits just above the board, and the board itself is how you move:
   until a push, a tap, or a hit gives a new directive. A tap has to land on
   ground you can stand on that you could also walk to — a narrow road is
   still a funnel.
+- Safe zones: the clock only drains inside an arena that is held against you.
+  Towers, roads and arenas you have taken are safe, so a walk is a real rest.
 - Fire: hold FIRE to charge — release for the strong shot.
 - Bomb: tap BOMB (lit while you carry one).
 

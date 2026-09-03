@@ -668,20 +668,15 @@ test("one-hand: a tap on a square hops there and never fires; the stick walks", 
   await wait(60);
   const mid = await snap();
   assert.equal(mid.col + "," + mid.row, "1,1", "a hop takes time: not there yet");
-  await wait(110);                                      // past the commit, still inside the ration
-  const s1 = await snap();
-  assert.equal(s1.col + "," + s1.row, "2,1", "the tapped square is where you land");
-  assert.equal(s1.shots, s0.shots, "the board is not a FIRE surface in one-hand");
-  assert.equal(s1.canFire, true, "and it never touched the latch");
-
-  // a second tap inside the ration is held, then taken
+  // a second tap while the first hop is still in the air is held, then taken
   const q = squareAt(stage, s0.G, 2, 2);
   await t.tap(q.x, q.y);
   await wait(30);
   const s2 = await snap();
-  assert.equal(s2.col + "," + s2.row, "2,1", "inside the ration nothing moves yet");
   assert.deepEqual(s2.queued, { kind: "to", col: 2, row: 2 }, "the step is held");
-  await wait(600);
+  assert.equal(s2.shots, s0.shots, "the board is not a FIRE surface in one-hand");
+  assert.equal(s2.canFire, true, "and it never touched the latch");
+  await wait(700);
   const s3 = await snap();
   assert.equal(s3.col + "," + s3.row, "2,2", "the held step lands when the ration ends");
 

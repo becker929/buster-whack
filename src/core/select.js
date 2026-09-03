@@ -5,7 +5,7 @@
 
 import { OC_START, bonusFactor, level, multOf, TIME_CAP, modeById } from "./constants.js";
 import * as C from "./constants.js";
-import { activeArena, npcBeside } from "./world.js";
+import { activeArena, npcBeside, safeZone } from "./world.js";
 
 /**
  * Where the player's sprite is, mid-hop: fractional column and row, the lift
@@ -91,6 +91,8 @@ export function hudView(state) {
     bombs: state.bombs || 0,
     timeLeft: state.timeLeft,
     timeFrac: Math.max(0, Math.min(1, state.timeLeft / TIME_CAP)),
+    // the clock is paused: nothing here is held against you
+    safe: safeZone(state.world),
     overclock: oc,
     overclockFactor: bonusFactor(state.deletions),
     paused: state.paused,

@@ -17,7 +17,7 @@
  */
 
 import * as C from "./constants.js";
-import { createWorld, activeArena, walkable, clearArena, worldEnd, npcBeside } from "./world.js";
+import { createWorld, activeArena, walkable, clearArena, worldEnd, npcBeside, safeZone } from "./world.js";
 import { computeRank } from "./select.js";
 
 const panel = (state, col, row) => C.panelRect(state.G, col, row);
@@ -45,7 +45,9 @@ export function step(state, dtMs, intents = {}) {
 
   if (state.mode === "playing" && !state.paused) {
     state.clock += adv;
-    state.timeLeft -= dtMs / 1000;
+    // The run clock is fight pressure: it drains only while the arena you
+    // are in is held against you. Towers, roads and taken arenas are safe.
+    if (!safeZone(state.world)) state.timeLeft -= dtMs / 1000;
     if (state.timeLeft <= 0) { state.timeLeft = 0; gameOver(state, events); }
     if (state.charge.downAt !== null && !state.charge.full &&
         state.clock - state.charge.downAt >= C.CHARGE_MS) {

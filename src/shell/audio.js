@@ -1212,7 +1212,7 @@ export function createAudio(win) {
 
     // --- intensity ---
     music.tier = view.overclock ? 3 : view.level >= 7 ? 2 : view.level >= 3 ? 1 : 0;
-    music.lowTime = view.mode === "playing" && !view.paused && view.timeLeft < LOW_TIME;
+    music.lowTime = view.mode === "playing" && !view.paused && !view.safe && view.timeLeft < LOW_TIME;
 
     // --- transport ---
     if (view.mode === "playing" && !view.paused) {

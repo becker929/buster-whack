@@ -125,9 +125,9 @@ export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
 // standing on changes at the top of the arc, so a bolt reads the sprite where
 // it is. A tap further than one square away lays a path and the hops follow
 // it, one per ration, until any new directive replaces it.
-export const HOP_WINDUP_MS = 50;
-export const HOP_MOVE_MS = 150;
-export const HOP_SETTLE_MS = 90;
+export const HOP_WINDUP_MS = 40;
+export const HOP_MOVE_MS = 110;
+export const HOP_SETTLE_MS = 70;
 export const HOP_TOTAL_MS = HOP_WINDUP_MS + HOP_MOVE_MS + HOP_SETTLE_MS;
 export const HOP_COMMIT_MS = HOP_WINDUP_MS + HOP_MOVE_MS / 2;
 
@@ -150,10 +150,10 @@ export const CHARGE_MS = 700;
 export const RISE_MS = 220, SINK_MS = 180, HIT_MS = 280;
 export const MOVE_REPEAT_MS = 130;
 // One-hand movement: a tap is one step and a held stick is one step per
-// ration, at half a charge either way, so moving and charging are the same
-// rhythm and a position is a commitment rather than a twitch. A step asked for
-// during the cooldown is held and taken the moment it ends.
-export const TAP_MOVE_MS = CHARGE_MS / 2;
+// ration -- 260ms, about three eighths of a charge -- so a position is a
+// commitment rather than a twitch while still reading as quick. A step asked
+// for during the cooldown is held and taken the moment it ends.
+export const TAP_MOVE_MS = 260;
 // A tap this far outside the grid (in panels) still lands on the nearest row:
 // the top row's upper half is thin under a thumb.
 export const TAP_SLACK = 0.4;

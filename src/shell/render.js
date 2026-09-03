@@ -1591,8 +1591,10 @@ function drawHUD(ctx, state, now, rm) {
   // Low-time urgency: a red frame closing in on the board. Two strokeRects, so
   // it costs nothing, and it holds steady instead of pulsing under reduced
   // motion.
+  // the pips still read red when the clock is low, but the pulse is the
+  // clock running -- and in a safe zone it is not
   const low = hud.timeLeft < C.LOW_TIME;
-  if (hud.mode === "playing" && !hud.paused && low) {
+  if (hud.mode === "playing" && !hud.paused && low && !hud.safe) {
     const urg = 1 - Math.max(0, hud.timeLeft) / C.LOW_TIME;
     const pulse = rm ? 0.5 : 0.5 + 0.5 * Math.sin(now / 105);
     const a = (0.08 + 0.2 * urg) * (0.45 + 0.55 * pulse);

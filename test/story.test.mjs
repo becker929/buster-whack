@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, step, C, find } from "./helpers.mjs";
 import { activeArena, clearArena, tileAt, walkable, npcBeside, TILE } from "../src/core/world.js";
-import { contextVerb } from "../src/core/select.js";
+import { contextVerb, hudView } from "../src/core/select.js";
 
 function story() {
   const s = newGame({ seed: 4 });
@@ -138,4 +138,33 @@ test("the core lays the tower itself when a guard is wiped in the story", () => 
   }
   // the second wipe is arena 1 -> next idx 2, no tower; a tower comes before idx 3
   assert.ok(activeArena(s.world).idx >= 1);
+});
+
+test("the clock does not drain in a safe zone: a tower, a road, a taken arena", () => {
+  const s = story();
+  const t0 = s.timeLeft;
+  for (let i = 0; i < 60; i++) step(s, 16, []);
+  assert.equal(s.timeLeft, t0, "standing on the tower costs nothing");
+  assert.equal(hudView(s).safe, true);
+  s.player.col = C.TOWER_COLS; s.player.row = 1;      // into the guard
+  step(s, 16, []);
+  assert.equal(hudView(s).safe, false);
+  for (let i = 0; i < 10; i++) step(s, 16, []);
+  assert.ok(s.timeLeft < t0, "inside the guard the clock runs");
+  // a taken arena and the road beyond it are safe again
+  const a = activeArena(s.world);
+  a.owner = "player";
+  const t1 = s.timeLeft;
+  for (let i = 0; i < 10; i++) step(s, 16, []);
+  assert.equal(s.timeLeft, t1);
+});
+
+test("classic and the arcade modes still drain from the first frame: arena 0 is a fight", () => {
+  for (const id of ["classic", "advance", "onehand"]) {
+    const s = newGame();
+    step(s, 0, [{ type: "startRun", modeId: id }]);
+    const t0 = s.timeLeft;
+    step(s, 160, []);
+    assert.ok(s.timeLeft < t0, id + " drains in its opening arena");
+  }
 });

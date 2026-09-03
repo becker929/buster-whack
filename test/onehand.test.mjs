@@ -44,9 +44,10 @@ test("classic is retired: off the menu, still resolvable by name", () => {
   assert.equal(C.modeById("advance").controls, "pad");
 });
 
-test("the one-hand step ration is about half a charge", () => {
+test("the one-hand step ration is about three eighths of a charge, and a hop fits inside it", () => {
   const r = C.modeById("onehand").moveMs / C.CHARGE_MS;
-  assert.ok(r >= 0.45 && r <= 0.55, "ration/charge = " + r);
+  assert.ok(r >= 0.33 && r <= 0.42, "ration/charge = " + r);
+  assert.ok(C.HOP_TOTAL_MS < C.TAP_MOVE_MS, "the landing settles before the next step is allowed");
   assert.equal(C.modeById("advance").moveMs, C.MOVE_REPEAT_MS, "the ring keeps its repeat rate");
 });
 
