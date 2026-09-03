@@ -299,6 +299,16 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     on(triggerEl, "lostpointercapture", (e) => latch.release(e.pointerId));
   }
 
+  // The context button (BOMB, or TALK beside a keeper) is a tap: no latch, no
+  // capture, nothing to release. It stops propagation so the root's stick
+  // listener below never mistakes the press for a planted finger.
+  on(els.bombBtn, "pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onGesture();
+    dispatch({ type: "bomb" });
+  });
+
   // ---------- one-hand: the stage as a stick, the board as tap targets ----------
   // The stick plants wherever the finger lands on the game -- the board, the
   // FIRE button while a charge is held, the dead space -- so one thumb can

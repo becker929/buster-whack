@@ -791,6 +791,44 @@ test("one-hand: the FIRE thumb itself can walk while it holds the charge", async
   assert.equal(after.col + "," + after.row, "2,0", "a lift on FIRE is never a tap on a square");
 });
 
+test("the bar above the board works: TALK beside the keeper, a refusal with no bomb", async (ctx) => {
+  const page = await ctx.open("/");
+  const api = makePage(page);
+  const { snap, rect } = api;
+  const t = makeTouch(await ctx.cdp(page));
+  await startMode(t, api, "story");
+  const s0 = await snap();
+  const stage = await rect("stage");
+  const say = () => page.evaluate(() => {
+    const r = document.getElementById("game").shadowRoot;
+    return { on: r.getElementById("say").classList.contains("on"), len: r.getElementById("sayText").textContent.length };
+  });
+  const label = () => page.evaluate(() => document.getElementById("game").shadowRoot.getElementById("bombLabel").textContent);
+
+  // an empty stash: the press is refused, visibly
+  const bomb = await rect("bombBtn");
+  assert.equal(await label(), "BOMB");
+  await t.tap(bomb.cx, bomb.cy);
+  await wait(60);
+  assert.equal(await page.evaluate(() => document.getElementById("game").shadowRoot.getElementById("bombBtn").classList.contains("deny")), true,
+    "the bar shakes on an empty press");
+
+  // beside the keeper the same bar is TALK, and a press puts a line up
+  await wait(5200);   // let the arrival line fade
+  const p = squareAt(stage, s0.G, 2, 1);
+  await t.tap(p.x, p.y);
+  await wait(200);
+  assert.equal((await snap()).col, 2);
+  assert.equal(await label(), "TALK");
+  assert.equal((await say()).on, false);
+  await t.tap(bomb.cx, bomb.cy);
+  await wait(250);
+  const line = await say();
+  assert.equal(line.on, true, "TALK put a line over the board");
+  assert.ok(line.len > 0);
+  assert.equal((await snap()).shots, s0.shots, "the bar never fires the buster");
+});
+
 // ---------- driver ----------
 
 async function freePort() {

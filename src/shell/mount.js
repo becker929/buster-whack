@@ -8,7 +8,7 @@ import { step } from "../core/step.js";
 import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView, contextVerb } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode, renderBombs, renderSay, setControls, deckInset, placeTouchControls } from "./dom.js";
+         renderModes, selectMode, renderBombs, renderSay, denyBomb, setControls, deckInset, placeTouchControls } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createStory } from "./story.js";
 import { createInput } from "./input.js";
@@ -145,6 +145,8 @@ export function mountBusterWhack(container, options = {}) {
       sayTimer = win.setTimeout(hush, SAY_MS);
     },
     hush,
+    // never the text; only that it could not be opened, and why
+    onError: (e) => { try { win.console.warn("buster-whack: canon unavailable:", e && e.message); } catch (err) {} },
   });
   cleanupFns.push(hush);
 
@@ -188,6 +190,7 @@ export function mountBusterWhack(container, options = {}) {
       case "statsChanged": refreshStats(); break;
       case "runStarted":   hideOverlay(els); applyControls(ev.modeId); break;
       case "resumed":      hideOverlay(els); break;
+      case "bombEmpty":    denyBomb(els); break;
       case "stageGate":    showInterlevel(ev); break;
       case "gameOver":
         if (ev.newBest) {

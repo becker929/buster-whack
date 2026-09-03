@@ -1163,6 +1163,10 @@ export function createAudio(win) {
       case "pickup":
         seq([76, 83, 88], { step: 0.05, dur: 0.07, gain: 0.1, octave: true });
         break;
+      case "bombEmpty":
+        // a dry click: nothing to throw
+        tone({ wave: "square", freq: 160, to: 120, dur: 0.06, gain: 0.05 });
+        break;
       case "talk":
         // a word said: two soft notes, no attack to speak of
         seq([64, 71], { step: 0.07, dur: 0.11, gain: 0.07 });

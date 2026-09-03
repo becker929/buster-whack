@@ -1002,7 +1002,8 @@ function contextAction(state, events) {
 
 function throwBomb(state, events) {
   if (state.mode !== "playing" || state.paused) return;
-  if (state.bombs <= 0) return;
+  // an empty stash is told, so a press that does nothing is never a mystery
+  if (state.bombs <= 0) { events.push({ type: "bombEmpty" }); return; }
   const now = state.clock;
   const a = activeArena(state.world);
   const toCol = Math.min(state.player.col + C.BOMB_RANGE, a.x0 + a.cols - 1);

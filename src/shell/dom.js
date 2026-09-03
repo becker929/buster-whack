@@ -154,6 +154,15 @@ export const TEMPLATE = `
   #bombBtn b { font-size: 16px; }
   #bombBtn.empty { border-color: var(--bw-line); color: var(--bw-ink-dim); background: rgba(35, 44, 66, 0.5); }
   #bombBtn:active { background: rgba(255, 159, 69, 0.3); }
+  /* an empty press: the button says no, visibly */
+  #bombBtn.deny { animation: bwDeny 260ms ease-out; border-color: var(--bw-warn) !important; }
+  @keyframes bwDeny {
+    0%   { transform: translateX(0); }
+    25%  { transform: translateX(-5px); }
+    55%  { transform: translateX(5px); }
+    80%  { transform: translateX(-3px); }
+    100% { transform: translateX(0); }
+  }
   #bombBtn:focus-visible { outline: 2px solid var(--bw-oc); outline-offset: 3px; }
   #fireBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 3px; }
 
@@ -207,6 +216,7 @@ export const TEMPLATE = `
   main.touch #bombBtn {
     /* left / top / width are set by the mount from the board's layout */
     position: absolute;
+    z-index: 6;   /* over the line strip, which is pointer-events: none but sits in the same band */
     right: auto;
     bottom: auto;
     height: var(--bw-bomb-h);
@@ -900,6 +910,13 @@ export function renderBombs(els, n, verb = "bomb") {
   els.bombBtn.setAttribute("aria-label", talk ? "Talk" : "Throw bomb");
   els.bombBtn.classList.toggle("talk", talk);
   els.bombBtn.classList.toggle("empty", !talk && n <= 0);
+}
+
+/** The context button refusing a press (no bomb to throw): a short shake. */
+export function denyBomb(els) {
+  els.bombBtn.classList.remove("deny");
+  void els.bombBtn.offsetWidth;   // restart the animation on a rapid second press
+  els.bombBtn.classList.add("deny");
 }
 
 /** A line over the board. Empty text takes it down. */

@@ -1547,7 +1547,8 @@ function drawChain(ctx, state, now, hud) {
     }
 
     // how far this chain is toward the next multiplier step, as a sliver
-    const lo = CHAIN_TIERS.filter((c) => c <= hud.chain).at(-1) || 0;
+    const reached = CHAIN_TIERS.filter((c) => c <= hud.chain);
+    const lo = reached[reached.length - 1] || 0;
     const hi = CHAIN_TIERS.find((c) => c > hud.chain);
     const frac = hi ? (hud.chain - lo) / (hi - lo) : 1;
     const bw = 54;

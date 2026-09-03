@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Canon, PlayerState } from "../src/canon/canon.js";
 import { STRINGS_VAULT, TRIGGERS } from "../src/canon/embed.js";
-import { parseContainer } from "../src/canon/decoder.js";
+import { parseContainer, sha256hexSync } from "../src/canon/decoder.js";
 import ids from "../canon/bible/string_ids.json" with { type: "json" };
 
 const load = () => Canon.load(STRINGS_VAULT, TRIGGERS);
@@ -74,4 +74,14 @@ test("templates fill and player state round-trips", async () => {
   const t = new PlayerState(); t.restore(JSON.parse(JSON.stringify(snap)));
   assert.equal(t.get("day"), 2);
   assert.equal(t.has("forge.hot"), true);
+});
+
+test("the plain-JS SHA-256 matches crypto.subtle, so an insecure context still opens the vault", async () => {
+  const cases = ["", "abc", "a".repeat(55), "a".repeat(56), "a".repeat(64), "b".repeat(1000), STRINGS_VAULT];
+  for (const c of cases) {
+    const bytes = new TextEncoder().encode(c);
+    const ref = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((b) => b.toString(16).padStart(2, "0")).join("");
+    assert.equal(sha256hexSync(bytes), ref, "sha of " + c.length + " bytes");
+  }
+  assert.equal(sha256hexSync(new TextEncoder().encode("abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 });

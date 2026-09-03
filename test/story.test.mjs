@@ -86,3 +86,14 @@ test("the other modes are untouched: no tower, arena 0 born entered", () => {
     assert.deepEqual(contextVerb(s), { verb: "bomb", npc: null });
   }
 });
+
+test("pressing the button with an empty stash says so instead of doing nothing", () => {
+  const s = story();
+  s.bombs = 0;
+  const ev = step(s, 16, [{ type: "bomb" }]);
+  assert.ok(find(ev, "bombEmpty"), "an event the shell can show");
+  assert.ok(!find(ev, "bombThrown"));
+  s.player.col = 2; s.player.row = 1;
+  const ev2 = step(s, 16, [{ type: "bomb" }]);
+  assert.ok(find(ev2, "talk") && !find(ev2, "bombEmpty"), "beside the keeper it is TALK, not a refusal");
+});

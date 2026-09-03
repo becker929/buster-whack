@@ -30,7 +30,7 @@ const ARRIVAL = (roost) => [roost + ".name", roost + ".place"];
  * @param {() => void} [o.hush] - take the line down
  * @param {(vault: string, triggers: Array) => Promise<Canon>} [o.load] - test seam
  */
-export function createStory({ say, hush, load = Canon.load }) {
+export function createStory({ say, hush, onError, load = Canon.load }) {
   let canon = null;
   let pending = [];   // events that arrived before the vault finished decoding
   let active = false; // is the current run a story run?
@@ -40,7 +40,7 @@ export function createStory({ say, hush, load = Canon.load }) {
     const q = pending; pending = [];
     for (const ev of q) handle(ev);
     return c;
-  }).catch(() => null);
+  }).catch((e) => { if (onError) onError(e); return null; });
 
   /** A gated string comes back ""; nothing is shown for a blank. */
   function show(whoId, textId) {
