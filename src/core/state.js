@@ -73,6 +73,7 @@ export function createState(opts = {}) {
     stageIdx: 0,
     charge: { downAt: null, full: false },
     lastMoveAt: -1e9,
+    queuedMove: null,          // one-hand: the step held for the end of the cooldown, { kind:"to",col,row } | { kind:"by",dc,dr }
     rank: null,
     // hit-stop: freeze the simulation clock for `hitStopMs` once `clock`
     // reaches `hitStopAt` (which is when the tracer actually lands).
@@ -108,9 +109,9 @@ export function createState(opts = {}) {
  * nowhere near the panel it was aimed at. Rescaling here keeps the whole board
  * in board space without making every consumer do the arithmetic.
  */
-export function setLayout(state, width, height) {
+export function setLayout(state, width, height, bottomInset = 0) {
   const old = state.G;
-  const G = layout(width, height);
+  const G = layout(width, height, bottomInset);
   state.G = G;
   if (old && old.pw > 0 && G.pw > 0 && (old.pw !== G.pw || old.ph !== G.ph ||
       old.gx !== G.gx || old.gy !== G.gy)) {

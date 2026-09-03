@@ -92,6 +92,10 @@ function applyCue(state, cue) {
     state.cam = cue.cam;
     state.camAnchor = cue.cam;
   }
+  if (cue.inset !== undefined) {
+    // the one-hand deck: the shell hands the layout an opaque bottom band
+    setLayout(state, state.G.w, state.G.h, cue.inset);
+  }
   if (cue.spawning !== undefined) {
     state.nextSpawnAt = cue.spawning ? state.clock : Infinity;
   }
@@ -171,6 +175,12 @@ export function runScenario(scenario, opts = {}) {
     let hold = null;
     for (const cue of cues) {
       applyCue(state, cue);
+      if (cue.tap) {
+        const G = state.G;
+        const [col, row] = cue.tap;
+        actions.push({ type: "tapAt", x: G.gx + (col - state.cam) * G.pw + G.pw / 2,
+                       y: G.gy + row * G.ph + G.ph / 2 });
+      }
       if (cue.actions) actions = actions.concat(cue.actions);
       if (cue.hold !== undefined) hold = cue.hold;
     }

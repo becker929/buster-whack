@@ -92,13 +92,6 @@ export const BOMB_RADIUS = 1;               // tiles either side of the landing 
 export const BOMB_PICKUP_CHANCE = 0.6;      // per road; the first road always has one
 export const BOMB_BLAST_MS = 460;
 
-export const MODES = [
-  { id: "advance", name: "ADVANCE", blurb: "take the road",  advancing: true },
-  { id: "classic", name: "CLASSIC", blurb: "hold the line",  advancing: false },
-];
-export const DEFAULT_MODE = "advance";
-export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
-
 // ---------- clock ----------
 
 export const START_TIME = 30;
@@ -117,6 +110,40 @@ export const ALLY_SPARE_BONUS = 0.5;
 export const CHARGE_MS = 700;
 export const RISE_MS = 220, SINK_MS = 180, HIT_MS = 280;
 export const MOVE_REPEAT_MS = 130;
+// One-hand movement: a tap or a swipe is one step, and steps are rationed at
+// half a charge, so moving and charging are the same rhythm and a position is
+// a commitment rather than a twitch. A step asked for during the cooldown is
+// held and taken the moment it ends.
+export const TAP_MOVE_MS = CHARGE_MS / 2;
+// A tap this far outside the grid (in panels) still lands on the nearest row:
+// the top row's upper half is thin under a thumb.
+export const TAP_SLACK = 0.4;
+
+// ---------- modes (see the board section above for what ADVANCE means) ----------
+// `controls` is the shell's business -- which surfaces it wires and how it
+// lays them out -- but it rides on the mode so the menu is the one place a
+// player chooses. `moveMs` is the core's: the step ration for this mode.
+//
+// ONE HAND is built for a phone held in one hand: the bottom of the stage is a
+// two-button deck (FIRE left, BOMB right) where a keyboard would sit, and the
+// board itself is the movement surface -- swipe to step, tap a square to go
+// there. ADVANCE keeps the ring and the quarter-circle FIRE for two thumbs.
+export const MODES = [
+  { id: "onehand", name: "ONE HAND", blurb: "swipe · tap · fire", advancing: true,
+    controls: "touch", moveMs: TAP_MOVE_MS },
+  { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
+    controls: "pad", moveMs: MOVE_REPEAT_MS },
+];
+// Retired: off the menu, but still resolvable by id. CLASSIC is the fixed
+// six-column board every renderer golden was pinned against, so the harness
+// and the unit tests keep starting it by name; nothing else ever will.
+export const RETIRED_MODES = [
+  { id: "classic", name: "CLASSIC", blurb: "hold the line", advancing: false,
+    controls: "pad", moveMs: MOVE_REPEAT_MS },
+];
+export const DEFAULT_MODE = "onehand";
+export const modeById = (id) =>
+  MODES.find((m) => m.id === id) || RETIRED_MODES.find((m) => m.id === id) || MODES[0];
 export const HOP_MS = 550, HOP_GROW_MS = 120;
 export const HOPPER_LIFE = 2200, RARE_LIFE = 650;
 export const ALLY_RISE_MS = 460;  // progs surface slowly and can't be hit until fully up
@@ -425,14 +452,26 @@ export const TIERS = {
 // Geometry is a pure function of the stage's CSS pixel size. Nothing here
 // measures an element, so the same numbers can be produced off-screen.
 
-export function layout(w, h) {
+//
+// `bottomInset` is the height the shell has given to an opaque control deck
+// along the bottom edge (one-hand's two buttons). The board is laid out in
+// what is left above it; with no deck the numbers are exactly what they were,
+// so every golden pinned before the deck existed still holds.
+export function layout(w, h, bottomInset = 0) {
   const gw = Math.min(w * 0.9, 760);
   const pw = gw / COLS;
-  const ph = Math.min(pw * 0.62, (h - 180) / ROWS);
+  const hh = h - bottomInset;
+  // the reserve keeps the board clear of the HUD above and the controls below;
+  // with a deck the controls are already outside `hh`, so only the HUD is left
+  const reserve = bottomInset > 0 ? 96 : 180;
+  const ph = Math.min(pw * 0.62, (hh - reserve) / ROWS);
   return {
     w, h, pw, ph,
     gx: (w - pw * COLS) / 2,
-    gy: h * 0.52 - (ph * ROWS) / 2,
+    // above a deck the board sits a little lower in what is left: the squares
+    // are the tap targets, and a thumb reaches the lower ones more easily
+    gy: hh * (bottomInset > 0 ? 0.58 : 0.52) - (ph * ROWS) / 2,
+    bottomInset,
   };
 }
 

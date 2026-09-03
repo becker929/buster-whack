@@ -41,8 +41,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // One surgical substitution in a file the game loads anyway. `setLayout` runs
 // during mount's first `resize()`, so the tap lands before any input happens.
 
-const TAP_FROM = "  state.G = layout(width, height);";
-const TAP_TO = "  globalThis.__bwState = state;\n  state.G = layout(width, height);";
+const TAP_FROM = "  const G = layout(width, height, bottomInset);";
+const TAP_TO = "  globalThis.__bwState = state;\n  const G = layout(width, height, bottomInset);";
 
 function tapState(src) {
   const hits = src.split(TAP_FROM).length - 1;
@@ -130,6 +130,7 @@ function makePage(page, hostId = "game") {
       shots: s.shots, deletions: s.deletions,
       chargeHeld: s.charge.downAt !== null, chargeFull: s.charge.full,
       col: s.player.col, row: s.player.row,
+      modeId: s.modeId, queued: s.queuedMove, G: s.G,
     };
   });
   const rect = (id) => page.evaluate(([hostId, id]) => {
@@ -146,7 +147,25 @@ function makePage(page, hostId = "game") {
     s.bolts.length = 0;
     s.timeLeft = 1e6;
   });
-  return { snap, rect, quiesce };
+  // The mode menu: a tap on a row picks that mode and starts it. The ring and
+  // the board-as-FIRE only exist in ADVANCE; ONE HAND is the default.
+  const modeRow = (id) => page.evaluate(([hostId, id]) => {
+    const el = document.getElementById(hostId).shadowRoot.querySelector(`.sp-mode[data-mode="${id}"]`);
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height, cx: r.x + r.width / 2, cy: r.y + r.height / 2 };
+  }, [hostId, id]);
+  return { snap, rect, quiesce, modeRow };
+}
+
+/** Start a run in `modeId` from the menu with a touch, and silence the sim. */
+async function startMode(t, pageApi, modeId) {
+  const row = await pageApi.modeRow(modeId);
+  await t.tap(row.cx, row.cy);
+  await wait(300);
+  const s = await pageApi.snap();
+  assert.equal(s.mode, "playing", `tapping the ${modeId} row begins the run`);
+  assert.equal(s.modeId, modeId, `…in ${modeId}`);
+  await pageApi.quiesce();
 }
 
 // ---------- runner ----------
@@ -161,14 +180,10 @@ const test = (name, fn) => cases.push({ name, fn });
 
 test("a full ring drag never fires the charge held on FIRE", async (ctx) => {
   const page = await ctx.open("/");
-  const { snap, rect, quiesce } = makePage(page);
+  const api = makePage(page);
+  const { snap, rect } = api;
   const t = makeTouch(await ctx.cdp(page));
-
-  const start = await rect("spStart");
-  await t.tap(start.cx, start.cy);
-  await wait(300);
-  assert.equal((await snap()).mode, "playing", "PRESS START begins the run");
-  await quiesce();
+  await startMode(t, api, "advance");
 
   const fire = await rect("fireBtn");
   const pad = await rect("dpad");
@@ -222,13 +237,10 @@ test("a full ring drag never fires the charge held on FIRE", async (ctx) => {
 
 test("a stray touch outside the controls leaves the charge alone", async (ctx) => {
   const page = await ctx.open("/");
-  const { snap, rect, quiesce } = makePage(page);
+  const api = makePage(page);
+  const { snap, rect } = api;
   const t = makeTouch(await ctx.cdp(page));
-
-  const start = await rect("spStart");
-  await t.tap(start.cx, start.cy);
-  await wait(300);
-  await quiesce();
+  await startMode(t, api, "advance");
 
   const fire = await rect("fireBtn");
   await t.down(1, fire.x + fire.w * 0.72, fire.y + fire.h * 0.72);
@@ -236,12 +248,10 @@ test("a stray touch outside the controls leaves the charge alone", async (ctx) =
   const charged = await snap();
   assert.equal(charged.chargeFull, true);
 
-  // a stray thumb on the footer, well away from every control
-  const box = await page.evaluate(() => {
-    const r = document.getElementById("game").shadowRoot.querySelector("footer").getBoundingClientRect();
-    return { cx: r.x + r.width / 2, cy: r.y + r.height / 2 };
-  });
-  await t.tap(box.cx, box.cy);
+  // a stray thumb on the empty top-left of the stage, away from every control
+  // (in ADVANCE the board itself is a FIRE surface, so aim above it)
+  const stage = await rect("stage");
+  await t.tap(stage.x + 30, stage.y + stage.h * 0.16);
   await wait(150);
 
   const after = await snap();
@@ -253,13 +263,10 @@ test("a stray touch outside the controls leaves the charge alone", async (ctx) =
 
 test("a pause tap does not clear the fire latch", async (ctx) => {
   const page = await ctx.open("/");
-  const { snap, rect, quiesce } = makePage(page);
+  const api = makePage(page);
+  const { snap, rect } = api;
   const t = makeTouch(await ctx.cdp(page));
-
-  const start = await rect("spStart");
-  await t.tap(start.cx, start.cy);
-  await wait(300);
-  await quiesce();
+  await startMode(t, api, "advance");
 
   const fire = await rect("fireBtn");
   await t.down(1, fire.x + fire.w * 0.72, fire.y + fire.h * 0.72);
@@ -286,13 +293,10 @@ test("a pause tap does not clear the fire latch", async (ctx) => {
 
 test("a cancelled pointer can never strand the latch", async (ctx) => {
   const page = await ctx.open("/");
-  const { snap, rect, quiesce } = makePage(page);
+  const api = makePage(page);
+  const { snap, rect } = api;
   const t = makeTouch(await ctx.cdp(page));
-
-  const start = await rect("spStart");
-  await t.tap(start.cx, start.cy);
-  await wait(300);
-  await quiesce();
+  await startMode(t, api, "advance");
 
   const fire = await rect("fireBtn");
   await t.down(1, fire.x + fire.w * 0.72, fire.y + fire.h * 0.72);
@@ -330,18 +334,9 @@ async function parkTallHost(page) {
 }
 
 /** Get past the start card, which is the one surface allowed to scroll itself. */
-async function beginRun(ctx, page, rect) {
+async function beginRun(ctx, page, rect, modeId = "advance") {
   const t = makeTouch(await ctx.cdp(page));
-  const start = await rect("spStart");
-  await t.tap(start.cx, start.cy);
-  await wait(300);
-  await page.evaluate(() => {
-    const s = globalThis.__bwState;
-    s.nextSpawnAt = Infinity;
-    s.enemies.length = 0;
-    s.bolts.length = 0;
-    s.timeLeft = 1e6;
-  });
+  await startMode(t, makePage(page), modeId);
   return t;
 }
 
@@ -505,14 +500,14 @@ test("interacting with the game takes the keyboard back", async (ctx) => {
   await wait(200);
   assert.equal((await snap()).col, 0, "with the input focused, arrows do nothing to the game");
 
-  // one tap on the game's own surface, then the keys are the game's again
-  const foot = await page.evaluate(() => {
-    const r = document.getElementById("game").shadowRoot.querySelector("footer").getBoundingClientRect();
-    return { cx: r.x + r.width / 2, cy: r.y + r.height / 2 };
-  });
+  // one tap on the game's own surface -- the empty stage above the board, so
+  // it is neither a square to move to nor a control -- then the keys are the
+  // game's again
+  const stage = await rect("stage");
   const t = makeTouch(await ctx.cdp(page));
-  await t.tap(foot.cx, foot.cy);
+  await t.tap(stage.x + 30, stage.y + stage.h * 0.16);
   await wait(150);
+  assert.equal((await snap()).col, 0, "the tap itself moved nothing");
 
   await page.keyboard.press("ArrowRight");
   await wait(200);
@@ -553,12 +548,13 @@ test("tabbing into the game's controls also hands it the keyboard", async (ctx) 
 
 test("a mouse held on FIRE charges, and only its own mouseup spends it", async (ctx) => {
   const page = await ctx.open("/", { desktop: true });
-  const { snap, rect, quiesce } = makePage(page);
+  const { snap, rect, quiesce, modeRow } = makePage(page);
 
-  const start = await rect("spStart");
-  await page.mouse.click(start.cx, start.cy);
+  const row = await modeRow("advance");   // the ring only exists in ADVANCE
+  await page.mouse.click(row.cx, row.cy);
   await wait(300);
   assert.equal((await snap()).mode, "playing");
+  assert.equal((await snap()).modeId, "advance");
   await quiesce();
 
   const fire = await rect("fireBtn");
@@ -612,6 +608,133 @@ test("the wheel still scrolls a host page with the cursor over the game", async 
       await wait(300);
     }
   }
+});
+
+// ============================================================================
+// 4. ONE HAND: the board moves you, the deck fires, and the two never mix.
+// ============================================================================
+
+/** Stage-relative centre of world square (col,row), through the core's layout. */
+function squareAt(stage, G, col, row) {
+  return { x: stage.x + G.gx + col * G.pw + G.pw / 2, y: stage.y + G.gy + row * G.ph + G.ph / 2 };
+}
+
+test("one-hand is the default: PRESS START gives the deck, not the ring", async (ctx) => {
+  const page = await ctx.open("/");
+  const api = makePage(page);
+  const { snap, rect } = api;
+  const t = makeTouch(await ctx.cdp(page));
+  const start = await rect("spStart");
+  await t.tap(start.cx, start.cy);
+  await wait(300);
+  const s = await snap();
+  assert.equal(s.mode, "playing");
+  assert.equal(s.modeId, "onehand", "PRESS START launches the default mode");
+
+  const shown = await page.evaluate(() => {
+    const root = document.getElementById("game").shadowRoot;
+    const css = (id) => getComputedStyle(root.getElementById(id));
+    return { dpad: css("dpad").display, deck: css("deck").display, fireRadius: css("fireBtn").borderTopLeftRadius };
+  });
+  assert.equal(shown.dpad, "none", "no ring in one-hand");
+  assert.equal(shown.deck, "block", "the deck is up");
+  const stage = await rect("stage"), deck = await rect("deck"), fire = await rect("fireBtn"), bomb = await rect("bombBtn");
+  assert.ok(deck.h > 100 && deck.h < stage.h * 0.5, "the deck is the keyboard band, not the whole stage");
+  assert.ok(fire.x < bomb.x, "FIRE left, BOMB right");
+  assert.ok(Math.abs(fire.h - bomb.h) < 1 && fire.h > deck.h * 0.8, "both buttons fill the deck's height");
+  assert.ok(fire.w > bomb.w, "FIRE is the big one");
+  assert.ok(fire.y >= deck.y && bomb.y >= deck.y, "both sit inside the deck");
+  assert.ok(parseFloat(shown.fireRadius) > 10 && parseFloat(shown.fireRadius) < fire.h / 2, "rounded rectangle, not a disc or an arc");
+  // the board is laid out above the deck
+  const boardFoot = stage.y + s.G.gy + s.G.ph * 3;
+  assert.ok(boardFoot <= deck.y, `the board (foot ${boardFoot}) sits clear of the deck (top ${deck.y})`);
+});
+
+test("one-hand: a tap on a square moves there and never fires; a swipe steps", async (ctx) => {
+  const page = await ctx.open("/");
+  const api = makePage(page);
+  const { snap, rect } = api;
+  const t = makeTouch(await ctx.cdp(page));
+  const start = await rect("spStart");
+  await t.tap(start.cx, start.cy);
+  await wait(300);
+  await api.quiesce();
+  const s0 = await snap();
+  const stage = await rect("stage");
+
+  const p = squareAt(stage, s0.G, 2, 0);
+  await t.tap(p.x, p.y);
+  await wait(120);
+  const s1 = await snap();
+  assert.equal(s1.col + "," + s1.row, "2,0", "the tapped square is where you land");
+  assert.equal(s1.shots, s0.shots, "the board is not a FIRE surface in one-hand");
+  assert.equal(s1.canFire, true, "and it never touched the latch");
+
+  // a second tap inside the ration is held, then taken
+  const q = squareAt(stage, s0.G, 0, 2);
+  await t.tap(q.x, q.y);
+  await wait(60);
+  const s2 = await snap();
+  assert.equal(s2.col + "," + s2.row, "2,0", "inside the ration nothing moves yet");
+  assert.deepEqual(s2.queued, { kind: "to", col: 0, row: 2 }, "the step is held");
+  await wait(450);
+  const s3 = await snap();
+  assert.equal(s3.col + "," + s3.row, "0,2", "the held step lands when the ration ends");
+
+  // a swipe: one step per threshold crossing, in the dominant direction
+  const from = squareAt(stage, s0.G, 0, 2);
+  await t.down(4, from.x, from.y);
+  await wait(30);
+  await t.move(4, from.x + 60, from.y + 6);
+  await wait(30);
+  await t.up(4);
+  await wait(120);
+  const s4 = await snap();
+  assert.equal(s4.col + "," + s4.row, "1,2", "a swipe right is one step right");
+  assert.equal(s4.shots, s0.shots, "no swipe ever fires");
+});
+
+test("one-hand: a charge held on FIRE survives a swipe and a tap on the board", async (ctx) => {
+  const page = await ctx.open("/");
+  const api = makePage(page);
+  const { snap, rect } = api;
+  const t = makeTouch(await ctx.cdp(page));
+  const start = await rect("spStart");
+  await t.tap(start.cx, start.cy);
+  await wait(300);
+  await api.quiesce();
+  const s0 = await snap();
+  const stage = await rect("stage");
+  const fire = await rect("fireBtn");
+
+  await t.down(1, fire.cx, fire.cy);
+  await wait(900);
+  const charged = await snap();
+  assert.equal(charged.shots, s0.shots + 1, "pressing FIRE fires a normal shot");
+  assert.equal(charged.chargeFull, true);
+
+  const a = squareAt(stage, s0.G, 1, 1);
+  await t.down(2, a.x, a.y);
+  await wait(30);
+  await t.move(2, a.x, a.y - 60);          // swipe up
+  await wait(30);
+  await t.up(2);
+  await wait(100);
+  const b = squareAt(stage, s0.G, 0, 0);
+  await t.tap(b.x, b.y);
+  await wait(500);
+
+  const moved = await snap();
+  assert.notEqual(moved.col + "," + moved.row, charged.col + "," + charged.row, "the board thumb moved the player");
+  assert.equal(moved.shots, charged.shots, "*** neither the swipe nor the tap fired the held charge ***");
+  assert.equal(moved.chargeFull, true);
+  assert.equal(moved.canFire, false, "the latch is still FIRE's");
+
+  await t.up(1);
+  await wait(150);
+  const after = await snap();
+  assert.equal(after.shots, charged.shots + 1, "releasing FIRE fires the charged shot");
+  assert.equal(after.canFire, true);
 });
 
 // ---------- driver ----------

@@ -17,7 +17,7 @@
  */
 
 import * as C from "./constants.js";
-import { createWorld, activeArena, walkable, clearArena } from "./world.js";
+import { createWorld, activeArena, walkable, clearArena, worldEnd } from "./world.js";
 import { computeRank } from "./select.js";
 
 const panel = (state, col, row) => C.panelRect(state.G, col, row);
@@ -55,6 +55,7 @@ export function step(state, dtMs, intents = {}) {
   }
 
   if (hold && (hold.dc || hold.dr)) move(state, hold.dc, hold.dr, events);
+  flushQueuedMove(state, events);
 
   updateEnemies(state, events);
   updateBolts(state, adv, events);
@@ -131,6 +132,8 @@ export function applyIntent(state, action, events) {
     case "firePressed":  firePressed(state, events); break;
     case "fireReleased": fireReleased(state, events); break;
     case "move":         move(state, action.dc, action.dr, events); break;
+    case "moveTo":       moveTo(state, action.col, action.row, events); break;
+    case "tapAt":        tapAt(state, action.x, action.y, events); break;
     case "resetMoveThrottle": state.lastMoveAt = -1e9; break;
     case "pause":        togglePause(state, events); break;
     case "pauseOnBlur":
@@ -171,9 +174,36 @@ function fireReleased(state, events) {
   state.charge.full = false;
 }
 
+/** The step ration for this run's mode: one-hand paces steps at half a charge. */
+const moveMs = (state) => C.modeById(state.modeId).moveMs || C.MOVE_REPEAT_MS;
+const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
+
+/**
+ * A step asked for during the cooldown is not dropped: in one-hand a thumb
+ * that taps twice quickly means "there, then there", and swallowing the second
+ * makes the ration feel like lag. The latest ask wins; it is taken the moment
+ * the cooldown ends, and only if it is still legal then. Ring and keyboard
+ * modes keep their old drop, which is what their repeat-while-held relies on.
+ */
+function queueMove(state, q) {
+  if (C.modeById(state.modeId).controls !== "touch") return;
+  state.queuedMove = q;
+}
+
+/** Take the held step once the ration allows. Called every frame. */
+function flushQueuedMove(state, events) {
+  const q = state.queuedMove;
+  if (!q) return;
+  if (state.mode !== "playing" || state.paused) { state.queuedMove = null; return; }
+  if (!moveReady(state)) return;
+  state.queuedMove = null;
+  if (q.kind === "to") moveTo(state, q.col, q.row, events);
+  else move(state, q.dc, q.dr, events);
+}
+
 function move(state, dc, dr, events) {
   if (state.mode !== "playing" || state.paused) return;
-  if (state.clock - state.lastMoveAt < C.MOVE_REPEAT_MS) return;
+  if (!moveReady(state)) { queueMove(state, { kind: "by", dc, dr }); return; }
   state.lastMoveAt = state.clock;
   // The world decides where you may stand: your own ground and the road,
   // never an enemy tile, never off the map. Each axis is resolved on its own,
@@ -183,7 +213,7 @@ function move(state, dc, dr, events) {
   // this is exactly the old clamp to the player's half.
   //
   // And never a square that has already scrolled off the left edge of the
-  // window: the camera only moves right, so that wall only ever advances.
+  // view: the camera only moves right, so that wall only ever advances.
   const world = state.world;
   const wall = Math.floor(state.cam || 0);
   let col = state.player.col, row = state.player.row;
@@ -197,6 +227,66 @@ function move(state, dc, dr, events) {
     if (nr < 0 || nr >= C.ROWS || !walkable(world, col, nr)) break;
     row = nr;
   }
+  land(state, col, row, events);
+}
+
+/**
+ * Go to a square: one-hand's tap. The square has to be standable, still on
+ * screen, and reachable on foot -- a narrow road is a funnel, and a tap on the
+ * far bank must not hop the void it exists to make you walk around. Any
+ * distance in one step: the ration is the cost, not the length of the walk.
+ */
+function moveTo(state, col, row, events) {
+  if (state.mode !== "playing" || state.paused) return;
+  if (col === state.player.col && row === state.player.row) return;
+  if (!reachable(state, col, row)) return;
+  if (!moveReady(state)) { queueMove(state, { kind: "to", col, row }); return; }
+  state.lastMoveAt = state.clock;
+  ripple(state, col, row, "#4f8dff", state.clock, 1);
+  land(state, col, row, events);
+}
+
+/** Is (col,row) standable and joined to the player by standable squares? */
+function reachable(state, col, row) {
+  const world = state.world;
+  const wall = Math.floor(state.cam || 0);
+  if (row < 0 || row >= C.ROWS || col < wall) return false;
+  if (!walkable(world, col, row)) return false;
+  const end = worldEnd(world);
+  const key = (c, r) => c * C.ROWS + r;
+  const seen = new Set([key(state.player.col, state.player.row)]);
+  const open = [[state.player.col, state.player.row]];
+  while (open.length) {
+    const [c, r] = open.pop();
+    if (c === col && r === row) return true;
+    for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+      if (nc < wall || nc >= end || nr < 0 || nr >= C.ROWS) continue;
+      if (seen.has(key(nc, nr)) || !walkable(world, nc, nr)) continue;
+      seen.add(key(nc, nr));
+      open.push([nc, nr]);
+    }
+  }
+  return false;
+}
+
+/**
+ * A tap on the stage, in CSS pixels, resolved through the camera to a square.
+ * The shell hands over raw coordinates and nothing else: the layout and the
+ * scroll both live here, so a tap means the same square in a replay.
+ */
+function tapAt(state, x, y, events) {
+  const G = state.G;
+  if (!G.pw || !G.ph) return;
+  const wx = (x + (state.cam || 0) * G.pw - G.gx) / G.pw;
+  const wy = (y - G.gy) / G.ph;
+  let row = Math.floor(wy);
+  if (row === -1 && wy >= -C.TAP_SLACK) row = 0;
+  if (row === C.ROWS && wy < C.ROWS + C.TAP_SLACK) row = C.ROWS - 1;
+  moveTo(state, Math.floor(wx), row, events);
+}
+
+/** Arrive on a square: pickups, the afterimage, and the event. */
+function land(state, col, row, events) {
   const moved = col !== state.player.col || row !== state.player.row;
   if (moved) {
     // walking onto a pickup takes it
@@ -250,6 +340,8 @@ function resetGame(state, events, modeId) {
   state.chain = 0; state.bestChain = 0;
   state.timeLeft = C.START_TIME;
   state.player.col = 1; state.player.row = 1;
+  state.queuedMove = null;
+  state.lastMoveAt = -1e9;
   state.enemies.length = 0;
   state.nextSpawnAt = state.clock + 500;   // the opening lull, before wave 0
   state.waveIdx = 0;

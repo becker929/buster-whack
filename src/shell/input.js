@@ -1,5 +1,5 @@
 /*!
- * Input shell: DOM pointer / keyboard / d-pad -> core intents.
+ * Input shell: DOM pointer / keyboard / d-pad / board taps -> core intents.
  *
  * Nothing here touches game state. Discrete inputs are queued via `dispatch`
  * and drained by the frame loop; the analog ring's held direction is polled
@@ -101,6 +101,62 @@ export function createFireLatch(dispatch) {
   };
 }
 
+// A drag has to travel this far (CSS px) before it is a swipe rather than a
+// tap; a thumb's own tremor is well under it. Re-anchored after each step, so
+// a long drag keeps stepping at the core's ration.
+const SWIPE_PX = 26;
+
+/**
+ * One-hand's movement surface: the board itself.
+ *
+ *   swipe -> one step in the dominant direction, then re-anchor so a continued
+ *            drag steps again
+ *   tap   -> "go to this square", handed to the core as raw stage coordinates;
+ *            the core resolves them through its own layout and camera
+ *
+ * Tracks a single pointer, by identity, the way the ring does: the FIRE thumb's
+ * movement must never steer. Pure and DOM-free so it is unit-tested directly;
+ * the wiring below feeds it pointer events.
+ *
+ * @param {(intent: object) => void} dispatch
+ */
+export function createTouchMove(dispatch) {
+  let id = null, ax = 0, ay = 0, swiped = false;
+  return {
+    /** Whose finger is on the board, or null. */
+    get pointer() { return id; },
+    down(src, x, y) {
+      if (id !== null || src === undefined) return false;
+      id = src; ax = x; ay = y; swiped = false;
+      return true;
+    },
+    move(src, x, y) {
+      if (id === null || src !== id) return false;
+      const dx = x - ax, dy = y - ay;
+      if (Math.hypot(dx, dy) < SWIPE_PX) return false;
+      swiped = true;
+      ax = x; ay = y;
+      if (Math.abs(dx) >= Math.abs(dy)) dispatch({ type: "move", dc: Math.sign(dx), dr: 0 });
+      else dispatch({ type: "move", dc: 0, dr: Math.sign(dy) });
+      return true;
+    },
+    /** Lift: a finger that never swiped was a tap on a square. */
+    up(src, x, y) {
+      if (id === null || src !== id) return false;
+      const wasTap = !swiped;
+      id = null;
+      if (wasTap) dispatch({ type: "tapAt", x, y });
+      return wasTap;
+    },
+    /** The pointer went away without a proper lift: no tap, no step. */
+    cancel(src) {
+      if (id === null || (src !== undefined && src !== id)) return false;
+      id = null;
+      return true;
+    },
+  };
+}
+
 /**
  * @param {object} o
  * @param {Window} o.win
@@ -120,7 +176,7 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
   // ---------- mode selection ----------
   // The menu only exists on the start screen, so selection lives here rather
   // than in core state: it is a shell affordance until the moment it seeds a run.
-  const modeList = modes && modes.length ? modes : [{ id: "classic" }];
+  const modeList = modes && modes.length ? modes : [{ id: "onehand" }];
   let modeIdx = 0;
   const modeId = () => modeList[modeIdx].id;
   function setMode(id) {
@@ -202,12 +258,20 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     latch.release(KEY_SOURCE);
   });
 
+  // ---------- control scheme ----------
+  // "pad": ring + quarter-circle FIRE, and the board is a second FIRE surface.
+  // "touch": the deck, and the board is the movement surface. The mount sets
+  // this from the mode a run starts in; the core never knows.
+  let controls = "pad";
+  const touch = () => controls === "touch";
+
   // ---------- fire ----------
 
   for (const triggerEl of [els.cv, els.fireBtn]) {
     on(triggerEl, "pointerdown", (e) => {
       e.preventDefault();
       onGesture();
+      if (triggerEl === els.cv && touch()) return;   // the board moves you in one-hand; see below
       // Capture so the release comes back to us even when the thumb slides off
       // the button, and so `lostpointercapture` can act as a backstop if the
       // browser takes the pointer away without ever sending a pointerup.
@@ -216,6 +280,30 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     });
     on(triggerEl, "lostpointercapture", (e) => latch.release(e.pointerId));
   }
+
+  // ---------- one-hand: swipe / tap on the board ----------
+  // Coordinates are stage-relative CSS px, which is the space the core's
+  // layout is in. The canvas fills the stage, so its rect is the stage's.
+
+  const mover = createTouchMove(dispatch);
+  const stagePt = (e) => {
+    const r = els.cv.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  on(els.cv, "pointerdown", (e) => {
+    if (!touch()) return;
+    try { els.cv.setPointerCapture(e.pointerId); } catch (err) {}
+    mover.down(e.pointerId, ...stagePt(e));
+  });
+  on(els.cv, "pointermove", (e) => {
+    if (mover.pointer !== e.pointerId) return;
+    e.preventDefault();
+    mover.move(e.pointerId, ...stagePt(e));
+  });
+  on(els.cv, "pointerup", (e) => { if (mover.pointer === e.pointerId) mover.up(e.pointerId, ...stagePt(e)); });
+  on(els.cv, "pointercancel", (e) => mover.cancel(e.pointerId));
+  on(els.cv, "lostpointercapture", (e) => mover.cancel(e.pointerId));
+  on(win, "blur", () => mover.cancel());
 
   // the bomb button is a tap: no latch, no capture, nothing to release
   on(els.bombBtn, "pointerdown", (e) => {
@@ -340,6 +428,12 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
       ? { dc: padState.dc, dr: padState.dr }
       : null),
     focus: focusStage,
+    /** Switch the scheme for the run that just started; ends any drag in progress. */
+    setControls(next) {
+      controls = next === "touch" ? "touch" : "pad";
+      mover.cancel();
+      padEnd(null);
+    },
   };
 }
 

@@ -76,8 +76,28 @@ mountBusterWhack(container: HTMLElement, options?: {
 
 ## Controls
 
-- Move: on-screen analog ring, arrow keys, or WASD
-- Fire: tap / click / Space — hold to charge a stronger shot
+The controls ride on the mode you pick, so the start screen is the one place
+you choose them.
+
+**ONE HAND** (the default) is built for a phone held in one hand. The bottom of
+the stage is a two-button deck where a keyboard would sit — a big rounded FIRE
+on the left and BOMB on the right — and the board itself is how you move:
+
+- Move: **swipe** on the board for one step in that direction, or **tap a
+  square** to go straight there. Steps are rationed at half a charge (350 ms);
+  a step asked for during the ration is held and taken the moment it ends, so
+  a quick double-tap means "there, then there". A tap has to land on ground you
+  can stand on that you could also walk to — a narrow road is still a funnel.
+- Fire: hold FIRE to charge — release for the strong shot.
+- Bomb: tap BOMB (lit while you carry one).
+
+**ADVANCE** keeps the two-thumb layout: the analog ring on the left, the
+quarter-circle FIRE on the right, and a tap anywhere on the board also fires.
+
+On a keyboard, both modes take arrow keys / WASD to move, Space to fire (hold
+to charge), `B` or Shift for the bomb, `P` or `Esc` to pause, `M` to mute (a
+crossed-speaker badge sits by the pause button while sound is off).
+
 - Dodge: once the RETALIATION card has been shown, viruses shoot back. A virus
   about to fire marks its row with a dashed line and a chevron at your edge of
   the field — move off that row. A hit costs 2.5s off the clock and breaks your
@@ -86,23 +106,24 @@ mountBusterWhack(container: HTMLElement, options?: {
   plants itself, telegraphs for much longer, then fires a bolt that crosses the
   board in a blink — that one has to be dodged during the telegraph. A steel
   guard never fires; it is the anchor of a formation.
-- `P` or `Esc`: pause · `M`: mute (a crossed-speaker badge sits by the pause
-  button while sound is off)
 
 ## Modes
 
 Pick one on the start screen (arrow keys move the selection; a tap on a row
-picks it and starts).
+picks it and starts). Both play the same game: the world is an unbounded strip
+of arenas joined by roads. Wipe an arena's wave and the whole arena becomes
+yours, a road opens off its right edge, and the next arena waits at the road's
+end — its wave wakes only once you step in, so the walk is a real breather.
+Roads are three columns long and either full height or a single middle row, so
+some crossings funnel you. The view scrolls with you and locks onto each arena
+when the fight starts.
 
-- **CLASSIC** — hold the line. One arena: your three columns on the left,
-  theirs on the right.
-- **ADVANCE** — take the board. The world is an unbounded strip of arenas
-  joined by roads. Wipe an arena's wave and the whole arena becomes yours, a
-  road opens off its right edge, and the next arena waits at the road's end —
-  its wave wakes only once you step in, so the walk is a real breather. Roads
-  are three columns long and either full height or a single middle row, so some
-  crossings funnel you. The view scrolls with you and locks onto each arena
-  when the fight starts.
+- **ONE HAND** — swipe · tap · fire. The one-thumb layout above.
+- **ADVANCE** — ring + fire. The same road with the two-thumb layout.
+
+CLASSIC (one fixed arena, hold the line) is retired from the menu. Its rule set
+is still in the code under its old id, because every renderer golden is pinned
+against its fixed six-column board.
 
 ## Development
 

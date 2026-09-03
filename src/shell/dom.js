@@ -120,8 +120,10 @@ export const TEMPLATE = `
     letter-spacing: 0.12em;
     cursor: pointer;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     padding: 22% 0 0 22%;   /* bias label toward the visible arc's center */
   }
   #fireBtn:active { background: rgba(69, 224, 232, 0.25); }
@@ -152,6 +154,64 @@ export const TEMPLATE = `
   #bombBtn:active { background: rgba(255, 159, 69, 0.3); }
   #bombBtn:focus-visible { outline: 2px solid var(--bw-oc); outline-offset: 3px; }
   #fireBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 3px; }
+
+  /* ---------- one-hand deck ---------- */
+  /* The bottom of the stage becomes a two-button deck where a phone keyboard
+     would sit: FIRE on the left, BOMB on the right, both rounded rectangles.
+     The ring goes; the board above is the movement surface. Sized in cqh
+     against #stage so a short embed keeps a board, and the mount hands the
+     same height to the layout as a bottom inset so nothing draws under it. */
+  main {
+    --bw-deck-h: clamp(120px, 34cqh, 300px);
+    --bw-deck-pad: 10px;
+  }
+  #deck {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bw-deck-h);
+    display: none;
+    background: linear-gradient(to bottom, rgba(8, 11, 20, 0.55), rgba(8, 11, 20, 0.92));
+    border-top: 1px solid var(--bw-line);
+    pointer-events: none;
+  }
+  main.touch #deck { display: block; }
+  main.touch #dpad { display: none; }
+  main.touch canvas { cursor: pointer; }
+  main.touch #fireBtn,
+  main.touch #bombBtn {
+    position: absolute;
+    bottom: var(--bw-deck-pad);
+    top: auto;
+    height: calc(var(--bw-deck-h) - var(--bw-deck-pad) * 2);
+    border-radius: 22px;
+    padding: 0;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+  }
+  main.touch #fireBtn {
+    left: var(--bw-deck-pad);
+    right: auto;
+    width: calc(60% - var(--bw-deck-pad) * 1.5);
+    border: 2px solid var(--bw-accent);
+    background: linear-gradient(180deg, rgba(69, 224, 232, 0.20), rgba(69, 224, 232, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(69, 224, 232, 0.18), 0 0 22px rgba(69, 224, 232, 0.12);
+  }
+  main.touch #fireBtn:active { background: rgba(69, 224, 232, 0.32); }
+  main.touch #fireBtn .glyph { font-size: 30px; line-height: 1; }
+  main.touch #bombBtn {
+    right: var(--bw-deck-pad);
+    left: auto;
+    width: calc(40% - var(--bw-deck-pad) * 1.5);
+    font-size: 13px;
+    background: linear-gradient(180deg, rgba(255, 159, 69, 0.20), rgba(255, 159, 69, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(255, 159, 69, 0.18);
+  }
+  main.touch #bombBtn b { font-size: 30px; }
+  main.touch #bombBtn.empty { background: rgba(35, 44, 66, 0.5); box-shadow: none; }
 
   #pauseBtn {
     position: absolute;
@@ -615,9 +675,10 @@ export const TEMPLATE = `
       </svg>
     </div>
 
+    <div id="deck" aria-hidden="true"></div>
     <button id="pauseBtn" aria-label="Pause">II</button>
     <button id="bombBtn" class="empty" aria-label="Throw bomb">BOMB<b id="bombCount">0</b></button>
-    <button id="fireBtn" aria-label="Fire">FIRE<br>&#9679;</button>
+    <button id="fireBtn" aria-label="Fire"><span>FIRE</span><span class="glyph">&#9679;</span></button>
   </main>
 
 </div>
@@ -626,7 +687,7 @@ export const TEMPLATE = `
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "spModes", "dpad", "aUp", "aDown", "aLeft", "aRight",
-  "pauseBtn", "fireBtn", "bombBtn", "bombCount", "muteFlag",
+  "pauseBtn", "fireBtn", "bombBtn", "bombCount", "muteFlag", "deck",
 ];
 
 /**
@@ -737,6 +798,23 @@ export function selectMode(els, id) {
   for (const b of els.spModes.children) {
     b.setAttribute("aria-checked", String(b.dataset.mode === id));
   }
+}
+
+/**
+ * Lay the controls out for a scheme: "touch" shows the deck and hides the ring,
+ * "pad" is the two-thumb layout. Returns the deck's height in CSS px (0 when
+ * hidden), which the mount hands to the layout as the board's bottom inset.
+ */
+export function setControls(els, controls) {
+  els.stage.classList.toggle("touch", controls === "touch");
+  return deckInset(els);
+}
+
+/** How much of the stage's bottom the deck covers right now. */
+export function deckInset(els) {
+  if (!els.stage.classList.contains("touch")) return 0;
+  const r = els.deck.getBoundingClientRect();
+  return r.height || 0;
 }
 
 /** The bomb button carries the count; empty, it greys to an outline. */

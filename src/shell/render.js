@@ -536,7 +536,41 @@ function drawPlayer(ctx, state, now, rm) {
       ctx.globalAlpha = 1;
     }
   }
+  drawStepRation(ctx, state, now, p);
   return { rayY, busterX: cx + bw / 2 + bw * 0.55 };
+}
+
+/**
+ * One-hand's movement cues. Steps are rationed at half a charge, so the player
+ * needs to see the ration the way they see the charge: a thin bar along the
+ * foot of their square fills as the next step comes back, and a square they
+ * tapped early -- the held step -- carries a dashed outline until it is taken.
+ * Ring modes have no ration worth drawing and skip both.
+ */
+function drawStepRation(ctx, state, now, p) {
+  const mode = C.modeById(state.modeId);
+  if (mode.controls !== "touch" || state.mode !== "playing") return;
+  const ms = mode.moveMs || C.MOVE_REPEAT_MS;
+  const t = now - state.lastMoveAt;
+  if (t >= 0 && t < ms) {
+    const frac = t / ms;
+    const x0 = p.x + 6, w = p.w - 12, y = p.y + p.h - 5;
+    ctx.fillStyle = "rgba(79,141,255,0.25)";
+    ctx.fillRect(x0, y, w, 2);
+    ctx.fillStyle = "#4f8dff";
+    ctx.fillRect(x0, y, w * frac, 2);
+  }
+  const q = state.queuedMove;
+  if (q && q.kind === "to") {
+    const tp = panel(state.G, q.col, q.row);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineDashOffset = -(now / 40) % 9;
+    ctx.strokeStyle = "rgba(201,246,255,0.85)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tp.x + 6, tp.y + 6, tp.w - 12, tp.h - 12);
+    ctx.restore();
+  }
 }
 
 /**

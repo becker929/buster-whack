@@ -5,10 +5,10 @@
 
 import { createState, setLayout } from "../core/state.js";
 import { step } from "../core/step.js";
-import { STAGE_BONUS, MODES, DEFAULT_MODE } from "../core/constants.js";
+import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode, renderBombs } from "./dom.js";
+         renderModes, selectMode, renderBombs, setControls, deckInset } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
@@ -84,8 +84,10 @@ export function mountBusterWhack(container, options = {}) {
     els.cv.width = Math.round(r.width * dpr);
     els.cv.height = Math.round(r.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    setLayout(state, r.width, r.height);
+    // the one-hand deck is opaque, so the board is laid out above it
+    setLayout(state, r.width, r.height, deckInset(els));
   }
+  setControls(els, modeById(state.modeId).controls);
   resize();
 
   const RO = win.ResizeObserver || (typeof ResizeObserver !== "undefined" ? ResizeObserver : null);
@@ -149,10 +151,18 @@ export function mountBusterWhack(container, options = {}) {
     });
   }
 
+  /** The control scheme rides on the mode: lay the shell out for the run that just began. */
+  function applyControls(modeId) {
+    const scheme = modeById(modeId).controls;
+    setControls(els, scheme);
+    input.setControls(scheme);
+    resize();
+  }
+
   function handleEvent(ev) {
     switch (ev.type) {
       case "statsChanged": refreshStats(); break;
-      case "runStarted":   hideOverlay(els); break;
+      case "runStarted":   hideOverlay(els); applyControls(ev.modeId); break;
       case "resumed":      hideOverlay(els); break;
       case "stageGate":    showInterlevel(ev); break;
       case "gameOver":

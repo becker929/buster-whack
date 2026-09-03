@@ -45,18 +45,19 @@ function place(s, o) {
   return e;
 }
 
-test("advance is the default mode, and first in the menu", () => {
-  assert.equal(C.DEFAULT_MODE, "advance");
-  assert.equal(C.MODES[0].id, "advance");
-  // a fresh state is advance before any run; a bare startRun keeps it (RETRY
-  // retries the mode you were playing, so the default is never re-imposed)
+test("one-hand is the default mode and first in the menu; a chosen mode is kept", () => {
+  assert.equal(C.DEFAULT_MODE, "onehand");
+  assert.equal(C.MODES[0].id, "onehand");
+  assert.ok(C.MODES.some((m) => m.id === "advance"), "advance stays on the menu");
+  // a fresh state is the default before any run; a bare startRun keeps it
+  // (RETRY retries the mode you were playing, so the default is never re-imposed)
   const s = createState({ seed: 1, width: 800, height: 600 });
-  assert.equal(s.modeId, "advance");
+  assert.equal(s.modeId, "onehand");
   step(s, 0, [{ type: "startRun" }]);
-  assert.equal(s.modeId, "advance");
-  const c = createState({ seed: 1, width: 800, height: 600, modeId: "classic" });
+  assert.equal(s.modeId, "onehand");
+  const c = createState({ seed: 1, width: 800, height: 600, modeId: "advance" });
   step(c, 0, [{ type: "startRun" }]);
-  assert.equal(c.modeId, "classic", "an explicit mode is respected and kept");
+  assert.equal(c.modeId, "advance", "an explicit mode is respected and kept");
 });
 
 test("in advance the level is the arena you are in; classic still counts kills", () => {

@@ -19,6 +19,8 @@
  *   charge:   "full"|"clear" arm or spill a fully-charged buster
  *   actions:  intent[]       core intents for this frame
  *   hold:     {dc,dr}|null   held d-pad direction for this frame
+ *   tap:      [col,row]      a one-hand tap on the centre of that square (world
+ *                            column), resolved to stage px through the layout
  *
  * Forcing state directly is deliberate. Waiting for the RNG to produce a
  * charged kill on a guard while a heavy bolt is in flight would make the
@@ -131,6 +133,30 @@ export const scenarios = [
         ],
       },
       { at: 1, actions: [{ type: "bomb" }] },
+    ],
+  },
+
+  {
+    name: "onehand-deck",
+    title: "ONE HAND: the board above the deck, a tap, the held step",
+    why: "The default mode on a phone: the shell gives the bottom of the stage to a two-button deck and hands its height to the layout as an inset, so this pins the board sitting clear of it on a portrait stage. A tap steps to a square in one move and ripples it; a second tap inside the half-charge ration is held, drawn as a dashed outline on the wanted square while the ration bar refills at the player's feet, and lands on its own when the ration ends. The deck itself is DOM and is not in the frame.",
+    seed: 9,
+    width: 390,
+    height: 760,
+    frames: 30,
+    modes: ["playing"],
+    capture: [
+      { at: 1, as: "tapped" },
+      { at: 4, as: "held-step" },
+      { at: 26, as: "landed" },
+    ],
+    cues: [
+      { at: 0, set: { modeId: "onehand" }, inset: 258,
+        place: [{ col: 4, row: 0 }, { col: 5, row: 2 }] },
+      // the tap lands on (2,0): stage coordinates through the layout the inset made
+      { at: 0, tap: [2, 0] },
+      // a second tap two frames later is inside the ration: held, then taken
+      { at: 3, tap: [0, 2] },
     ],
   },
 
