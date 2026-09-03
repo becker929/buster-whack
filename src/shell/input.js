@@ -281,6 +281,7 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
   // "touch": the deck, and the board is the movement surface. The mount sets
   // this from the mode a run starts in; the core never knows.
   let controls = "pad";
+  let tapMove = false;
   const touch = () => controls === "touch";
 
   // ---------- fire ----------
@@ -289,7 +290,7 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     on(triggerEl, "pointerdown", (e) => {
       e.preventDefault();
       onGesture();
-      if (triggerEl === els.cv && touch()) return;   // the board moves you in one-hand; see below
+      if (triggerEl === els.cv && tapMove) return;   // the board moves you; see below
       // Capture so the release comes back to us even when the thumb slides off
       // the button, and so `lostpointercapture` can act as a backstop if the
       // browser takes the pointer away without ever sending a pointerup.
@@ -326,9 +327,12 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     return [e.clientX - r.left, e.clientY - r.top];
   };
   on(els.bwRoot, "pointerdown", (e) => {
-    if (!touch()) return;
+    if (!tapMove) return;
     if (!els.splash.classList.contains("hidden")) return;   // the start card is not the stage
     const onBoard = e.target === els.cv;
+    // with a ring on screen the board alone is the stick; only the one-hand
+    // layout lets a finger on FIRE steer
+    if (!onBoard && !touch()) return;
     // the board captures its own finger so a drag off the canvas keeps
     // steering; FIRE already captured its pointer in its own handler
     if (onBoard) { try { els.cv.setPointerCapture(e.pointerId); } catch (err) {} }
@@ -461,8 +465,9 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
       : mover.hold()),
     focus: focusStage,
     /** Switch the scheme for the run that just started; ends any drag in progress. */
-    setControls(next) {
+    setControls(next, opts = {}) {
       controls = next === "touch" ? "touch" : "pad";
+      tapMove = !!opts.tapMove;
       mover.cancel();
       padEnd(null);
     },

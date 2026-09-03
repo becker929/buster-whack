@@ -301,7 +301,7 @@ export const TEMPLATE = `
   #say.on { opacity: 1; transform: none; }
   #say b { display: block; color: var(--bw-accent); font-size: 11px; letter-spacing: 0.22em; margin-bottom: 3px; }
   #say b:empty { display: none; }
-  main.touch #bombBtn.talk {
+  #bombBtn.talk {
     color: var(--bw-ink);
     border-color: var(--bw-accent);
     background: linear-gradient(180deg, rgba(69, 224, 232, 0.22), rgba(69, 224, 232, 0.08));
@@ -705,7 +705,7 @@ export const TEMPLATE = `
           <span class="sp-word sp-w2" data-t="WHACK">WHACK</span>
         </h1>
 
-        <div class="sp-rule">SELECT MODE</div>
+        <div id="spModeRule" class="sp-rule">SELECT MODE</div>
 
         <div id="spModes" class="sp-modes" role="radiogroup" aria-label="Game mode"></div>
 
@@ -742,7 +742,7 @@ export const TEMPLATE = `
 
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
-  "splash", "spBest", "spStart", "spModes", "dpad", "aUp", "aDown", "aLeft", "aRight",
+  "splash", "spBest", "spStart", "spModes", "spModeRule", "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "bombBtn", "bombCount", "bombLabel", "muteFlag", "deck",
   "say", "sayWho", "sayText",
 ];
@@ -831,6 +831,10 @@ export function showSplash(els, best) {
 export function renderModes(els, modes, selectedId) {
   const doc = els.splash.ownerDocument;
   els.spModes.textContent = "";
+  // one mode is not a choice: PRESS START is the whole menu
+  const single = modes.length <= 1;
+  els.spModes.hidden = single;
+  els.spModeRule.hidden = single;
   for (const m of modes) {
     const b = doc.createElement("button");
     b.type = "button";
@@ -904,10 +908,11 @@ export function placeTouchControls(els, G) {
  * greys to an outline.
  */
 export function renderBombs(els, n, verb = "bomb") {
-  const talk = verb === "talk";
+  const talk = verb !== "bomb";
+  const label = verb === "read" ? "READ" : talk ? "TALK" : "BOMB";
   els.bombCount.textContent = String(n);
-  els.bombLabel.textContent = talk ? "TALK" : "BOMB";
-  els.bombBtn.setAttribute("aria-label", talk ? "Talk" : "Throw bomb");
+  els.bombLabel.textContent = label;
+  els.bombBtn.setAttribute("aria-label", talk ? label[0] + label.slice(1).toLowerCase() : "Throw bomb");
   els.bombBtn.classList.toggle("talk", talk);
   els.bombBtn.classList.toggle("empty", !talk && n <= 0);
 }

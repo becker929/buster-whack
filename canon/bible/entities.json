@@ -10,7 +10,7 @@
     "engine": {
       "hp": "the run clock: a hit costs seconds, zero is the end of the run",
       "carry": "stash capacity; the bomb stash is the first slot",
-      "pulse": "reserved"
+      "pulse": "the run clock, in-world: battery charge; spent between roofs, eaten by Rot, recovered by clearing it"
     }
   },
   "npc.keeper.01": {
@@ -82,8 +82,8 @@
     "talkable": false,
     "strings": "boss.foreman.*",
     "engine": {
-      "tile": "guard",
-      "verb": "none: a fight at the far edge of roost.07"
+      "tile": "npc",
+      "verb": "TALK when adjacent (he is polite); the fight is the Substation's guard, not him"
     }
   },
   "boss.ferryman": {
@@ -133,7 +133,8 @@
     "engine": {
       "family": "mett",
       "tier": 1,
-      "hits": 1
+      "hits": 1,
+      "in_game": "the mett tiers; 'guard' (steel) is a Sweeper in the fiction"
     }
   },
   "enemy.rot.02": {
@@ -146,7 +147,8 @@
     "engine": {
       "family": "mett",
       "tier": 2,
-      "hits": 2
+      "hits": 2,
+      "in_game": "the mett tiers; 'guard' (steel) is a Sweeper in the fiction"
     }
   },
   "enemy.rot.03": {
@@ -159,7 +161,8 @@
     "engine": {
       "family": "mett",
       "tier": 3,
-      "hits": 2
+      "hits": 2,
+      "in_game": "the mett tiers; 'guard' (steel) is a Sweeper in the fiction"
     }
   },
   "enemy.static.01": {
@@ -241,7 +244,12 @@
     "kind": "item",
     "found_in": "roost.08",
     "readable": true,
-    "reads_tracked": true
+    "reads_tracked": true,
+    "engine": {
+      "tile": "item",
+      "verb": "READ when adjacent; each press increments reads.item.journal.steward",
+      "home": "roost.08"
+    }
   },
   "item.clause.04": {
     "kind": "item",
@@ -289,5 +297,62 @@
     "cost": 1,
     "from": "npc.keeper.03",
     "engine": "a consumable in the stash, thrown or used from the context button like the bomb; durations are milliseconds of fight time"
+  },
+  "npc.side.tally": {
+    "kind": "npc",
+    "home": "roost.02",
+    "strings": "npc.side.tally.*",
+    "note": "the bridge toll booth's counter; came up the hill for the sun and the dates",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.side.vesper": {
+    "kind": "npc",
+    "home": "roost.03",
+    "strings": "npc.side.vesper.*",
+    "note": "the church steeple's hymn-tuner; steeple battery dead; sheltering with Margo",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.side.bean": {
+    "kind": "npc",
+    "home": "roost.05",
+    "strings": "npc.side.bean.*",
+    "note": "a Seedling; only Pip translates",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.side.rivet": {
+    "kind": "npc",
+    "home": "roost.04",
+    "strings": "npc.side.rivet.*",
+    "note": "Tolling's courier; one of the runners the player spares on the links",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "npc.sweeper.tidy": {
+    "kind": "npc",
+    "home": "roost.06",
+    "strings": "npc.sweeper.tidy.*",
+    "note": "a Sweeper stationed at the Dock; formerly a summer tenant, carried",
+    "engine": {
+      "tile": "npc",
+      "verb": "TALK when adjacent"
+    }
+  },
+  "ally": {
+    "kind": "prog",
+    "engine": {
+      "in_game": "the arcade 'ally' (prog) enemy type",
+      "fiction": "a runner: a keeper's errand program on the links (Margo's citation-fetchers, the school's homework runners, Tolling's courier). Shooting one costs pulse; sparing it is the Tenancy, clause four."
+    }
   }
 }

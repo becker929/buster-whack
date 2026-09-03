@@ -1,7 +1,7 @@
 {
   "vault": "vault/strings.vault",
-  "vault_id": "strings.v1",
-  "count": 136,
+  "vault_id": "strings.v2",
+  "count": 254,
   "ids": {
     "world.name": {
       "chars": 11,
@@ -59,6 +59,14 @@
       "chars": 18,
       "template_vars": []
     },
+    "world.runner": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "world.runner.plural": {
+      "chars": 7,
+      "template_vars": []
+    },
     "faction.clearline": {
       "chars": 9,
       "template_vars": []
@@ -69,6 +77,22 @@
     },
     "faction.sweepers": {
       "chars": 8,
+      "template_vars": []
+    },
+    "intro.0": {
+      "chars": 315,
+      "template_vars": []
+    },
+    "intro.1": {
+      "chars": 231,
+      "template_vars": []
+    },
+    "intro.2": {
+      "chars": 195,
+      "template_vars": []
+    },
+    "intro.3": {
+      "chars": 96,
       "template_vars": []
     },
     "player.name": {
@@ -111,16 +135,68 @@
       "chars": 25,
       "template_vars": []
     },
+    "player.reply.cycle": {
+      "chars": 16,
+      "template_vars": []
+    },
+    "player.reply.rot": {
+      "chars": 17,
+      "template_vars": []
+    },
+    "player.reply.tuesday": {
+      "chars": 34,
+      "template_vars": []
+    },
+    "player.reply.errand": {
+      "chars": 42,
+      "template_vars": []
+    },
+    "player.reply.runners": {
+      "chars": 22,
+      "template_vars": []
+    },
+    "player.reply.sock": {
+      "chars": 16,
+      "template_vars": []
+    },
+    "player.reply.lights": {
+      "chars": 38,
+      "template_vars": []
+    },
+    "player.reply.dock": {
+      "chars": 36,
+      "template_vars": []
+    },
+    "player.reply.tidy": {
+      "chars": 35,
+      "template_vars": []
+    },
+    "player.reply.count": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "player.reply.bell": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "player.reply.forwhat": {
+      "chars": 32,
+      "template_vars": []
+    },
+    "player.reply.later": {
+      "chars": 26,
+      "template_vars": []
+    },
     "roost.01.name": {
       "chars": 4,
       "template_vars": []
     },
     "roost.01.place": {
-      "chars": 20,
+      "chars": 33,
       "template_vars": []
     },
     "roost.01.desc": {
-      "chars": 43,
+      "chars": 129,
       "template_vars": []
     },
     "roost.02.name": {
@@ -128,11 +204,11 @@
       "template_vars": []
     },
     "roost.02.place": {
-      "chars": 23,
+      "chars": 40,
       "template_vars": []
     },
     "roost.02.desc": {
-      "chars": 54,
+      "chars": 118,
       "template_vars": []
     },
     "roost.03.name": {
@@ -140,11 +216,11 @@
       "template_vars": []
     },
     "roost.03.place": {
-      "chars": 13,
+      "chars": 30,
       "template_vars": []
     },
     "roost.03.desc": {
-      "chars": 62,
+      "chars": 147,
       "template_vars": []
     },
     "roost.04.name": {
@@ -152,11 +228,11 @@
       "template_vars": []
     },
     "roost.04.place": {
-      "chars": 16,
+      "chars": 35,
       "template_vars": []
     },
     "roost.04.desc": {
-      "chars": 45,
+      "chars": 127,
       "template_vars": []
     },
     "roost.05.name": {
@@ -164,11 +240,11 @@
       "template_vars": []
     },
     "roost.05.place": {
-      "chars": 22,
+      "chars": 34,
       "template_vars": []
     },
     "roost.05.desc": {
-      "chars": 99,
+      "chars": 141,
       "template_vars": []
     },
     "roost.06.name": {
@@ -176,11 +252,11 @@
       "template_vars": []
     },
     "roost.06.place": {
-      "chars": 17,
+      "chars": 42,
       "template_vars": []
     },
     "roost.06.desc": {
-      "chars": 71,
+      "chars": 110,
       "template_vars": []
     },
     "roost.07.name": {
@@ -188,11 +264,11 @@
       "template_vars": []
     },
     "roost.07.place": {
-      "chars": 16,
+      "chars": 39,
       "template_vars": []
     },
     "roost.07.desc": {
-      "chars": 47,
+      "chars": 69,
       "template_vars": []
     },
     "roost.08.name": {
@@ -200,22 +276,62 @@
       "template_vars": []
     },
     "roost.08.place": {
-      "chars": 23,
+      "chars": 37,
       "template_vars": []
     },
     "roost.08.desc": {
-      "chars": 59,
+      "chars": 119,
       "template_vars": []
     },
     "npc.keeper.01.name": {
       "chars": 3,
       "template_vars": []
     },
-    "npc.keeper.01.greet.0": {
-      "chars": 68,
+    "npc.keeper.01.hail.0": {
+      "chars": 190,
       "template_vars": []
     },
-    "npc.keeper.01.greet.1": {
+    "npc.keeper.01.hail.1": {
+      "chars": 211,
+      "template_vars": []
+    },
+    "npc.keeper.01.hail.2": {
+      "chars": 97,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.0.a": {
+      "chars": 228,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.0.b": {
+      "chars": 24,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.0.c": {
+      "chars": 86,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.1.a": {
+      "chars": 207,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.1.b": {
+      "chars": 33,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.1.c": {
+      "chars": 78,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.2.a": {
+      "chars": 157,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.2.b": {
+      "chars": 16,
+      "template_vars": []
+    },
+    "npc.keeper.01.talk.2.c": {
       "chars": 39,
       "template_vars": []
     },
@@ -231,12 +347,52 @@
       "chars": 9,
       "template_vars": []
     },
-    "npc.keeper.02.greet.0": {
-      "chars": 45,
+    "npc.keeper.02.hail.0": {
+      "chars": 205,
+      "template_vars": []
+    },
+    "npc.keeper.02.hail.1": {
+      "chars": 75,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.0.a": {
+      "chars": 173,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.0.b": {
+      "chars": 15,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.0.c": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.1.a": {
+      "chars": 190,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.1.b": {
+      "chars": 24,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.1.c": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.2.a": {
+      "chars": 146,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.2.b": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "npc.keeper.02.talk.2.c": {
+      "chars": 44,
       "template_vars": []
     },
     "npc.keeper.02.schedule": {
-      "chars": 72,
+      "chars": 44,
       "template_vars": []
     },
     "npc.keeper.02.thin": {
@@ -247,44 +403,116 @@
       "chars": 48,
       "template_vars": []
     },
+    "npc.side.tally.name": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.0.a": {
+      "chars": 109,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.0.b": {
+      "chars": 11,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.0.c": {
+      "chars": 84,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.1.a": {
+      "chars": 148,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.1.b": {
+      "chars": 28,
+      "template_vars": []
+    },
+    "npc.side.tally.talk.1.c": {
+      "chars": 66,
+      "template_vars": []
+    },
     "npc.keeper.03.name": {
       "chars": 5,
       "template_vars": []
     },
-    "npc.keeper.03.greet.0": {
-      "chars": 79,
+    "npc.keeper.03.hail.0": {
+      "chars": 192,
+      "template_vars": []
+    },
+    "npc.keeper.03.hail.1": {
+      "chars": 87,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.0.a": {
+      "chars": 195,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.0.b": {
+      "chars": 22,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.0.c": {
+      "chars": 154,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.1.a": {
+      "chars": 136,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.1.b": {
+      "chars": 13,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.1.c": {
+      "chars": 3,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.2.a": {
+      "chars": 186,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.2.b": {
+      "chars": 21,
+      "template_vars": []
+    },
+    "npc.keeper.03.talk.2.c": {
+      "chars": 89,
       "template_vars": []
     },
     "npc.keeper.03.trade": {
-      "chars": 57,
+      "chars": 55,
       "template_vars": []
     },
     "npc.keeper.03.clause": {
-      "chars": 62,
-      "template_vars": []
-    },
-    "npc.keeper.03.carry": {
-      "chars": 61,
-      "template_vars": []
-    },
-    "npc.keeper.03.give": {
-      "chars": 41,
-      "template_vars": []
-    },
-    "npc.keeper.04.name": {
-      "chars": 7,
-      "template_vars": []
-    },
-    "npc.keeper.04.greet.0": {
       "chars": 56,
       "template_vars": []
     },
-    "npc.keeper.04.forge": {
-      "chars": 94,
+    "npc.keeper.03.carry": {
+      "chars": 57,
       "template_vars": []
     },
-    "npc.keeper.04.stay": {
-      "chars": 30,
+    "npc.keeper.03.give": {
+      "chars": 39,
+      "template_vars": []
+    },
+    "npc.side.vesper.name": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "npc.side.vesper.talk.0.a": {
+      "chars": 61,
+      "template_vars": []
+    },
+    "npc.side.vesper.talk.0.b": {
+      "chars": 14,
+      "template_vars": []
+    },
+    "npc.side.vesper.talk.0.c": {
+      "chars": 58,
+      "template_vars": []
+    },
+    "npc.side.vesper.talk.1.a": {
+      "chars": 130,
       "template_vars": []
     },
     "npc.keeper.05.name": {
@@ -295,8 +523,48 @@
       "chars": 13,
       "template_vars": []
     },
-    "npc.keeper.05.greet.0": {
-      "chars": 88,
+    "npc.keeper.05.hail.0": {
+      "chars": 197,
+      "template_vars": []
+    },
+    "npc.keeper.05.hail.1": {
+      "chars": 132,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.0.a": {
+      "chars": 164,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.0.b": {
+      "chars": 20,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.0.c": {
+      "chars": 136,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.1.a": {
+      "chars": 176,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.1.b": {
+      "chars": 21,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.1.c": {
+      "chars": 54,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.2.a": {
+      "chars": 100,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.2.b": {
+      "chars": 38,
+      "template_vars": []
+    },
+    "npc.keeper.05.talk.2.c": {
+      "chars": 65,
       "template_vars": []
     },
     "npc.keeper.05.hurt": {
@@ -307,24 +575,152 @@
       "chars": 51,
       "template_vars": []
     },
-    "boss.foreman.name": {
-      "chars": 7,
-      "template_vars": []
-    },
-    "boss.foreman.oldname": {
+    "npc.side.bean.name": {
       "chars": 4,
       "template_vars": []
     },
-    "boss.foreman.greet": {
-      "chars": 121,
+    "npc.side.bean.talk.0.a": {
+      "chars": 3,
       "template_vars": []
     },
-    "boss.foreman.norecall": {
-      "chars": 79,
+    "npc.side.bean.talk.0.b": {
+      "chars": 38,
+      "template_vars": []
+    },
+    "npc.side.bean.talk.0.c": {
+      "chars": 30,
+      "template_vars": []
+    },
+    "npc.side.bean.talk.1.a": {
+      "chars": 9,
+      "template_vars": []
+    },
+    "npc.side.bean.talk.1.b": {
+      "chars": 122,
+      "template_vars": []
+    },
+    "npc.keeper.04.name": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "npc.keeper.04.hail.0": {
+      "chars": 161,
+      "template_vars": []
+    },
+    "npc.keeper.04.hail.1": {
+      "chars": 101,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.0.a": {
+      "chars": 215,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.0.b": {
+      "chars": 19,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.0.c": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.1.a": {
+      "chars": 183,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.1.b": {
+      "chars": 23,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.1.c": {
+      "chars": 61,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.2.a": {
+      "chars": 193,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.2.b": {
+      "chars": 6,
+      "template_vars": []
+    },
+    "npc.keeper.04.talk.2.c": {
+      "chars": 57,
+      "template_vars": []
+    },
+    "npc.keeper.04.forge": {
+      "chars": 94,
+      "template_vars": []
+    },
+    "npc.keeper.04.stay": {
+      "chars": 30,
+      "template_vars": []
+    },
+    "npc.side.rivet.name": {
+      "chars": 5,
+      "template_vars": []
+    },
+    "npc.side.rivet.talk.0.a": {
+      "chars": 150,
+      "template_vars": []
+    },
+    "npc.side.rivet.talk.0.b": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "npc.side.rivet.talk.0.c": {
+      "chars": 64,
+      "template_vars": []
+    },
+    "npc.side.rivet.talk.1.a": {
+      "chars": 164,
       "template_vars": []
     },
     "boss.ferryman.name": {
       "chars": 12,
+      "template_vars": []
+    },
+    "boss.ferryman.hail.0": {
+      "chars": 202,
+      "template_vars": []
+    },
+    "boss.ferryman.hail.1": {
+      "chars": 97,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.0.a": {
+      "chars": 148,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.0.b": {
+      "chars": 25,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.0.c": {
+      "chars": 101,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.1.a": {
+      "chars": 173,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.1.b": {
+      "chars": 8,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.1.c": {
+      "chars": 114,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.2.a": {
+      "chars": 190,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.2.b": {
+      "chars": 12,
+      "template_vars": []
+    },
+    "boss.ferryman.talk.2.c": {
+      "chars": 52,
       "template_vars": []
     },
     "boss.ferryman.offer": {
@@ -343,12 +739,80 @@
       "chars": 34,
       "template_vars": []
     },
+    "npc.sweeper.tidy.name": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "npc.sweeper.tidy.talk.0.a": {
+      "chars": 100,
+      "template_vars": []
+    },
+    "npc.sweeper.tidy.talk.0.b": {
+      "chars": 35,
+      "template_vars": []
+    },
+    "npc.sweeper.tidy.talk.0.c": {
+      "chars": 50,
+      "template_vars": []
+    },
+    "npc.sweeper.tidy.talk.1.a": {
+      "chars": 153,
+      "template_vars": []
+    },
+    "boss.foreman.name": {
+      "chars": 7,
+      "template_vars": []
+    },
+    "boss.foreman.oldname": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "boss.foreman.hail.0": {
+      "chars": 121,
+      "template_vars": []
+    },
+    "boss.foreman.talk.0.a": {
+      "chars": 169,
+      "template_vars": []
+    },
+    "boss.foreman.talk.0.b": {
+      "chars": 30,
+      "template_vars": []
+    },
+    "boss.foreman.talk.0.c": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "boss.foreman.talk.1.a": {
+      "chars": 177,
+      "template_vars": []
+    },
+    "boss.foreman.greet": {
+      "chars": 121,
+      "template_vars": []
+    },
+    "boss.foreman.norecall": {
+      "chars": 79,
+      "template_vars": []
+    },
+    "item.journal.steward.name": {
+      "chars": 14,
+      "template_vars": []
+    },
+    "item.journal.steward.read.0": {
+      "chars": 210,
+      "template_vars": []
+    },
+    "item.journal.steward.read.1": {
+      "chars": 143,
+      "template_vars": []
+    },
     "npc.hidden.01.name": {
       "chars": 6,
       "template_vars": []
     },
     "npc.hidden.01.greet": {
-      "chars": 81,
+      "chars": 82,
       "template_vars": []
     },
     "npc.hidden.01.nice": {
@@ -364,7 +828,7 @@
       "template_vars": []
     },
     "npc.hidden.02.journal.margin": {
-      "chars": 77,
+      "chars": 75,
       "template_vars": []
     },
     "npc.hidden.03.name": {
@@ -444,7 +908,7 @@
       "template_vars": []
     },
     "shard.weather.desc": {
-      "chars": 32,
+      "chars": 27,
       "template_vars": []
     },
     "shard.bell.name": {
@@ -452,7 +916,7 @@
       "template_vars": []
     },
     "shard.bell.desc": {
-      "chars": 25,
+      "chars": 26,
       "template_vars": []
     },
     "shard.sock.name": {
@@ -491,6 +955,14 @@
     },
     "ui.log.prompt": {
       "chars": 27,
+      "template_vars": []
+    },
+    "ui.verb.talk": {
+      "chars": 4,
+      "template_vars": []
+    },
+    "ui.verb.read": {
+      "chars": 4,
       "template_vars": []
     },
     "charter.title": {
@@ -546,7 +1018,7 @@
       "template_vars": []
     },
     "ending.split.last": {
-      "chars": 51,
+      "chars": 47,
       "template_vars": []
     }
   }

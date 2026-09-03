@@ -19,7 +19,7 @@
 
 import * as C from "../core/constants.js";
 import { hudView, hopPose } from "../core/select.js";
-import { tileAt, segmentAt, TILE } from "../core/world.js";
+import { tileAt, segmentAt, npcAt, TILE } from "../core/world.js";
 
 const { EASE, impulseValue, TAU, RING_GAP } = C;
 
@@ -51,7 +51,22 @@ const ROAD_DASH = "#34416a";
 // a tower's floor: the player's ground, warmer and quieter -- somewhere to
 // stand rather than somewhere to hold
 const TOWER     = ["#2a2436", "#5a4a6e"];
+// each person on a tower has their own colours; anyone not listed gets the keeper's
 const KEEPER    = { robe: "#c9b6ff", hood: "#7d63c4", face: "#fff3c4", eye: "#2b1f4a" };
+const PEOPLE = {
+  "npc.keeper.01":     { robe: "#ffd7e0", hood: "#c45b7a", face: "#fff3c4", eye: "#3a1a26" },
+  "npc.keeper.02":     { robe: "#c9f6ff", hood: "#2f8fd6", face: "#fff3c4", eye: "#0f2a44" },
+  "npc.keeper.03":     { robe: "#e8dcc0", hood: "#7a5a2e", face: "#fff3c4", eye: "#2b1f0a" },
+  "npc.keeper.04":     { robe: "#ffcf9a", hood: "#a54b1e", face: "#fff3c4", eye: "#3a1a06" },
+  "npc.keeper.05":     { robe: "#c8ffb0", hood: "#3f9a4a", face: "#fff3c4", eye: "#0f2a12" },
+  "npc.side.bean":     { robe: "#e2ffd2", hood: "#6ab86f", face: "#fff3c4", eye: "#0f2a12", small: true },
+  "npc.side.tally":    { robe: "#dfe6f2", hood: "#5c6f8f", face: "#fff3c4", eye: "#1a2233" },
+  "npc.side.vesper":   { robe: "#d9d2f0", hood: "#4a4470", face: "#fff3c4", eye: "#1a1830", small: true },
+  "npc.side.rivet":    { robe: "#ffe0b0", hood: "#c07a2a", face: "#fff3c4", eye: "#3a1a06", small: true },
+  "boss.ferryman":     { robe: "#ffffff", hood: "#9fb4c8", face: "#e8f4ff", eye: "#2a3a4a" },
+  "npc.sweeper.tidy":  { robe: "#f0f0f0", hood: "#b5b5b5", face: "#ffffff", eye: "#444" },
+  "boss.foreman":      { robe: "#f4f4f4", hood: "#8a8a8a", face: "#ffffff", eye: "#444" },
+};
 
 /** A ring that stops just short of a full turn — see C.RING_GAP. */
 function ring(ctx, x, y, r, squash = 1) {
@@ -241,7 +256,11 @@ function drawPanels(ctx, state, now) {
         ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
         ctx.globalAlpha = 1;
       }
-      if (t === TILE.NPC) drawKeeper(ctx, p, now, state, c, r);
+      if (t === TILE.NPC) {
+        const who = npcAt(world, c, r);
+        if (who && who.verb === "read") drawItem(ctx, p, now, state, c, r);
+        else drawKeeper(ctx, p, now, state, c, r, PEOPLE[who && who.id] || KEEPER);
+      }
       // the player's own panel highlight; they can stand on their ground or the road
       if (t !== TILE.ENEMY && c === state.player.col && r === state.player.row) {
         ctx.strokeStyle = "#45e0e8";
@@ -257,20 +276,49 @@ function drawPanels(ctx, state, now) {
  * the player stands beside them the tile carries the TALK prompt -- a small
  * lit chevron, the same language as the aim marks.
  */
-function drawKeeper(ctx, p, now, state, col, row) {
+function drawKeeper(ctx, p, now, state, col, row, look = KEEPER) {
   const cx = p.x + p.w / 2;
   const base = p.y + p.h * 0.8;
-  const breathe = 1 + 0.02 * Math.sin(now / 700);
-  const w = p.w * 0.3, h = p.h * 1.0 * breathe;
-  ctx.fillStyle = KEEPER.robe;
+  const breathe = 1 + 0.02 * Math.sin(now / 700 + col);
+  const scale = look.small ? 0.72 : 1;
+  const w = p.w * 0.3 * scale, h = p.h * 1.0 * breathe * scale;
+  ctx.fillStyle = look.robe;
   ctx.fillRect(cx - w / 2, base - h, w, h);
-  ctx.fillStyle = KEEPER.hood;
+  ctx.fillStyle = look.hood;
   ctx.fillRect(cx - w * 0.6, base - h - h * 0.12, w * 1.2, h * 0.42);
-  ctx.fillStyle = KEEPER.face;
+  ctx.fillStyle = look.face;
   ctx.fillRect(cx - w * 0.32, base - h + h * 0.06, w * 0.64, h * 0.2);
-  ctx.fillStyle = KEEPER.eye;
+  ctx.fillStyle = look.eye;
   ctx.fillRect(cx - w * 0.2, base - h + h * 0.12, 3, 3);
   ctx.fillRect(cx + w * 0.2 - 3, base - h + h * 0.12, 3, 3);
+  const beside = Math.abs(state.player.col - col) + Math.abs(state.player.row - row) === 1;
+  if (beside) {
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 220);
+    ctx.fillStyle = "#45e0e8";
+    const y = p.y - 6 - 3 * Math.abs(Math.sin(now / 320));
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, y - 8);
+    ctx.lineTo(cx + 6, y - 8);
+    ctx.lineTo(cx, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/** A thing to read on a tower tile: a book, scorched, on what was a shelf. */
+function drawItem(ctx, p, now, state, col, row) {
+  const cx = p.x + p.w / 2, cy = p.y + p.h * 0.62;
+  const w = p.w * 0.36, h = p.h * 0.3;
+  ctx.fillStyle = "#2a2226";
+  ctx.fillRect(cx - w * 0.6, cy + h * 0.5, w * 1.2, 4);
+  ctx.fillStyle = "#6b4a3a";
+  ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  ctx.fillStyle = "#c9b18f";
+  ctx.fillRect(cx - w / 2 + 3, cy - h / 2 + 3, w - 6, h - 6);
+  ctx.fillStyle = "#3a2a22";
+  ctx.fillRect(cx - w / 2 + 6, cy - 1, w * 0.5, 2);
+  ctx.fillRect(cx - w / 2 + 6, cy + 4, w * 0.35, 2);
   const beside = Math.abs(state.player.col - col) + Math.abs(state.player.row - row) === 1;
   if (beside) {
     ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 220);

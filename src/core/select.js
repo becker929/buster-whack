@@ -45,7 +45,7 @@ export function hopPose(state, now) {
  */
 export function contextVerb(state) {
   const n = npcBeside(state.world, state.player.col, state.player.row);
-  return n ? { verb: "talk", npc: n.id } : { verb: "bomb", npc: null };
+  return n ? { verb: n.verb || "talk", npc: n.id } : { verb: "bomb", npc: null };
 }
 
 /** Hit accuracy as a 0..1 fraction (0 when nothing has been fired). */

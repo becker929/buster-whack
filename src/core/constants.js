@@ -102,22 +102,36 @@ export const BOMB_BLAST_MS = 460;
 // come later; for now the route is a line so the story arrives on time.
 export const TOWER_COLS = 6;
 export const TOWER_EVERY = 3;
+// Every roost once before any repeats (bible: regions.json strip.route_v3),
+// then the sunset-order returns.
 export const STORY_ROUTE = [
-  "roost.01", "roost.02", "roost.03", "roost.05", "roost.06",
-  "roost.05", "roost.03", "roost.02", "roost.04",
+  "roost.01", "roost.02", "roost.03", "roost.05", "roost.06", "roost.04", "roost.08", "roost.07",
+  "roost.05", "roost.03", "roost.02", "roost.04", "roost.01",
 ];
-// who stands on each tower (bible: entities.json `home`), mid-floor
+// Who stands on each tower: the keeper mid-floor, a companion off to the
+// side, so there is always a lane past them. `verb` is what the context
+// button reads beside them.
 export const TOWER_SPECS = {
-  "roost.01": { npcs: [{ id: "npc.keeper.01", col: 3, row: 1 }] },
-  "roost.02": { npcs: [{ id: "npc.keeper.02", col: 3, row: 1 }] },
-  "roost.03": { npcs: [{ id: "npc.keeper.03", col: 3, row: 1 }] },
-  "roost.04": { npcs: [{ id: "npc.keeper.04", col: 3, row: 1 }] },
-  "roost.05": { npcs: [{ id: "npc.keeper.05", col: 3, row: 1 }] },
-  "roost.06": { npcs: [{ id: "boss.ferryman", col: 3, row: 1 }] },
-  "roost.07": { npcs: [] },
-  "roost.08": { npcs: [] },
+  "roost.01": { npcs: [{ id: "npc.keeper.01", col: 3, row: 1, verb: "talk" }] },
+  "roost.02": { npcs: [{ id: "npc.keeper.02", col: 3, row: 1, verb: "talk" }, { id: "npc.side.tally", col: 4, row: 2, verb: "talk" }] },
+  "roost.03": { npcs: [{ id: "npc.keeper.03", col: 3, row: 1, verb: "talk" }, { id: "npc.side.vesper", col: 4, row: 0, verb: "talk" }] },
+  "roost.04": { npcs: [{ id: "npc.keeper.04", col: 3, row: 1, verb: "talk" }, { id: "npc.side.rivet", col: 4, row: 2, verb: "talk" }] },
+  "roost.05": { npcs: [{ id: "npc.keeper.05", col: 3, row: 1, verb: "talk" }, { id: "npc.side.bean", col: 4, row: 0, verb: "talk" }] },
+  "roost.06": { npcs: [{ id: "boss.ferryman", col: 3, row: 1, verb: "talk" }, { id: "npc.sweeper.tidy", col: 4, row: 2, verb: "talk" }] },
+  "roost.07": { npcs: [{ id: "boss.foreman", col: 3, row: 1, verb: "talk" }] },
+  "roost.08": { npcs: [{ id: "item.journal.steward", col: 3, row: 1, verb: "read" }] },
 };
 export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
+
+// The story's unlocks, keyed to arenas so that the tower before each one is
+// where a person announces it (there are no cards in the story). Towers stand
+// before arenas 3, 6, 9, ...: the Tower warns of steel before 6, the Annex
+// asks you to spare the runners before 9, and so on.
+export const STORY_UNLOCK = {
+  guard: 6, ally: 9, retaliate: 12, hopper: 15, sentinel1: 21,
+  sentinel2: 30, swarm: 39, sentinel3: 48, unlimited: ROAD_END,
+};
+export const unlockTable = (mode) => (mode.story ? STORY_UNLOCK : ADV_UNLOCK);
 
 // ---------- the hop (touch modes) ----------
 // A step is a hop, one square, never diagonal: a crouch, the arc, a landing
@@ -125,9 +139,9 @@ export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
 // standing on changes at the top of the arc, so a bolt reads the sprite where
 // it is. A tap further than one square away lays a path and the hops follow
 // it, one per ration, until any new directive replaces it.
-export const HOP_WINDUP_MS = 40;
-export const HOP_MOVE_MS = 110;
-export const HOP_SETTLE_MS = 70;
+export const HOP_WINDUP_MS = 30;
+export const HOP_MOVE_MS = 80;
+export const HOP_SETTLE_MS = 55;
 export const HOP_TOTAL_MS = HOP_WINDUP_MS + HOP_MOVE_MS + HOP_SETTLE_MS;
 export const HOP_COMMIT_MS = HOP_WINDUP_MS + HOP_MOVE_MS / 2;
 
@@ -150,10 +164,10 @@ export const CHARGE_MS = 700;
 export const RISE_MS = 220, SINK_MS = 180, HIT_MS = 280;
 export const MOVE_REPEAT_MS = 130;
 // One-hand movement: a tap is one step and a held stick is one step per
-// ration -- 260ms, about three eighths of a charge -- so a position is a
+// ration -- 195ms, a bit over a quarter of a charge -- so a position is a
 // commitment rather than a twitch while still reading as quick. A step asked
 // for during the cooldown is held and taken the moment it ends.
-export const TAP_MOVE_MS = 260;
+export const TAP_MOVE_MS = 195;
 // A tap this far outside the grid (in panels) still lands on the nearest row:
 // the top row's upper half is thin under a thumb.
 export const TAP_SLACK = 0.4;
@@ -169,25 +183,25 @@ export const TAP_SLACK = 0.4;
 // or a tap on a square to go there. ADVANCE keeps the ring and the
 // quarter-circle FIRE for two thumbs.
 export const MODES = [
-  { id: "onehand", name: "ONE HAND", blurb: "stick · tap · fire", advancing: true,
-    controls: "touch", moveMs: TAP_MOVE_MS },
-  { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
-    controls: "pad", moveMs: MOVE_REPEAT_MS },
-  // The story, as a prototype: the strip opens on a tower -- a safe segment
-  // with a keeper on it -- and the context button is TALK beside them. The
-  // text comes from the sealed canon through the shell; the core only knows
-  // that a tile is an npc and that you pressed the button next to it.
-  { id: "story", name: "STORY", blurb: "prototype · tower", advancing: true,
-    controls: "touch", moveMs: TAP_MOVE_MS, story: true },
+  // The game: the Rookery's story on one strip. Two-thumb controls -- the
+  // ring and the quarter-circle FIRE -- with the board taking taps to walk
+  // there, and every step a hop.
+  { id: "story", name: "STORY", blurb: "the Rookery", advancing: true, story: true,
+    controls: "pad", hop: true, tapMove: true, moveMs: TAP_MOVE_MS },
 ];
 // Retired: off the menu, but still resolvable by id. CLASSIC is the fixed
-// six-column board every renderer golden was pinned against, so the harness
-// and the unit tests keep starting it by name; nothing else ever will.
+// six-column board every renderer golden was pinned against; ONE HAND and
+// ADVANCE are the arcade layouts the story grew out of, kept for their tests
+// and goldens. Nothing on the menu starts them.
 export const RETIRED_MODES = [
+  { id: "onehand", name: "ONE HAND", blurb: "stick · tap · fire", advancing: true,
+    controls: "touch", hop: true, tapMove: true, moveMs: TAP_MOVE_MS },
+  { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
+    controls: "pad", moveMs: MOVE_REPEAT_MS },
   { id: "classic", name: "CLASSIC", blurb: "hold the line", advancing: false,
     controls: "pad", moveMs: MOVE_REPEAT_MS },
 ];
-export const DEFAULT_MODE = "onehand";
+export const DEFAULT_MODE = "story";
 export const modeById = (id) =>
   MODES.find((m) => m.id === id) || RETIRED_MODES.find((m) => m.id === id) || MODES[0];
 export const HOP_MS = 550, HOP_GROW_MS = 120;

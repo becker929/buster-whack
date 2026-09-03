@@ -45,16 +45,15 @@ function place(s, o) {
   return e;
 }
 
-test("one-hand is the default mode and first in the menu; a chosen mode is kept", () => {
-  assert.equal(C.DEFAULT_MODE, "onehand");
-  assert.equal(C.MODES[0].id, "onehand");
-  assert.ok(C.MODES.some((m) => m.id === "advance"), "advance stays on the menu");
+test("the story is the default and only mode; a chosen retired mode is kept", () => {
+  assert.equal(C.DEFAULT_MODE, "story");
+  assert.deepEqual(C.MODES.map((m) => m.id), ["story"]);
   // a fresh state is the default before any run; a bare startRun keeps it
   // (RETRY retries the mode you were playing, so the default is never re-imposed)
   const s = createState({ seed: 1, width: 800, height: 600 });
-  assert.equal(s.modeId, "onehand");
+  assert.equal(s.modeId, "story");
   step(s, 0, [{ type: "startRun" }]);
-  assert.equal(s.modeId, "onehand");
+  assert.equal(s.modeId, "story");
   const c = createState({ seed: 1, width: 800, height: 600, modeId: "advance" });
   step(c, 0, [{ type: "startRun" }]);
   assert.equal(c.modeId, "advance", "an explicit mode is respected and kept");

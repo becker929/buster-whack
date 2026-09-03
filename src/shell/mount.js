@@ -132,7 +132,8 @@ export function mountBusterWhack(container, options = {}) {
   // Lines are a strip over the board that fades on its own. The timer is the
   // shell's; the core never waits on text.
 
-  const SAY_MS = 4800;
+  // a beat stays up long enough to read: a floor, plus time per character
+  const sayMs = (text) => Math.min(9000, 2200 + 42 * text.length);
   let sayTimer = null;
   let sayQueue = [];
   function hush() {
@@ -145,7 +146,7 @@ export function mountBusterWhack(container, options = {}) {
     const next = sayQueue.shift();
     if (!next) { renderSay(els, "", ""); return; }
     renderSay(els, next[0], next[1]);
-    sayTimer = win.setTimeout(sayNext, SAY_MS);
+    sayTimer = win.setTimeout(sayNext, sayMs(next[1]));
   }
   const story = createStory({
     // beats queue rather than replace, so an arrival's two both land; a line
@@ -190,9 +191,9 @@ export function mountBusterWhack(container, options = {}) {
 
   /** The control scheme rides on the mode: lay the shell out for the run that just began. */
   function applyControls(modeId) {
-    const scheme = modeById(modeId).controls;
-    setControls(els, scheme);
-    input.setControls(scheme);
+    const mode = modeById(modeId);
+    setControls(els, mode.controls);
+    input.setControls(mode.controls, { tapMove: !!mode.tapMove });
     resize();
   }
 

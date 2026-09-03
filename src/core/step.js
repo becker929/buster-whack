@@ -17,7 +17,7 @@
  */
 
 import * as C from "./constants.js";
-import { createWorld, activeArena, walkable, clearArena, worldEnd, npcBeside, safeZone } from "./world.js";
+import { createWorld, activeArena, walkable, clearArena, worldEnd, npcBeside, safeZone, segmentAt } from "./world.js";
 import { computeRank } from "./select.js";
 
 const panel = (state, col, row) => C.panelRect(state.G, col, row);
@@ -194,8 +194,8 @@ function fireReleased(state, events) {
 /** The step ration for this run's mode: one-hand paces steps at half a charge. */
 const moveMs = (state) => C.modeById(state.modeId).moveMs || C.MOVE_REPEAT_MS;
 const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
-/** Touch modes hop; ring modes step on the spot. */
-const hops = (state) => C.modeById(state.modeId).controls === "touch";
+/** Hopping modes hop; the retired ring modes step on the spot. */
+const hops = (state) => !!C.modeById(state.modeId).hop;
 
 /**
  * A step asked for during the cooldown is not dropped: in one-hand a thumb
@@ -556,8 +556,9 @@ function updateWorld(state, events) {
     state.levelT0 = now;
     events.push({ type: "arenaEntered", index: a.idx, x0: a.x0 });
     if (a.idx >= C.ROAD_END) state.unlimited = true;
-    // the chapter card, at the arena boundary -- the one moment a pause is free
-    const st = C.ADVANCE_STAGES.find((x) => x.arena === a.idx);
+    // the chapter card, at the arena boundary -- the one moment a pause is
+    // free. Not in the story: there, people say what is coming.
+    const st = C.modeById(state.modeId).story ? null : C.ADVANCE_STAGES.find((x) => x.arena === a.idx);
     if (st) showCard(state, events, st, C.ADVANCE_STAGES.indexOf(st));
   }
 
@@ -567,7 +568,11 @@ function updateWorld(state, events) {
   // out of a taken arena as you cross its right half and settles into the
   // lock position as you arrive, with no jump at either end.
   const fighting = a.entered && a.owner === "enemy";
-  const want = fighting ? a.x0 : Math.min(a.x0, state.player.col - 1);
+  // On a tower the view holds the whole tower: people stand at both ends of
+  // it and a step forward must not scroll the one behind you off the map.
+  const here = segmentAt(state.world, state.player.col);
+  const onTower = here && here.kind === "tower";
+  const want = fighting ? a.x0 : Math.min(a.x0, onTower ? here.x0 : state.player.col - 1);
   // monotonic: the view slides forward with you and never back, so a square
   // that has left the screen is gone for good
   state.camAnchor = Math.max(state.camAnchor, want);
@@ -648,8 +653,9 @@ const canRetaliate = (type) => type === "mett" || type === "hopper" || type === 
  * hundred-arena road can hand things out on its own schedule.
  */
 function unlocked(state, key) {
-  if (C.modeById(state.modeId).advancing) {
-    const at = C.ADV_UNLOCK[key];
+  const mode = C.modeById(state.modeId);
+  if (mode.advancing) {
+    const at = C.unlockTable(mode)[key];
     return at !== undefined && activeArena(state.world).idx >= at;
   }
   return state.stageIdx >= (C.UNLOCK[key] === undefined ? Infinity : C.UNLOCK[key]);
@@ -1098,7 +1104,7 @@ function contextAction(state, events) {
   state.talks[n.id] = (state.talks[n.id] || 0) + 1;
   const p = panel(state, n.col, n.row);
   ripple(state, n.col, n.row, "#ffd23f", state.clock, 1);
-  events.push({ type: "talk", npc: n.id, count: state.talks[n.id], col: n.col, row: n.row,
+  events.push({ type: "talk", npc: n.id, verb: n.verb || "talk", count: state.talks[n.id], col: n.col, row: n.row,
                 x: p.x + p.w / 2, y: p.y });
 }
 

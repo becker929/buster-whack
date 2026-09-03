@@ -76,66 +76,55 @@ mountBusterWhack(container: HTMLElement, options?: {
 
 ## Controls
 
-The controls ride on the mode you pick, so the start screen is the one place
-you choose them.
-
-**ONE HAND** (the default) is built for a phone held in one hand. The bottom of
-the stage is one big rounded FIRE button where a keyboard would sit, the board
-rests directly on it so the thumb rolls from squares to trigger, a BOMB bar
-sits just above the board, and the board itself is how you move:
+Two thumbs: the analog **ring** on the left, the quarter-circle **FIRE** on the
+right, and the round context button above FIRE. The board takes taps.
 
 - Move: every step is a **hop**, one square, never diagonal — a crouch, the
-  arc, a landing, and the rest of the ration as cooldown (260 ms a step). The square you count as standing on changes at the top of the
-  arc. The whole stage is a **floating stick**: touch anywhere, the board or
-  FIRE itself, push in a direction and hold to walk that way; flick for a
-  single hop; let it centre or lift to stop. So the thumb holding a charge on
-  FIRE can walk without letting go. Or **tap a square**: beside you it is one
-  hop; further away it lays a path and the hops follow it, one per ration,
-  until a push, a tap, or a hit gives a new directive. A tap has to land on
-  ground you can stand on that you could also walk to — a narrow road is
-  still a funnel.
-- Safe zones: the clock only drains inside an arena that is held against you.
-  Towers, roads and arenas you have taken are safe, so a walk is a real rest.
+  arc, a landing, and the rest of the ration as cooldown (195 ms a step). The
+  square you count as standing on changes at the top of the arc. Hold the
+  ring to walk; flick it for one hop. Or **tap a square**: beside you it is
+  one hop; further away it lays a path and the hops follow it, one per
+  ration, until the ring, another tap, or a hit gives a new directive. A tap
+  has to land on ground you can stand on that you could also walk to — a
+  narrow road is still a funnel. A drag on the board itself also works as a
+  stick.
+- Safe zones: the clock — your pulse — only drains inside an arena that is
+  held against you. Towers, roads and arenas you have taken are safe, so a
+  walk is a real rest.
 - Fire: hold FIRE to charge — release for the strong shot.
-- Bomb: tap BOMB (lit while you carry one).
+- Context button: BOMB when you carry one; **TALK** beside a person on a
+  tower; **READ** beside something written. Lines appear as a strip over the
+  board, never a screen of their own.
+- Dodge: viruses shoot back once the people on the road have warned you they
+  will. A virus about to fire marks its row with a dashed line and a chevron
+  at your edge of the field — move off that row. A hit costs 2.5s of pulse
+  and breaks your chain. A **mett** fires a huge slow shell you can still
+  dodge after it launches; a **hopper** plants itself, telegraphs for much
+  longer, then fires a bolt that crosses the board in a blink — that one has
+  to be dodged during the telegraph. A steel guard never fires; it is the
+  anchor of a formation.
+- Keyboard: arrow keys / WASD move, Space fires (hold to charge), `B` or Shift
+  for the context button, `P` or `Esc` pauses, `M` mutes.
 
-**ADVANCE** keeps the two-thumb layout: the analog ring on the left, the
-quarter-circle FIRE on the right, and a tap anywhere on the board also fires.
+## The game
 
-On a keyboard, both modes take arrow keys / WASD to move, Space to fire (hold
-to charge), `B` or Shift for the bomb, `P` or `Esc` to pause, `M` to mute (a
-crossed-speaker badge sits by the pause button while sound is off).
+One strip, one representation. The strip opens on a *tower* — a roost of the
+Rookery, your own ground with people on it — and every third arena after that
+another tower stands on the road, following the route through the bible's
+roosts: every roost once before any repeats. Between towers the road is held
+against you: wipe an arena's wave and the whole arena becomes yours, a road
+opens off its right edge, and the next arena wakes only when you step in. Roads
+are three columns long and either full height or a single middle row, so some
+crossings funnel you. The view scrolls with you and locks onto each arena when
+the fight starts.
 
-- Dodge: once the RETALIATION card has been shown, viruses shoot back. A virus
-  about to fire marks its row with a dashed line and a chevron at your edge of
-  the field — move off that row. A hit costs 2.5s off the clock and breaks your
-  chain. There are two bolts and the difference is the mechanic: a **mett**
-  fires a huge slow shell you can still dodge after it launches; a **hopper**
-  plants itself, telegraphs for much longer, then fires a bolt that crosses the
-  board in a blink — that one has to be dodged during the telegraph. A steel
-  guard never fires; it is the anchor of a formation.
+There are no cards. What is coming next on the road — steel, runners to spare,
+fire coming back, the fast ones, the ones that open on a beat — is said by the
+people at the tower before it, in their own words. Arriving at a tower
+announces it; the keeper speaks first; TALK is an exchange.
 
-## Modes
-
-Pick one on the start screen (arrow keys move the selection; a tap on a row
-picks it and starts). Both play the same game: the world is an unbounded strip
-of arenas joined by roads. Wipe an arena's wave and the whole arena becomes
-yours, a road opens off its right edge, and the next arena waits at the road's
-end — its wave wakes only once you step in, so the walk is a real breather.
-Roads are three columns long and either full height or a single middle row, so
-some crossings funnel you. The view scrolls with you and locks onto each arena
-when the fight starts.
-
-- **ONE HAND** — stick · tap · fire. The one-thumb layout above.
-- **ADVANCE** — ring + fire. The same road with the two-thumb layout.
-- **STORY** — a prototype of where the game is going. The strip opens on a
-  *tower*: your own ground with a keeper standing on it, and a tower stands
-  before every third arena after that, following the route through the
-  bible's roosts (act one out to the ferry, act two back). Beside a keeper the
-  BOMB button becomes TALK, and what they say is a line laid over the board;
-  arrival at a tower announces it the same way. Walk off a tower's right edge
-  and the guard arena wakes. One representation throughout: no overworld, no
-  dialogue screen.
+The arcade layouts this grew out of (CLASSIC, ADVANCE, ONE HAND) are retired:
+off the menu, kept in the code under their ids for their tests and goldens.
 
 ## Story
 

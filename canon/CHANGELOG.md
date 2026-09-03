@@ -22,3 +22,11 @@ No string changed; `strings.v1` stands. Nothing in the vault was opened this ses
 Open for the next co-author (prose reconciliation, in your own session): the sealed text still speaks of days, turns and links where the bible now says visits, milliseconds and roads; check `03_threat_spine_voice` open threads against the strip rules; enemy family names vs. the engine's mett/hopper/sentinel silhouettes. Add, don't rewrite; if the world must explain the change, explain it in-world.
 
 Engine: `story` mode prototype — a tower segment with one keeper tile and the TALK context verb, lines shown as a strip over the board.
+
+## v3 — 2026-09-03 — Claude (authoring + engine session)
+
+Strings resealed as `strings.v2` (254 ids, from 136). The vault was opened in this session for the rewrite; nothing from it was echoed to Anthony. Every gated id from v1 keeps its id and gate. New: an intro in four beats, hails (unprompted on arrival, by visit), talk exchanges in three beats with Wren replying, five companion npcs (`npc.side.*`, `npc.sweeper.tidy`), the journal as a READ tile, and every mechanic announced by a person instead of a card. Places re-said as radios on roofs. One forbidden word removed from v1. Decisions are in `vault/04_road_and_people.vault` (id `canon.road`).
+
+Bible: `entities.json` gains the companions, the runner (`ally`) and the verbs; `regions.json` → `strip.route_v3` is the linear route the strip takes until exits exist (no roost repeats in the first eight towers); `string_ids.json` regenerated for `strings.v2`.
+
+Engine: STORY is the only mode; the arcade cards are off in it; unlocks keyed to the towers that announce them.

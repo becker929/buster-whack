@@ -292,6 +292,43 @@
       "thin": "the one middle row"
     },
     "revisits": "the camera only moves right; returning to a roost appends it to the strip again as a new tower segment (the strip is the path taken, not the map)",
-    "camera": "monotonic; a square that has scrolled off the left edge is gone for the run"
+    "camera": "monotonic; a square that has scrolled off the left edge is gone for the run",
+    "route_v3": {
+      "first_pass": [
+        "roost.01",
+        "roost.02",
+        "roost.03",
+        "roost.05",
+        "roost.06",
+        "roost.04",
+        "roost.08",
+        "roost.07"
+      ],
+      "then": [
+        "roost.05",
+        "roost.03",
+        "roost.02",
+        "roost.04",
+        "roost.01"
+      ],
+      "cadence": "one tower before every third guard arena",
+      "note": "a linear stand-in until exits-per-row exist; 06->04 and 08->07 are not links in the graph and will become the player's choice of exit later. No roost repeats inside the first eight towers.",
+      "companions": {
+        "roost.02": "npc.side.tally",
+        "roost.03": "npc.side.vesper",
+        "roost.04": "npc.side.rivet",
+        "roost.05": "npc.side.bean",
+        "roost.06": "npc.sweeper.tidy",
+        "roost.08": "item.journal.steward"
+      },
+      "mechanic_warnings": {
+        "guard": "roost.02 (before arena 6)",
+        "ally": "roost.03 (before arena 9)",
+        "retaliate": "roost.05 (before arena 12)",
+        "hopper": "roost.06 (before arena 15)",
+        "sentinel1": "roost.04 (before arena 21)",
+        "swarm": "roost.07 (before arena 24+)"
+      }
+    }
   }
 }

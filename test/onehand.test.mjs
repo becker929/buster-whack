@@ -29,9 +29,11 @@ const at = (s) => s.player.col + "," + s.player.row;
 
 // ---------- the menu ----------
 
-test("classic is retired: off the menu, still resolvable by name", () => {
-  assert.ok(!C.MODES.some((m) => m.id === "classic"), "classic is not offered");
-  assert.ok(C.RETIRED_MODES.some((m) => m.id === "classic"));
+test("classic, one-hand and advance are retired: off the menu, still resolvable by name", () => {
+  for (const id of ["classic", "onehand", "advance"]) {
+    assert.ok(!C.MODES.some((m) => m.id === id), id + " is not offered");
+    assert.ok(C.RETIRED_MODES.some((m) => m.id === id), id + " still resolves");
+  }
   const c = C.modeById("classic");
   assert.equal(c.id, "classic");
   assert.equal(c.advancing, false, "the retired rule set is intact for the goldens");
@@ -42,11 +44,14 @@ test("classic is retired: off the menu, still resolvable by name", () => {
   }
   assert.equal(C.modeById("onehand").controls, "touch");
   assert.equal(C.modeById("advance").controls, "pad");
+  assert.equal(C.MODES.length, 1, "the story is the whole menu");
+  assert.equal(C.MODES[0].id, "story");
 });
 
-test("the one-hand step ration is about three eighths of a charge, and a hop fits inside it", () => {
+test("the step ration is a little over a quarter of a charge, and a hop fits inside it", () => {
   const r = C.modeById("onehand").moveMs / C.CHARGE_MS;
-  assert.ok(r >= 0.33 && r <= 0.42, "ration/charge = " + r);
+  assert.ok(r >= 0.25 && r <= 0.32, "ration/charge = " + r);
+  assert.equal(C.modeById("story").moveMs, C.TAP_MOVE_MS, "the story hops at the same ration");
   assert.ok(C.HOP_TOTAL_MS < C.TAP_MOVE_MS, "the landing settles before the next step is allowed");
   assert.equal(C.modeById("advance").moveMs, C.MOVE_REPEAT_MS, "the ring keeps its repeat rate");
 });
