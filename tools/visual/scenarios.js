@@ -139,7 +139,7 @@ export const scenarios = [
   {
     name: "onehand-deck",
     title: "ONE HAND: the board above the deck, a tap, the held step",
-    why: "The default mode on a phone: the shell gives the bottom of the stage to a two-button deck and hands its height to the layout as an inset, so this pins the board sitting clear of it on a portrait stage. A tap steps to a square in one move and ripples it; a second tap inside the half-charge ration is held, drawn as a dashed outline on the wanted square while the ration bar refills at the player's feet, and lands on its own when the ration ends. The deck itself is DOM and is not in the frame.",
+    why: "The default mode on a phone: the shell gives the bottom of the stage to the FIRE deck and hands its height to the layout as an inset, so this pins the board resting on the deck's top edge on a portrait stage, with room above for the HUD and the BOMB bar the shell places there. A tap steps to a square in one move and ripples it; a second tap inside the half-charge ration is held, drawn as a dashed outline on the wanted square while the ration bar refills at the player's feet, and lands on its own when the ration ends. The deck itself is DOM and is not in the frame.",
     seed: 9,
     width: 390,
     height: 760,

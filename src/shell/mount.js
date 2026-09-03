@@ -8,7 +8,7 @@ import { step } from "../core/step.js";
 import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
 import { statsView, hudView, interlevelView, gameOverView } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
-         renderModes, selectMode, renderBombs, setControls, deckInset } from "./dom.js";
+         renderModes, selectMode, renderBombs, setControls, deckInset, placeTouchControls } from "./dom.js";
 import { createAudio } from "./audio.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
@@ -84,8 +84,10 @@ export function mountBusterWhack(container, options = {}) {
     els.cv.width = Math.round(r.width * dpr);
     els.cv.height = Math.round(r.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // the one-hand deck is opaque, so the board is laid out above it
+    // the one-hand deck is opaque, so the board is laid out above it, and
+    // BOMB is then placed from the board the layout produced
     setLayout(state, r.width, r.height, deckInset(els));
+    placeTouchControls(els, state.G);
   }
   setControls(els, modeById(state.modeId).controls);
   resize();

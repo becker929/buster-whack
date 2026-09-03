@@ -3,6 +3,8 @@
  * Everything here is markup and element plumbing — no game logic.
  */
 
+import { COLS } from "../core/constants.js";
+
 export const TEMPLATE = `
 <style>
   :host {
@@ -156,14 +158,18 @@ export const TEMPLATE = `
   #fireBtn:focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 3px; }
 
   /* ---------- one-hand deck ---------- */
-  /* The bottom of the stage becomes a two-button deck where a phone keyboard
-     would sit: FIRE on the left, BOMB on the right, both rounded rectangles.
-     The ring goes; the board above is the movement surface. Sized in cqh
-     against #stage so a short embed keeps a board, and the mount hands the
-     same height to the layout as a bottom inset so nothing draws under it. */
+  /* The bottom of the stage is FIRE: one rounded rectangle across the whole
+     width where a phone keyboard would sit, with the board resting directly
+     on it so the thumb rolls from squares to trigger without a reach. BOMB
+     is a wide bar just above the board -- out of the way of the fast loop,
+     still one thumb away. The ring goes; the board is the movement surface.
+     Sized in cqh against #stage so a short embed keeps a board; the mount
+     hands the deck's height to the layout as a bottom inset and places BOMB
+     from the layout it gets back, so the three always line up. */
   main {
-    --bw-deck-h: clamp(120px, 34cqh, 300px);
+    --bw-deck-h: clamp(120px, 32cqh, 280px);
     --bw-deck-pad: 10px;
+    --bw-bomb-h: 54px;
   }
   #deck {
     position: absolute;
@@ -173,17 +179,18 @@ export const TEMPLATE = `
     height: var(--bw-deck-h);
     display: none;
     background: linear-gradient(to bottom, rgba(8, 11, 20, 0.55), rgba(8, 11, 20, 0.92));
-    border-top: 1px solid var(--bw-line);
     pointer-events: none;
   }
   main.touch #deck { display: block; }
   main.touch #dpad { display: none; }
   main.touch canvas { cursor: pointer; }
-  main.touch #fireBtn,
-  main.touch #bombBtn {
+  main.touch #fireBtn {
     position: absolute;
+    left: var(--bw-deck-pad);
+    right: var(--bw-deck-pad);
     bottom: var(--bw-deck-pad);
     top: auto;
+    width: auto;
     height: calc(var(--bw-deck-h) - var(--bw-deck-pad) * 2);
     border-radius: 22px;
     padding: 0;
@@ -191,11 +198,6 @@ export const TEMPLATE = `
     gap: 6px;
     font-size: 15px;
     letter-spacing: 0.22em;
-  }
-  main.touch #fireBtn {
-    left: var(--bw-deck-pad);
-    right: auto;
-    width: calc(60% - var(--bw-deck-pad) * 1.5);
     border: 2px solid var(--bw-accent);
     background: linear-gradient(180deg, rgba(69, 224, 232, 0.20), rgba(69, 224, 232, 0.08));
     box-shadow: inset 0 0 0 1px rgba(69, 224, 232, 0.18), 0 0 22px rgba(69, 224, 232, 0.12);
@@ -203,14 +205,23 @@ export const TEMPLATE = `
   main.touch #fireBtn:active { background: rgba(69, 224, 232, 0.32); }
   main.touch #fireBtn .glyph { font-size: 30px; line-height: 1; }
   main.touch #bombBtn {
-    right: var(--bw-deck-pad);
-    left: auto;
-    width: calc(40% - var(--bw-deck-pad) * 1.5);
+    /* left / top / width are set by the mount from the board's layout */
+    position: absolute;
+    right: auto;
+    bottom: auto;
+    height: var(--bw-bomb-h);
+    border-radius: 16px;
+    padding: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
     font-size: 13px;
+    letter-spacing: 0.22em;
     background: linear-gradient(180deg, rgba(255, 159, 69, 0.20), rgba(255, 159, 69, 0.08));
     box-shadow: inset 0 0 0 1px rgba(255, 159, 69, 0.18);
   }
-  main.touch #bombBtn b { font-size: 30px; }
+  main.touch #bombBtn b { font-size: 22px; }
   main.touch #bombBtn.empty { background: rgba(35, 44, 66, 0.5); box-shadow: none; }
 
   #pauseBtn {
@@ -815,6 +826,23 @@ export function deckInset(els) {
   if (!els.stage.classList.contains("touch")) return 0;
   const r = els.deck.getBoundingClientRect();
   return r.height || 0;
+}
+
+/**
+ * Line the one-hand controls up with the board the layout produced: BOMB is a
+ * bar as wide as the board, just above it. In the pad scheme the inline
+ * geometry is cleared so the stylesheet's ring layout applies again.
+ */
+export function placeTouchControls(els, G) {
+  const st = els.bombBtn.style;
+  if (!els.stage.classList.contains("touch")) {
+    st.left = st.top = st.width = "";
+    return;
+  }
+  const h = els.bombBtn.getBoundingClientRect().height || 54;
+  st.left = G.gx + "px";
+  st.width = G.pw * COLS + "px";
+  st.top = Math.max(0, G.gy - h - 12) + "px";
 }
 
 /** The bomb button carries the count; empty, it greys to an outline. */

@@ -80,8 +80,9 @@ The controls ride on the mode you pick, so the start screen is the one place
 you choose them.
 
 **ONE HAND** (the default) is built for a phone held in one hand. The bottom of
-the stage is a two-button deck where a keyboard would sit — a big rounded FIRE
-on the left and BOMB on the right — and the board itself is how you move:
+the stage is one big rounded FIRE button where a keyboard would sit, the board
+rests directly on it so the thumb rolls from squares to trigger, a BOMB bar
+sits just above the board, and the board itself is how you move:
 
 - Move: the board is a **floating stick** — touch it anywhere, push in a
   direction and hold to walk that way; flick for a single step; let it centre

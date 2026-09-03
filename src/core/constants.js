@@ -463,15 +463,16 @@ export function layout(w, h, bottomInset = 0) {
   const pw = gw / COLS;
   const hh = h - bottomInset;
   // the reserve keeps the board clear of the HUD above and the controls below;
-  // with a deck the controls are already outside `hh`, so only the HUD is left
-  const reserve = bottomInset > 0 ? 96 : 180;
+  // with a deck the controls are already outside `hh`, and what is left above
+  // the board is the HUD plus the BOMB bar the shell places there
+  const reserve = 180;
   const ph = Math.min(pw * 0.62, (hh - reserve) / ROWS);
   return {
     w, h, pw, ph,
     gx: (w - pw * COLS) / 2,
-    // above a deck the board sits a little lower in what is left: the squares
-    // are the tap targets, and a thumb reaches the lower ones more easily
-    gy: hh * (bottomInset > 0 ? 0.58 : 0.52) - (ph * ROWS) / 2,
+    // above a deck the board rests on it: the squares are the tap targets and
+    // FIRE is under the same thumb, so the two should touch
+    gy: bottomInset > 0 ? hh - ph * ROWS : h * 0.52 - (ph * ROWS) / 2,
     bottomInset,
   };
 }

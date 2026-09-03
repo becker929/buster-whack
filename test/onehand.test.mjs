@@ -171,12 +171,12 @@ test("a tap across a narrow road's void is refused: the funnel must be walked", 
 
 // ---------- the layout above the deck ----------
 
-test("a bottom inset lifts the board clear of the deck and changes nothing without one", () => {
+test("a bottom inset rests the board on the deck and changes nothing without one", () => {
   const a = C.layout(800, 600), b = C.layout(800, 600, 0);
   for (const k of ["pw", "ph", "gx", "gy"]) assert.equal(a[k], b[k]);
   const c = C.layout(390, 700, 240);
-  assert.ok(c.gy + c.ph * C.ROWS <= 700 - 240, "the board's foot is above the deck");
-  assert.ok(c.gy >= 80, "and below the HUD");
+  assert.equal(c.gy + c.ph * C.ROWS, 700 - 240, "the board's foot is exactly the deck's top edge");
+  assert.ok(c.gy >= 80 + 54 + 12, "and there is room for the HUD and the BOMB bar above it");
   assert.equal(c.bottomInset, 240);
 });
 

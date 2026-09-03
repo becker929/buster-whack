@@ -640,14 +640,14 @@ test("one-hand is the default: PRESS START gives the deck, not the ring", async 
   assert.equal(shown.deck, "block", "the deck is up");
   const stage = await rect("stage"), deck = await rect("deck"), fire = await rect("fireBtn"), bomb = await rect("bombBtn");
   assert.ok(deck.h > 100 && deck.h < stage.h * 0.5, "the deck is the keyboard band, not the whole stage");
-  assert.ok(fire.x < bomb.x, "FIRE left, BOMB right");
-  assert.ok(Math.abs(fire.h - bomb.h) < 1 && fire.h > deck.h * 0.8, "both buttons fill the deck's height");
-  assert.ok(fire.w > bomb.w, "FIRE is the big one");
-  assert.ok(fire.y >= deck.y && bomb.y >= deck.y, "both sit inside the deck");
+  assert.ok(fire.y >= deck.y && fire.h > deck.h * 0.8, "FIRE fills the deck's height");
+  assert.ok(fire.w > stage.w * 0.9, "FIRE spans the deck");
   assert.ok(parseFloat(shown.fireRadius) > 10 && parseFloat(shown.fireRadius) < fire.h / 2, "rounded rectangle, not a disc or an arc");
-  // the board is laid out above the deck
-  const boardFoot = stage.y + s.G.gy + s.G.ph * 3;
-  assert.ok(boardFoot <= deck.y, `the board (foot ${boardFoot}) sits clear of the deck (top ${deck.y})`);
+  // the board rests on the deck, and BOMB is a bar just above the board
+  const boardTop = stage.y + s.G.gy, boardFoot = boardTop + s.G.ph * 3;
+  assert.ok(Math.abs(boardFoot - deck.y) < 1, `the board's foot (${boardFoot}) touches the deck (top ${deck.y})`);
+  assert.ok(bomb.y + bomb.h <= boardTop && bomb.y + bomb.h > boardTop - 24, "BOMB sits just above the board");
+  assert.ok(Math.abs(bomb.x - (stage.x + s.G.gx)) < 1 && Math.abs(bomb.w - s.G.pw * 6) < 1, "BOMB is as wide as the board");
 });
 
 test("one-hand: a tap on a square moves there and never fires; the stick walks", async (ctx) => {
