@@ -84,14 +84,17 @@ the stage is one big rounded FIRE button where a keyboard would sit, the board
 rests directly on it so the thumb rolls from squares to trigger, a BOMB bar
 sits just above the board, and the board itself is how you move:
 
-- Move: the whole stage is a **floating stick** — touch anywhere, the board or
+- Move: every step is a **hop**, one square, never diagonal — a crouch, the
+  arc, a landing, and the rest of the ration as cooldown (350 ms a step, half
+  a charge). The square you count as standing on changes at the top of the
+  arc. The whole stage is a **floating stick**: touch anywhere, the board or
   FIRE itself, push in a direction and hold to walk that way; flick for a
-  single step; let it centre or lift to stop. So the thumb holding a charge on
-  FIRE can walk without letting go. Or **tap a square** to go straight there. Both are rationed
-  at half a charge (350 ms) per step; a step asked for during the ration is
-  held and taken the moment it ends, so a quick double-tap means "there, then
-  there". A tap has to land on ground you can stand on that you could also walk
-  to — a narrow road is still a funnel.
+  single hop; let it centre or lift to stop. So the thumb holding a charge on
+  FIRE can walk without letting go. Or **tap a square**: beside you it is one
+  hop; further away it lays a path and the hops follow it, one per ration,
+  until a push, a tap, or a hit gives a new directive. A tap has to land on
+  ground you can stand on that you could also walk to — a narrow road is
+  still a funnel.
 - Fire: hold FIRE to charge — release for the strong shot.
 - Bomb: tap BOMB (lit while you carry one).
 
@@ -125,10 +128,13 @@ when the fight starts.
 - **ONE HAND** — stick · tap · fire. The one-thumb layout above.
 - **ADVANCE** — ring + fire. The same road with the two-thumb layout.
 - **STORY** — a prototype of where the game is going. The strip opens on a
-  *tower*: your own ground with a keeper standing on it. Beside the keeper the
-  BOMB button becomes TALK, and what they say is a line laid over the board.
-  Walk off the tower's right edge and the guard arena wakes. One
-  representation throughout: no overworld, no dialogue screen.
+  *tower*: your own ground with a keeper standing on it, and a tower stands
+  before every third arena after that, following the route through the
+  bible's roosts (act one out to the ferry, act two back). Beside a keeper the
+  BOMB button becomes TALK, and what they say is a line laid over the board;
+  arrival at a tower announces it the same way. Walk off a tower's right edge
+  and the guard arena wakes. One representation throughout: no overworld, no
+  dialogue screen.
 
 ## Story
 
