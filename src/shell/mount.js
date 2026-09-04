@@ -14,6 +14,7 @@ import { createAudio } from "./audio.js";
 import { createStory } from "./story.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
+import { createArt, loadArtPack } from "./art.js";
 
 const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
 
@@ -24,7 +25,8 @@ const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
  * @param {string} [options.storageKey="bw_best"] - localStorage key for the best score.
  * @param {number} [options.seed] - PRNG seed; omit for a fresh random run.
  * @param {object} [options.tuning] - overrides against the tuning schema (core/tuning.js).
- * @returns {{ destroy: () => void, setTuning: (overrides: object) => boolean, tuningVersion: string }}
+ * @param {string} [options.artUrl] - base URL of an art pack (manifest.json + atlas); pack zero is the fallback.
+ * @returns {{ destroy: () => void, setTuning: (overrides: object) => boolean, tuningVersion: string, artPack: string }}
  */
 export function mountBusterWhack(container, options = {}) {
   const doc = container && container.ownerDocument;
@@ -37,6 +39,15 @@ export function mountBusterWhack(container, options = {}) {
   const { root, els } = createUI(container);
   const ctx = els.cv.getContext("2d");
   const audio = createAudio(win);
+  // the art pack: pack zero baked from the painters at the stage's panel
+  // size and device scale; an external pack (options.artUrl) overlays it
+  const art = createArt({ makeCanvas: (w, h) => { const c = doc.createElement("canvas"); c.width = w; c.height = h; return c; } });
+  if (options.artUrl) {
+    loadArtPack(options.artUrl, {
+      fetchJson: (u) => win.fetch(u, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)),
+      loadImage: (u) => new Promise((res) => { const im = new win.Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; }),
+    }).then((pack) => { if (pack && !destroyed) art.applyPack(pack); });
+  }
 
   let destroyed = false;
   let rafId = null;
@@ -93,6 +104,7 @@ export function mountBusterWhack(container, options = {}) {
     // BOMB is then placed from the board the layout produced
     setLayout(state, r.width, r.height, deckInset(els));
     placeTouchControls(els, state.G);
+    art.ensure(state.G, dpr);
   }
   setControls(els, modeById(state.modeId).controls);
   resize();
@@ -243,7 +255,7 @@ export function mountBusterWhack(container, options = {}) {
     // events, so no transition can be missed and nothing can be left ringing.
     audio.observe(hudView(state), state.charge.downAt !== null, state.charge.full);
 
-    draw(ctx, state, state.clock);
+    draw(ctx, state, state.clock, art);
 
     rafId = raf(frame);
   }
@@ -278,7 +290,7 @@ export function mountBusterWhack(container, options = {}) {
     return true;
   }
 
-  return { destroy, setTuning, get tuningVersion() { return state.tuning.version; } };
+  return { destroy, setTuning, get tuningVersion() { return state.tuning.version; }, get artPack() { return art.pack; } };
 }
 
 export default mountBusterWhack;

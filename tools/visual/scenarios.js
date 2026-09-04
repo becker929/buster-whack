@@ -181,6 +181,69 @@ export const scenarios = [
   },
 
   {
+    name: "art-bodies",
+    title: "Art: every virus body at rest, and the buster",
+    why: "Pack zero is the procedural art baked to cells. This frame holds every virus body at rest -- mett, guard, runner, hopper, rare, and the three sentinel marks open and closed -- with the buster idle, so the art identity check can render it through the pack and through the painters and demand the same bytes. Nothing here is mid-rise, mid-hit or mid-hop: those scale the cell, and a scaled raster is not the painter.",
+    seed: 3,
+    width: W,
+    height: H,
+    frames: 3,
+    modes: ["playing"],
+    artIdentity: true,
+    capture: [{ at: 1, as: "rest" }],
+    cues: [
+      {
+        at: 0,
+        place: [
+          { col: 3, row: 0, type: "mett" },
+          { col: 4, row: 0, type: "guard" },
+          { col: 5, row: 0, type: "ally" },
+          { col: 3, row: 1, type: "hopper" },
+          { col: 4, row: 1, type: "rare" },
+          { col: 5, row: 1, type: "sentinel", tier: 1, fired: false, aimMs: 1400 },
+          { col: 3, row: 2, type: "sentinel", tier: 2, fired: true, aimMs: 1050 },
+          { col: 4, row: 2, type: "sentinel", tier: 3, fired: false, aimMs: 780 },
+        ],
+      },
+    ],
+  },
+
+  {
+    name: "art-people",
+    title: "Art: everyone who stands on a tower, and the journal",
+    why: "The other half of pack zero: the keepers and their companions in their own colours, the journal, and a bomb on the ground, all at rest on the first tower. Rendered through the pack and through the painters by the identity check.",
+    seed: 3,
+    width: W,
+    height: H,
+    frames: 3,
+    modes: ["playing"],
+    artIdentity: true,
+    capture: [{ at: 1, as: "rest" }],
+    cues: [
+      {
+        at: 0,
+        actions: [{ type: "startRun", modeId: "story" }],
+      },
+      {
+        at: 1,
+        set: {
+          "player.col": 0, "player.row": 1,
+          "world.segs.0.npcs": [
+            { id: "npc.keeper.01", col: 1, row: 0, verb: "talk" }, { id: "npc.keeper.02", col: 2, row: 0, verb: "talk" },
+            { id: "npc.keeper.03", col: 3, row: 0, verb: "talk" }, { id: "npc.keeper.04", col: 4, row: 0, verb: "talk" },
+            { id: "npc.keeper.05", col: 5, row: 0, verb: "talk" }, { id: "npc.side.tally", col: 1, row: 1, verb: "talk" },
+            { id: "npc.side.bean", col: 2, row: 1, verb: "talk" }, { id: "npc.side.vesper", col: 3, row: 1, verb: "talk" },
+            { id: "npc.side.rivet", col: 4, row: 1, verb: "talk" }, { id: "boss.ferryman", col: 5, row: 1, verb: "talk" },
+            { id: "npc.sweeper.tidy", col: 1, row: 2, verb: "talk" }, { id: "boss.foreman", col: 2, row: 2, verb: "talk" },
+            { id: "item.journal.steward", col: 3, row: 2, verb: "read" }, { id: "npc.nobody", col: 4, row: 2, verb: "talk" },
+          ],
+          pickups: [{ col: 5, row: 2, kind: "bomb" }],
+        },
+      },
+    ],
+  },
+
+  {
     name: "empty-field",
     title: "Empty field",
     why: "Board panels, the player sprite, the player's panel highlight and the resting HUD. The baseline every other scenario is a delta from.",

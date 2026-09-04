@@ -25,6 +25,12 @@ jobs:
       - name: Visual goldens
         run: npm run visual
 
+      # Pack zero is the procedural art baked to cells. Every cell must equal
+      # its painter byte for byte, and the flagged scenes must render the
+      # same through the pack and through the painters.
+      - name: Art identity
+        run: npm run art:check
+
       # The harness deletes the runner's font set and registers the two
       # JetBrains Mono faces committed under tools/visual/fonts/, so the text
       # in a golden does not depend on what this image happens to ship. This

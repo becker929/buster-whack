@@ -33,7 +33,10 @@
     "canon:check": "node tools/canon-embed.mjs --check",
     "typecheck": "tsc -p tsconfig.json",
     "size": "node tools/size-check.mjs",
-    "test:browser": "node test/browser/touch.mjs"
+    "test:browser": "node test/browser/touch.mjs",
+    "art:check": "node tools/art-check.mjs",
+    "art:dump": "node tools/art/dump.mjs",
+    "art:pack": "node tools/art/pack.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.53",

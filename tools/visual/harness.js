@@ -13,6 +13,7 @@ import { createState, setLayout } from "../../src/core/state.js";
 import { step } from "../../src/core/step.js";
 import * as C from "../../src/core/constants.js";
 import { draw } from "../../src/shell/render.js";
+import { createArt } from "../../src/shell/art.js";
 import { installHarnessFonts } from "./fonts.js";
 import { DT, scenarios, findScenario } from "./scenarios.js";
 
@@ -145,6 +146,10 @@ export function runScenario(scenario, opts = {}) {
   const { width, height } = scenario;
   const state = createState({ seed: scenario.seed, best: scenario.best || 0, width, height });
   setLayout(state, width, height);
+  // The renderer draws bodies from an art pack; the goldens use pack zero,
+  // baked from the painters at this stage's panel size. `opts.art === null`
+  // draws the painters directly instead (the identity check compares both).
+  const art = opts.art === null ? null : createArt({ makeCanvas: (w, h) => createCanvas(w, h) });
 
   // Every scenario opens on a live run with organic spawning off, so the only
   // things on the board are the ones the scenario put there. Scenarios that
@@ -201,7 +206,8 @@ export function runScenario(scenario, opts = {}) {
     }
 
     for (const label of wanted.get(i) || []) {
-      draw(ctx, state, state.clock);
+      if (art) art.ensure(state.G, 1);
+      draw(ctx, state, state.clock, art);
       out.push({
         scenario: scenario.name,
         label,

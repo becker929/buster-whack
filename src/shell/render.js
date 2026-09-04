@@ -20,6 +20,19 @@
 import * as C from "../core/constants.js";
 import { hudView, hopPose } from "../core/select.js";
 import { tileAt, segmentAt, npcAt, TILE } from "../core/world.js";
+import { SKINS, SENTINEL_CORE, KEEPER, PEOPLE, enemyBox, playerBox, keeperBox, itemBox, pickupRadius,
+         paintEnemy, paintSentinel, paintPlayer, paintKeeper, paintItem, paintPickup,
+         SENTINEL_OPEN_FRAMES, frameAt } from "./painters.js";
+
+// The art pack for the frame being drawn: set by draw(), read by the body
+// painters below. Null means "paint procedurally" -- the same pixels, since
+// every body is drawn at an integer origin either way.
+let ART = null;
+/** Draw a body cell with its anchor at the current origin, from the pack or the painter. */
+function body(ctx, id, st, frame, painter) {
+  if (ART && ART.paint(ctx, id, st, frame)) return;
+  painter(ctx);
+}
 
 const { EASE, impulseValue, TAU, RING_GAP } = C;
 
@@ -27,19 +40,6 @@ const panel = (G, col, row) => C.panelRect(G, col, row);
 
 const MONO = "px ui-monospace, Menlo, Consolas, monospace";
 const font = (weight, size) => weight + " " + size + MONO;
-
-const SKINS = {
-  mett:   { dome: "#ffd23f", stripe: "#c9992a" },
-  guard:  { dome: "#aeb9d6", stripe: "#6c7794" },
-  hopper: { dome: "#5ee87c", stripe: "#1f7c3d" },
-  ally:   { dome: "#58c7ff", stripe: "#2a7ab8" },
-  rare:   { dome: "#fff3c4", stripe: "#e8a020" },
-  // the sentinel is drawn on its own path below; this is for debris and ghosts
-  sentinel: { dome: "#b48cff", stripe: "#5a3f9a" },
-};
-// Sentinel iris colour by mark: violet, magenta, red -- none of them a colour
-// any other virus wears, so the mark reads before the shape does.
-const SENTINEL_CORE = { 1: "#c48cff", 2: "#ff6fd8", 3: "#ff4d4d" };
 
 // Panel palettes. Past OC_START the whole field runs hot, not just the HUD.
 const PANELS    = { mine: ["#3a2330", "#7c3652"], theirs: ["#1e2c4d", "#35528f"] };
@@ -51,24 +51,6 @@ const ROAD_DASH = "#34416a";
 // a tower's floor: the player's ground, warmer and quieter -- somewhere to
 // stand rather than somewhere to hold
 const TOWER     = ["#2a2436", "#5a4a6e"];
-// each person on a tower has their own colours; anyone not listed gets the keeper's
-const KEEPER    = { robe: "#c9b6ff", hood: "#7d63c4", face: "#fff3c4", eye: "#2b1f4a" };
-const PEOPLE = {
-  "npc.keeper.01":     { robe: "#ffd7e0", hood: "#c45b7a", face: "#fff3c4", eye: "#3a1a26" },
-  "npc.keeper.02":     { robe: "#c9f6ff", hood: "#2f8fd6", face: "#fff3c4", eye: "#0f2a44" },
-  "npc.keeper.03":     { robe: "#e8dcc0", hood: "#7a5a2e", face: "#fff3c4", eye: "#2b1f0a" },
-  "npc.keeper.04":     { robe: "#ffcf9a", hood: "#a54b1e", face: "#fff3c4", eye: "#3a1a06" },
-  "npc.keeper.05":     { robe: "#c8ffb0", hood: "#3f9a4a", face: "#fff3c4", eye: "#0f2a12" },
-  "npc.side.bean":     { robe: "#e2ffd2", hood: "#6ab86f", face: "#fff3c4", eye: "#0f2a12", small: true },
-  "npc.side.tally":    { robe: "#dfe6f2", hood: "#5c6f8f", face: "#fff3c4", eye: "#1a2233" },
-  "npc.side.vesper":   { robe: "#d9d2f0", hood: "#4a4470", face: "#fff3c4", eye: "#1a1830", small: true },
-  "npc.side.rivet":    { robe: "#ffe0b0", hood: "#c07a2a", face: "#fff3c4", eye: "#3a1a06", small: true },
-  "boss.ferryman":     { robe: "#ffffff", hood: "#9fb4c8", face: "#e8f4ff", eye: "#2a3a4a" },
-  "npc.sweeper.tidy":  { robe: "#f0f0f0", hood: "#b5b5b5", face: "#ffffff", eye: "#444" },
-  "boss.foreman":      { robe: "#f4f4f4", hood: "#8a8a8a", face: "#ffffff", eye: "#444" },
-};
-
-/** A ring that stops just short of a full turn — see C.RING_GAP. */
 function ring(ctx, x, y, r, squash = 1) {
   ctx.beginPath();
   if (squash === 1) {
@@ -85,9 +67,10 @@ function ring(ctx, x, y, r, squash = 1) {
 
 // ---------- frame ----------
 
-export function draw(ctx, state, now) {
+export function draw(ctx, state, now, art = null) {
   const G = state.G;
   const rm = !!state.reducedMotion;
+  ART = art;
   ctx.clearRect(0, 0, G.w, G.h);
 
   // One shake envelope for every sender, so a delete and a hit landing in the
@@ -132,6 +115,7 @@ export function draw(ctx, state, now) {
   ctx.restore();
 
   drawHUD(ctx, state, now, rm);
+  ART = null;
 }
 
 // ---------- ordnance ----------
@@ -142,17 +126,17 @@ function drawPickups(ctx, state, now) {
   for (const pk of state.pickups || []) {
     const p = panel(G, pk.col, pk.row);
     const cx = p.x + p.w / 2, cy = p.y + p.h * 0.5 + Math.sin(now / 260) * 3;
-    const r = Math.min(p.w, p.h) * 0.16;
+    const r = pickupRadius(G);
+    // the glow is an effect, not the body
     ctx.globalAlpha = 0.35 + 0.15 * Math.sin(now / 180);
     ctx.fillStyle = "#ff9f45";
     ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#1a1f33";
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
-    ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx + r * 0.4, cy - r * 0.8); ctx.lineTo(cx + r * 1.1, cy - r * 1.6); ctx.stroke();
-    ctx.fillStyle = Math.floor(now / 120) % 2 ? "#ffffff" : "#ff5470";
-    ctx.fillRect(cx + r * 1.0, cy - r * 1.8, 3, 3);
+    ctx.save();
+    ctx.translate(Math.round(cx), Math.round(cy));
+    const f = frameAt({ frames: 2, ms: 120 }, now);
+    body(ctx, "pickup.bomb", "idle", f, (c) => paintPickup(c, r, f));
+    ctx.restore();
   }
 }
 
@@ -259,7 +243,7 @@ function drawPanels(ctx, state, now) {
       if (t === TILE.NPC) {
         const who = npcAt(world, c, r);
         if (who && who.verb === "read") drawItem(ctx, p, now, state, c, r);
-        else drawKeeper(ctx, p, now, state, c, r, PEOPLE[who && who.id] || KEEPER);
+        else drawKeeper(ctx, p, now, state, c, r, PEOPLE[who && who.id] || KEEPER, who && PEOPLE[who.id] ? who.id : "default");
       }
       // the player's own panel highlight; they can stand on their ground or the road
       if (t !== TILE.ENEMY && c === state.player.col && r === state.player.row) {
@@ -276,21 +260,16 @@ function drawPanels(ctx, state, now) {
  * the player stands beside them the tile carries the TALK prompt -- a small
  * lit chevron, the same language as the aim marks.
  */
-function drawKeeper(ctx, p, now, state, col, row, look = KEEPER) {
+function drawKeeper(ctx, p, now, state, col, row, look = KEEPER, id = "default") {
   const cx = p.x + p.w / 2;
   const base = p.y + p.h * 0.8;
-  const breathe = 1 + 0.02 * Math.sin(now / 700 + col);
-  const scale = look.small ? 0.72 : 1;
-  const w = p.w * 0.3 * scale, h = p.h * 1.0 * breathe * scale;
-  ctx.fillStyle = look.robe;
-  ctx.fillRect(cx - w / 2, base - h, w, h);
-  ctx.fillStyle = look.hood;
-  ctx.fillRect(cx - w * 0.6, base - h - h * 0.12, w * 1.2, h * 0.42);
-  ctx.fillStyle = look.face;
-  ctx.fillRect(cx - w * 0.32, base - h + h * 0.06, w * 0.64, h * 0.2);
-  ctx.fillStyle = look.eye;
-  ctx.fillRect(cx - w * 0.2, base - h + h * 0.12, 3, 3);
-  ctx.fillRect(cx + w * 0.2 - 3, base - h + h * 0.12, 3, 3);
+  const kb = keeperBox(state.G, look.small);
+  // the breath: two frames, out of phase from column to column
+  const f = Math.floor(now / 700 + col) % 2;
+  ctx.save();
+  ctx.translate(Math.round(cx), Math.round(base));
+  body(ctx, "keeper." + id, "idle", f, (c) => paintKeeper(c, kb, look, f));
+  ctx.restore();
   const beside = Math.abs(state.player.col - col) + Math.abs(state.player.row - row) === 1;
   if (beside) {
     ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 220);
@@ -309,16 +288,11 @@ function drawKeeper(ctx, p, now, state, col, row, look = KEEPER) {
 /** A thing to read on a tower tile: a book, scorched, on what was a shelf. */
 function drawItem(ctx, p, now, state, col, row) {
   const cx = p.x + p.w / 2, cy = p.y + p.h * 0.62;
-  const w = p.w * 0.36, h = p.h * 0.3;
-  ctx.fillStyle = "#2a2226";
-  ctx.fillRect(cx - w * 0.6, cy + h * 0.5, w * 1.2, 4);
-  ctx.fillStyle = "#6b4a3a";
-  ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
-  ctx.fillStyle = "#c9b18f";
-  ctx.fillRect(cx - w / 2 + 3, cy - h / 2 + 3, w - 6, h - 6);
-  ctx.fillStyle = "#3a2a22";
-  ctx.fillRect(cx - w / 2 + 6, cy - 1, w * 0.5, 2);
-  ctx.fillRect(cx - w / 2 + 6, cy + 4, w * 0.35, 2);
+  const ib = itemBox(state.G);
+  ctx.save();
+  ctx.translate(Math.round(cx), Math.round(cy));
+  body(ctx, "item.journal", "idle", 0, (c) => paintItem(c, ib));
+  ctx.restore();
   const beside = Math.abs(state.player.col - col) + Math.abs(state.player.row - row) === 1;
   if (beside) {
     ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 220);
@@ -549,7 +523,8 @@ function drawPlayer(ctx, state, now, rm) {
   const eRecoil = impulseValue(state.fx.recoil, now);
   const rx = -state.fx.recoil.spec.px * eRecoil;
 
-  const bw = G.pw * 0.34 * pose.sx, bh = G.ph * 1.15 * pose.sy;
+  const pb = playerBox(G);
+  const bw = pb.bw * pose.sx, bh = pb.bh * pose.sy;
   const cx = p.x + p.w / 2 + rx;
   const baseY = p.y + p.h * 0.78 - pose.lift * G.ph * 0.55;
   const coreY = baseY - bh * 0.5;
@@ -574,15 +549,14 @@ function drawPlayer(ctx, state, now, rm) {
   const flicker = hurtNow && (rm || Math.floor(now / 70) % 2 === 0);
   if (flicker) ctx.globalAlpha = rm ? 0.68 : 0.35;
 
-  ctx.fillStyle = "#4f8dff";
-  ctx.fillRect(cx - bw / 2, baseY - bh, bw, bh);
-  ctx.fillStyle = "#2f5fc4";
-  ctx.fillRect(cx - bw / 2, baseY - bh, bw, bh * 0.28);
-  ctx.fillStyle = "#c9f6ff";
-  ctx.fillRect(cx - bw * 0.28, baseY - bh * 0.62, bw * 0.56, bh * 0.14);
+  // the body: one cell, at an integer origin, squashed by the hop's pose
+  ctx.save();
+  ctx.translate(Math.round(cx), Math.round(baseY));
+  if (pose.sx !== 1 || pose.sy !== 1) ctx.scale(pose.sx, pose.sy);
+  const full = !!state.charge.full;
+  body(ctx, "player", full ? "charged" : "idle", 0, (c) => paintPlayer(c, pb, full));
+  ctx.restore();
   const rayY = baseY - bh * 0.42;
-  ctx.fillStyle = state.charge.full ? "#fff3c4" : "#ffd23f";
-  ctx.fillRect(cx + bw / 2 - 2, rayY - 5, bw * 0.55, 10);
   ctx.globalAlpha = 1;
 
   if (charging && held > 120) {
@@ -665,56 +639,11 @@ function drawStepRation(ctx, state, now, p) {
   }
 }
 
-/**
- * The Sentinel: a hexagonal housing with an iris. Closed it is a steel slab
- * with a seam; open, the iris parts and the core glows in the mark's colour,
- * pulsing faster as the spell runs out. Drawn in the same translated frame
- * as the dome so hit squash-and-kick apply.
- */
-function drawSentinel(ctx, state, e, now, bw, bh) {
-  const open = e.state === "up" && (e.willAttack ? !e.fired : true);
-  const cfg = state.tuning.SENTINEL[e.tier] || state.tuning.SENTINEL[1];
-  const q = open ? Math.min(1, (now - e.t0) / cfg.openMs) : 0;   // spell spent
-  const core = SENTINEL_CORE[e.tier] || SENTINEL_CORE[1];
-  const R = bw * 0.62, cy = -bh * 0.44;
-  // housing
-  ctx.fillStyle = "#3a3452";
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = Math.PI / 6 + (i * Math.PI) / 3;
-    const x = Math.cos(a) * R, y = cy + Math.sin(a) * R * 0.92;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "#6a5f8f";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  // pedestal
-  ctx.fillStyle = "#2a2540";
-  ctx.fillRect(-bw * 0.34, -bh * 0.12, bw * 0.68, bh * 0.1);
-  // iris
-  const gap = open ? 0.18 + 0.5 * (1 - q) : 0.04;           // shutters part, then close in
-  const half = R * 0.62;
-  ctx.fillStyle = core;
-  ctx.globalAlpha = open ? 0.85 + 0.15 * Math.sin(now / (60 + 90 * (1 - q))) : 0.25;
-  ctx.beginPath();
-  ctx.arc(0, cy, half * 0.62, 0, Math.PI * 2 - C.RING_GAP);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#1a1728";
-  ctx.fillRect(-half, cy - half, half * 2, half * (1 - gap));            // upper shutter
-  ctx.fillRect(-half, cy + half * gap, half * 2, half * (1 - gap));      // lower shutter
-  // mark pips on the housing
-  ctx.fillStyle = core;
-  for (let i = 0; i < (e.tier || 1); i++) ctx.fillRect(-bw * 0.26 + i * bw * 0.16, cy + R * 0.7, bw * 0.1, 3);
-}
-
 function drawEnemy(ctx, state, now, e) {
   const G = state.G;
   const p = panel(G, e.col, e.row);
   const t = now - e.t0;
-  const bw = G.pw * 0.4, bh = G.ph * 1.0;
+  const { bw, bh } = enemyBox(G);
   let cx = p.x + p.w / 2;
   const baseY = p.y + p.h * 0.78;
 
@@ -758,45 +687,24 @@ function drawEnemy(ctx, state, now, e) {
   }
 
   ctx.save();
-  ctx.translate(cx, baseY);
+  // an integer origin, so a raster cell and its painter land on the same pixels
+  ctx.translate(Math.round(cx), Math.round(baseY));
   ctx.scale(sx, sy * grow);
   ctx.globalAlpha = e.state === "hit" ? grow : 1;
 
   if (e.type === "sentinel") {
-    drawSentinel(ctx, state, e, now, bw, bh);
+    // open is the telegraph: the iris frame counts the spell down
+    const open = e.state === "up" && !e.fired;
+    const cfg = state.tuning.SENTINEL[e.tier] || state.tuning.SENTINEL[1];
+    const q = open ? Math.min(1, (now - e.t0) / cfg.openMs) : 0;
+    const f = open ? Math.min(SENTINEL_OPEN_FRAMES - 1, Math.floor(q * SENTINEL_OPEN_FRAMES)) : 0;
+    const tier = e.tier || 1;
+    body(ctx, "sentinel." + tier, open ? "open" : "closed", f, (c) => paintSentinel(c, { bw, bh }, tier, open ? f : null));
     ctx.restore();
     return;
   }
 
-  ctx.fillStyle = skin.dome;
-  ctx.beginPath();
-  ctx.arc(0, -bh * 0.42, bw * 0.55, Math.PI, 0);
-  ctx.lineTo(bw * 0.55, -bh * 0.1);
-  ctx.lineTo(-bw * 0.55, -bh * 0.1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = skin.stripe;
-  ctx.fillRect(-bw * 0.08, -bh * 0.98, bw * 0.16, bh * 0.5);
-
-  if (e.type === "guard") {
-    ctx.fillStyle = "#6c7794";
-    ctx.fillRect(-bw * 0.55, -bh * 0.34, bw * 1.1, bh * 0.1);
-    ctx.fillStyle = "#232c42";
-    ctx.fillRect(-bw * 0.42, -bh * 0.24, bw * 0.84, bh * 0.12);
-  } else if (e.type === "ally") {
-    // white face plate with a plus mark: friend, don't shoot
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(-bw * 0.42, -bh * 0.36, bw * 0.84, bh * 0.26);
-    ctx.fillStyle = "#2a7ab8";
-    ctx.fillRect(-bw * 0.06, -bh * 0.34, bw * 0.12, bh * 0.22);
-    ctx.fillRect(-bw * 0.24, -bh * 0.28, bw * 0.48, bh * 0.1);
-  } else {
-    ctx.fillStyle = "#232c42";
-    ctx.fillRect(-bw * 0.42, -bh * 0.34, bw * 0.84, bh * 0.24);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(-bw * 0.26, -bh * 0.3, bw * 0.12, bh * 0.14);
-    ctx.fillRect(bw * 0.14, -bh * 0.3, bw * 0.12, bh * 0.14);
-  }
+  body(ctx, "enemy." + e.type, "up", 0, (c) => paintEnemy(c, { bw, bh }, e.type));
 
   if (e.type === "rare") {
     // shimmer outline

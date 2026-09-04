@@ -149,6 +149,25 @@ CLASSIC (one fixed arena, hold the line) is retired from the menu. Its rule set
 is still in the code under its old id, because every renderer golden is pinned
 against its fixed six-column board.
 
+## Art packs
+
+Every body the game draws — the buster, each virus and sentinel mark, the
+people on the towers, the journal, a bomb on the road — is a *cell* in an art
+pack: a raster with an anchor, one per entity, state and frame. Pack zero is
+baked at runtime from the procedural painters in `src/shell/painters.js`, so
+the game needs no image to run, and `npm run art:check` asserts that every
+baked cell is its painter byte for byte and that the flagged scenes render
+identically through the pack and through the painters.
+
+To make a pack: `npm run art:dump` writes pack zero to `art/procedural/` as
+one PNG per cell (`<entity>__<state>__<frame>.png`), plus the atlas and the
+manifest. Copy that folder, replace any cells (keep each cell's size and
+anchor, or name new anchors in `pack.json`), and `npm run art:pack -- <dir>`
+builds `atlas.png` and `manifest.json`. Host the folder and mount with
+`mountBusterWhack(el, { artUrl: "https://…/my-pack" })`; cells the pack does
+not provide keep pack zero. Animation is by frame, at the timing the manifest
+gives each state, so a pack never has to know the clock.
+
 ## Development
 
 ```bash
