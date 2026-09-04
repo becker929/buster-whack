@@ -8,6 +8,7 @@ import { activeArena, npcBeside } from "./world.js";
 import { panel, hitStop, shake, spawnBits, ripple } from "./fx.js";
 import { land } from "./movement.js";
 import { hopTo } from "./waves.js";
+import { enemyDef } from "./enemies.js";
 
 // dt rather than the clock: bolts move in real time, and the early return
 // freezes them for pause and the interlevel card alike.
@@ -212,11 +213,10 @@ export function deleteEnemy(state, target, tierName, land, events) {
   // a wave is "cleared" only when every virus in it was actually deleted
   if (state.wave && target.wave === state.wave.index) state.wave.kills++;
 
-  const baseKey =
-    target.type === "guard" ? "guard" :
-    target.type === "hopper" ? "hopper" :
-    target.type === "rare" ? "rare" :
-    target.type === "sentinel" ? "sentinel" : tierName;
+  // What a delete is worth: the type's own key when it has one (the enemy
+  // table's `scoreKey`), otherwise the shot's tier -- a mett pays for the
+  // shot you spent on it, a guard pays for being a guard.
+  const baseKey = enemyDef(target.type).scoreKey || tierName;
   const pts = (state.tuning.PTS[baseKey] === undefined ? state.tuning.PTS[tierName] : state.tuning.PTS[baseKey]) * mult;
   state.score += pts;
   state.deletions++;
@@ -351,7 +351,8 @@ export function shoot(state, tierName, events) {
     return;
   }
 
-  if (target.type === "guard" && tierName === "normal") {
+  // steel: a plain shot plinks off it, a charged one goes through
+  if (enemyDef(target.type).armor === "steel" && tierName === "normal") {
     state.fx.sparks.push({ x: p.x + p.w * 0.28, y: p.y + p.h * 0.2, t0: land });
     state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: "GUARD", color: "#8a96b8" });
     // a plink sprays back toward the player, not outward
@@ -363,8 +364,8 @@ export function shoot(state, tierName, events) {
     return;
   }
 
-  // the sentinel: armour while closed, a health bar while open
-  if (target.type === "sentinel") {
+  // a shutter: armoured while closed, a health bar while open
+  if (enemyDef(target.type).armor === "shutter") {
     const open = target.willAttack ? !target.fired : true;
     if (!open) {
       state.fx.sparks.push({ x: p.x + p.w * 0.28, y: p.y + p.h * 0.2, t0: land });
@@ -388,8 +389,9 @@ export function shoot(state, tierName, events) {
     }
   }
 
-  // hopper stamina: a tap staggers it and it flees; charged shots kill outright
-  if (target.type === "hopper" && tierName === "normal" && target.hp > 1) {
+  // stamina: a tap staggers what the table says has stamina and it stays up;
+  // charged shots take it outright
+  if (enemyDef(target.type).stagger && tierName === "normal" && target.hp > 1) {
     target.hp--;
     state.fx.sparks.push({ x: cx, y: p.y + p.h * 0.2, t0: land });
     state.fx.popups.push({ x: cx, y: p.y - 8, t0: land, text: "1 more", color: "#5ee87c" });

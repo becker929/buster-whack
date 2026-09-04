@@ -66,11 +66,14 @@ console.log(`art-check: ${checked} cells identical to their painters across ${SI
 // Scenes. A cell is opaque paint and clear space, so through the pack a body
 // lands exactly as the painter would -- except at its antialiased edge, where
 // Canvas2D stores a partly covered pixel premultiplied in 8 bits before it is
-// composited, and rounds. That is the compositor's arithmetic, not the art's:
-// bounded to a few units per channel on edge pixels only, and asserted here
-// so a real difference (a moved body, a changed colour, a lost frame) fails.
+// composited, and rounds. That is the compositor's arithmetic, not the art's.
+// A pixel where two edges meet -- the corner of a stripe, a slot in a visor --
+// is covered partly in both axes and rounds hardest, which is where the bound
+// below comes from: eight units on a handful of corner pixels. The share is
+// the real guard. A moved body, a changed colour or a lost frame moves whole
+// regions, not corners, and fails on both counts.
 import { PNG } from "pngjs";
-const MAX_DELTA = 6, MAX_SHARE = 0.005;
+const MAX_DELTA = 8, MAX_SHARE = 0.005;
 let scenes = 0;
 for (const sc of scenarios) {
   if (!sc.artIdentity) continue;

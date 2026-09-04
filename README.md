@@ -125,6 +125,33 @@ There are no cards. What is coming next on the road — steel, runners to spare,
 fire coming back, the fast ones, the ones that open on a beat — is said by the
 people at the tower before it, in plain words, when you ask.
 
+### The enemy table
+
+Every virus is a row in `src/core/enemies.js`: how many hits it takes, how
+long it stays up, whether it moves, whether it shoots, what armour it wears
+and what it is worth. The row names *which* tuning value answers each of
+those, so a new virus is a row here plus its numbers in `tuning.js` — not a
+new branch in five files.
+
+What a virus throws is its **attack**, and attacks are their own vocabulary:
+a list of shots, each with a lane offset, a delay, and optional factors on
+the bolt's speed and size. Four shapes cover the game today.
+
+| attack | shape | who fires it |
+| --- | --- | --- |
+| `bolt` | one, down its own lane | mett, hopper, sentinel |
+| `spread` | three at once, its lane and both neighbours | spreader |
+| `volley` | two down one lane, a beat apart | darter |
+| `wall` | one slow fat shot that owns the lane while it crosses | warden |
+
+A shot with a delay is held on the firer, so a volley dies with the thing
+that started it. A shot aimed off the board is never fired.
+
+The road teaches them in order: steel at 10, runners at 20, return fire at
+30, hoppers at 40, the first sentinel mark at 50, the spreader at 60, marks
+II and III at 70 and 90, the darter at 80 and the warden at 90. (The
+distribution across towers is the difficulty curve's to redraw.)
+
 The arcade layouts this grew out of (CLASSIC, ADVANCE, ONE HAND) are retired:
 off the menu, kept in the code under their ids for their tests and goldens.
 

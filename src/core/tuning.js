@@ -37,12 +37,18 @@ export const TUNING_SCHEMA = [
     ["PTS_HOPPER", 250, 0, 5000, 10, "pts", "A hopper."],
     ["PTS_SENTINEL", 500, 0, 5000, 10, "pts", "A sentinel."],
     ["PTS_RARE", 1000, 0, 10000, 50, "pts", "A rare virus (retired modes)."],
+    ["PTS_SPREADER", 350, 0, 5000, 10, "pts", "A spreader: the rot that fires across three lanes."],
+    ["PTS_WARDEN", 450, 0, 5000, 10, "pts", "A warden: the rot that walls a lane."],
+    ["PTS_DARTER", 300, 0, 5000, 10, "pts", "A darter: the static that shoots twice."],
     ["BONUS_NORMAL", 1.2, 0, 10, 0.1, "s", "Pulse for a plain deletion, before overclock decay."],
     ["BONUS_CHARGED", 2.5, 0, 10, 0.1, "s", "Pulse for a charged deletion."],
     ["BONUS_GUARD", 3.0, 0, 10, 0.1, "s", "Pulse for a steel guard."],
     ["BONUS_HOPPER", 1.8, 0, 10, 0.1, "s", "Pulse for a hopper."],
     ["BONUS_SENTINEL", 3.0, 0, 10, 0.1, "s", "Pulse for a sentinel."],
     ["BONUS_RARE", 8.0, 0, 30, 0.5, "s", "Pulse for a rare."],
+    ["BONUS_SPREADER", 2.2, 0, 10, 0.1, "s", "Pulse for a spreader."],
+    ["BONUS_WARDEN", 2.6, 0, 10, 0.1, "s", "Pulse for a warden."],
+    ["BONUS_DARTER", 2.0, 0, 10, 0.1, "s", "Pulse for a darter."],
     ["ALLY_TIME_PENALTY", 3.0, 0, 10, 0.1, "s", "Pulse lost for shooting a runner."],
     ["ALLY_PTS_PENALTY", 200, 0, 5000, 10, "pts", "Points lost for shooting a runner."],
     ["ALLY_SPARE_BONUS", 0.5, 0, 5, 0.1, "s", "Pulse for letting a runner pass."],
@@ -68,6 +74,7 @@ export const TUNING_SCHEMA = [
     ["HOP_MS", 550, 100, 2000, 10, "ms", "A hopper's own hop between panels."],
     ["HOP_GROW_MS", 120, 20, 500, 10, "ms", "A hopper regrowing after a hop."],
     ["HOPPER_LIFE", 2200, 500, 10000, 50, "ms", "How long a hopper stays up (arcade)."],
+    ["DARTER_HOP_MS", 340, 100, 2000, 10, "ms", "A darter moves half again as often as a hopper."],
     ["RARE_LIFE", 650, 100, 5000, 50, "ms", "How long a rare stays up."],
     ["ALLY_RISE_MS", 460, 100, 2000, 10, "ms", "A runner surfaces slowly and cannot be hit until up."],
     ["MET_HOP_MS", 1500, 300, 5000, 50, "ms", "A persistent mett shuffles a panel this often."],
@@ -97,7 +104,10 @@ export const TUNING_SCHEMA = [
     ["UNLOCK_HOPPER", 40, 0, 500, 1, "arena", "Hoppers from this arena on."],
     ["UNLOCK_SENTINEL1", 50, 0, 500, 1, "arena", "Sentinels (mark I) from this arena on."],
     ["UNLOCK_SWARM", 60, 0, 500, 1, "arena", "Tighter lulls from this arena on."],
+    ["UNLOCK_SPREADER", 60, 0, 500, 1, "arena", "Spreaders from this arena on."],
+    ["UNLOCK_DARTER", 80, 0, 500, 1, "arena", "Darters from this arena on."],
     ["UNLOCK_SENTINEL2", 70, 0, 500, 1, "arena", "Sentinel mark II from this arena on."],
+    ["UNLOCK_WARDEN", 90, 0, 500, 1, "arena", "Wardens from this arena on."],
     ["UNLOCK_SENTINEL3", 90, 0, 500, 1, "arena", "Sentinel mark III from this arena on."],
     ["ROAD_END", 100, 10, 1000, 1, "arena", "Past this the run is unlimited: nothing new is held back."],
   ]],
@@ -106,6 +116,8 @@ export const TUNING_SCHEMA = [
     ["ADV_HOPPER", 15, 0, 500, 1, "arena", ""], ["ADV_SENTINEL1", 20, 0, 500, 1, "arena", ""],
     ["ADV_ALLY", 30, 0, 500, 1, "arena", ""], ["ADV_SENTINEL2", 40, 0, 500, 1, "arena", ""],
     ["ADV_SWARM", 55, 0, 500, 1, "arena", ""], ["ADV_SENTINEL3", 70, 0, 500, 1, "arena", ""],
+    ["ADV_SPREADER", 35, 0, 500, 1, "arena", ""], ["ADV_DARTER", 45, 0, 500, 1, "arena", ""],
+    ["ADV_WARDEN", 60, 0, 500, 1, "arena", ""],
   ]],
   ["waves", [
     ["WAVE_STAGGER_BASE", 420, 50, 2000, 10, "ms", "Gap between arrivals inside a wave, at wave 0."],
@@ -134,9 +146,21 @@ export const TUNING_SCHEMA = [
     ["SENTINEL_CHANCE_BASE", 0.35, 0, 1, 0.05, "p", "Chance a wave carries a sentinel, once unlocked."],
     ["SENTINEL_CHANCE_PER", 0.006, 0, 0.1, 0.001, "p", "Plus this per arena past the unlock."],
     ["SENTINEL_CHANCE_MAX", 0.7, 0, 1, 0.05, "p", ""],
+    ["SPREADER_CHANCE_BASE", 0.3, 0, 1, 0.05, "p", "Chance one slot is a spreader, once unlocked."],
+    ["SPREADER_CHANCE_PER", 0.006, 0, 0.1, 0.001, "p", "Plus this per arena past the unlock."],
+    ["SPREADER_CHANCE_MAX", 0.55, 0, 1, 0.05, "p", ""],
+    ["DARTER_CHANCE_BASE", 0.25, 0, 1, 0.05, "p", "Chance one slot is a darter, once unlocked."],
+    ["DARTER_CHANCE_PER", 0.006, 0, 0.1, 0.001, "p", "Plus this per arena past the unlock."],
+    ["DARTER_CHANCE_MAX", 0.5, 0, 1, 0.05, "p", ""],
+    ["WARDEN_CHANCE_BASE", 0.22, 0, 1, 0.05, "p", "Chance one slot is a warden, once unlocked."],
+    ["WARDEN_CHANCE_PER", 0.005, 0, 0.1, 0.001, "p", "Plus this per arena past the unlock."],
+    ["WARDEN_CHANCE_MAX", 0.45, 0, 1, 0.05, "p", ""],
   ]],
   ["counterattack", [
     ["ATTACK_START", 12, 0, 500, 1, "kills", "Kill count before anything shoots (arcade); ramps read from here."],
+    ["VOLLEY_GAP_MS", 260, 40, 1500, 10, "ms", "The beat between the two shots of a volley."],
+    ["WALL_SPEED_FACTOR", 0.55, 0.1, 1, 0.05, "x", "A wall bolt crosses a panel this much faster than a plain one."],
+    ["WALL_RADIUS_FACTOR", 1.7, 1, 4, 0.1, "x", "A wall bolt is this much wider."],
     ["BOLT_HIT_R", 0.28, 0.05, 1, 0.01, "panels", "A bolt lands within this fraction of a panel."],
     ["ATTACK_CHANCE_MET_BASE", 0.24, 0, 1, 0.01, "p", "Per-mett chance to retaliate at the attack start."],
     ["ATTACK_CHANCE_MET_PER", 0.004, 0, 0.1, 0.001, "p", "Plus this per kill past the start."],
@@ -167,6 +191,10 @@ export const TUNING_SCHEMA = [
     ["SENTINEL_2_CLOSED_MS", 1250, 200, 5000, 50, "ms", ""],
     ["SENTINEL_3_HP", 3, 1, 10, 1, "hits", ""], ["SENTINEL_3_OPEN_MS", 780, 200, 5000, 50, "ms", ""],
     ["SENTINEL_3_CLOSED_MS", 1050, 200, 5000, 50, "ms", ""],
+    ["HOPPER_HP", 2, 1, 8, 1, "hits", "Hits to delete a hopper (a charged shot takes it outright)."],
+    ["SPREADER_HP", 2, 1, 8, 1, "hits", "Hits to delete a spreader."],
+    ["WARDEN_HP", 2, 1, 8, 1, "hits", "Hits to delete a warden."],
+    ["DARTER_HP", 2, 1, 8, 1, "hits", "Hits to delete a darter."],
     ["SENTINEL_CHARGED_DMG", 2, 1, 10, 1, "hits", "A charged shot counts as this many hits on a sentinel."],
   ]],
   ["bomb", [
@@ -241,9 +269,11 @@ function assemble(v, applied, version) {
 
   // ----- tables -----
   t.PTS = { normal: v.PTS_NORMAL, charged: v.PTS_CHARGED, guard: v.PTS_GUARD, hopper: v.PTS_HOPPER,
-            sentinel: v.PTS_SENTINEL, rare: v.PTS_RARE };
+            sentinel: v.PTS_SENTINEL, rare: v.PTS_RARE, spreader: v.PTS_SPREADER,
+            warden: v.PTS_WARDEN, darter: v.PTS_DARTER };
   t.BONUS = { normal: v.BONUS_NORMAL, charged: v.BONUS_CHARGED, guard: v.BONUS_GUARD, hopper: v.BONUS_HOPPER,
-              sentinel: v.BONUS_SENTINEL, rare: v.BONUS_RARE };
+              sentinel: v.BONUS_SENTINEL, rare: v.BONUS_RARE, spreader: v.BONUS_SPREADER,
+              warden: v.BONUS_WARDEN, darter: v.BONUS_DARTER };
   t.SENTINEL = {
     1: { hp: v.SENTINEL_1_HP, openMs: v.SENTINEL_1_OPEN_MS, closedMs: v.SENTINEL_1_CLOSED_MS },
     2: { hp: v.SENTINEL_2_HP, openMs: v.SENTINEL_2_OPEN_MS, closedMs: v.SENTINEL_2_CLOSED_MS },
@@ -253,11 +283,13 @@ function assemble(v, applied, version) {
     guard: v.UNLOCK_GUARD, ally: v.UNLOCK_ALLY, retaliate: v.UNLOCK_RETALIATE, hopper: v.UNLOCK_HOPPER,
     sentinel1: v.UNLOCK_SENTINEL1, swarm: v.UNLOCK_SWARM, sentinel2: v.UNLOCK_SENTINEL2,
     sentinel3: v.UNLOCK_SENTINEL3, unlimited: v.ROAD_END,
+    spreader: v.UNLOCK_SPREADER, darter: v.UNLOCK_DARTER, warden: v.UNLOCK_WARDEN,
   };
   t.ADV_UNLOCK = {
     guard: v.ADV_GUARD, retaliate: v.ADV_RETALIATE, hopper: v.ADV_HOPPER, sentinel1: v.ADV_SENTINEL1,
     ally: v.ADV_ALLY, sentinel2: v.ADV_SENTINEL2, swarm: v.ADV_SWARM, sentinel3: v.ADV_SENTINEL3,
     unlimited: v.ROAD_END,
+    spreader: v.ADV_SPREADER, darter: v.ADV_DARTER, warden: v.ADV_WARDEN,
   };
   t.unlockTable = (mode) => (mode.story ? t.STORY_UNLOCK : t.ADV_UNLOCK);
   t.HOP_TOTAL_MS = v.HOP_WINDUP_MS + v.HOP_MOVE_MS + v.HOP_SETTLE_MS;
@@ -288,6 +320,12 @@ function assemble(v, applied, version) {
       ? Math.min(v.ATTACK_CHANCE_HOP_MAX, v.ATTACK_CHANCE_HOP_BASE + k * v.ATTACK_CHANCE_HOP_PER)
       : Math.min(v.ATTACK_CHANCE_MET_MAX, v.ATTACK_CHANCE_MET_BASE + k * v.ATTACK_CHANCE_MET_PER);
   };
+  // One ramp shape for the three later viruses: a base chance at the unlock,
+  // creeping up per arena past it, to a ceiling.
+  const perArena = (base, per, max) => (k) => Math.min(max, base + Math.max(0, k) * per);
+  t.spreaderWaveChance = perArena(v.SPREADER_CHANCE_BASE, v.SPREADER_CHANCE_PER, v.SPREADER_CHANCE_MAX);
+  t.darterWaveChance = perArena(v.DARTER_CHANCE_BASE, v.DARTER_CHANCE_PER, v.DARTER_CHANCE_MAX);
+  t.wardenWaveChance = perArena(v.WARDEN_CHANCE_BASE, v.WARDEN_CHANCE_PER, v.WARDEN_CHANCE_MAX);
   t.upMs = (del) => Math.max(v.UP_MS_MIN, v.UP_MS_BASE - del * v.UP_MS_PER_KILL);
   t.level = (del) => 1 + Math.floor(del / v.LEVEL_PER_KILLS);
   t.bonusFactor = (del) => (del < v.OC_START ? 1 : Math.pow(v.OC_SLOPE, del - v.OC_START));

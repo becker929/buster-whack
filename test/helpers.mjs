@@ -4,6 +4,7 @@ import { createState, setLayout } from "../src/core/state.js";
 import { step } from "../src/core/step.js";
 import * as C from "../src/core/constants.js";
 import { defaultTuning } from "../src/core/tuning.js";
+import { hpOf, riseMsOf } from "../src/core/enemies.js";
 
 /** The shipped numbers, for tests that reason about them. */
 export const T = defaultTuning();
@@ -32,11 +33,13 @@ export function addEnemy(s, o = {}) {
     type: o.type || "mett",
     state: o.state || "up",
     t0: o.t0 === undefined ? s.clock : o.t0,
-    riseMs: (o.type || "mett") === "ally" ? T.ALLY_RISE_MS : T.RISE_MS,
-    hp: o.hp === undefined ? ((o.type || "mett") === "hopper" ? 2 : 1) : o.hp,
+    riseMs: riseMsOf(T, o.type || "mett"),
+    hp: o.hp === undefined ? hpOf(T, o.type || "mett") : o.hp,
     lastHop: s.clock,
     hopT0: -1e9,
     willAttack: !!o.willAttack,
+    boltKind: o.boltKind,
+    aimMs: o.aimMs,
     fired: false,
   };
   s.enemies.push(e);

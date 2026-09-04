@@ -29,6 +29,10 @@ export const SKINS = {
   hopper: { dome: "#5ee87c", stripe: "#1f7c3d" },
   ally:   { dome: "#58c7ff", stripe: "#2a7ab8" },
   rare:   { dome: "#fff3c4", stripe: "#e8a020" },
+  // the later rot and static: each wears the family's hue, darker and harder
+  spreader: { dome: "#ffa23f", stripe: "#a85a12" },
+  warden:   { dome: "#c07be0", stripe: "#5f2f7a" },
+  darter:   { dome: "#3fd8b0", stripe: "#12705a" },
   // the sentinel is drawn on its own path below; this is for debris and ghosts
   sentinel: { dome: "#b48cff", stripe: "#5a3f9a" },
 };
@@ -105,6 +109,25 @@ export function paintEnemy(ctx, { bw, bh }, type) {
     ctx.fillStyle = "#2a7ab8";
     ctx.fillRect(-bw * 0.06, -bh * 0.34, bw * 0.12, bh * 0.22);
     ctx.fillRect(-bw * 0.24, -bh * 0.28, bw * 0.48, bh * 0.1);
+  } else if (type === "spreader") {
+    // three vents across the visor: it fires into three lanes at once
+    ctx.fillStyle = "#232c42";
+    ctx.fillRect(-bw * 0.46, -bh * 0.34, bw * 0.92, bh * 0.24);
+    ctx.fillStyle = "#ffd7a8";
+    for (const dx of [-0.32, -0.06, 0.2]) ctx.fillRect(bw * dx, -bh * 0.3, bw * 0.12, bh * 0.16);
+  } else if (type === "warden") {
+    // one wide slot: the wall it throws is as broad as the lane
+    ctx.fillStyle = "#232c42";
+    ctx.fillRect(-bw * 0.5, -bh * 0.34, bw * 1.0, bh * 0.24);
+    ctx.fillStyle = "#f0d7ff";
+    ctx.fillRect(-bw * 0.38, -bh * 0.29, bw * 0.76, bh * 0.13);
+  } else if (type === "darter") {
+    // a pair of eyes set close: it shoots twice down one lane
+    ctx.fillStyle = "#232c42";
+    ctx.fillRect(-bw * 0.42, -bh * 0.34, bw * 0.84, bh * 0.24);
+    ctx.fillStyle = "#d8fff4";
+    ctx.fillRect(-bw * 0.16, -bh * 0.3, bw * 0.1, bh * 0.14);
+    ctx.fillRect(bw * 0.06, -bh * 0.3, bw * 0.1, bh * 0.14);
   } else {
     ctx.fillStyle = "#232c42";
     ctx.fillRect(-bw * 0.42, -bh * 0.34, bw * 0.84, bh * 0.24);
@@ -225,7 +248,7 @@ export function manifestFor(G) {
 
   const bodyCell = (halfW, up, down) => ({ w: 2 * ceil(halfW) + 4, h: ceil(up) + ceil(down) + 4, ax: ceil(halfW) + 2, ay: ceil(up) + 2 });
 
-  for (const type of ["mett", "guard", "hopper", "ally", "rare"]) {
+  for (const type of ["mett", "guard", "hopper", "ally", "rare", "spreader", "warden", "darter"]) {
     ents["enemy." + type] = {
       cell: bodyCell(eb.bw * 0.62, eb.bh * 1.0, 0),
       states: { up: { frames: 1, ms: 0 } },

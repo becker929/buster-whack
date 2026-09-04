@@ -9,6 +9,7 @@ import { activeArena, clearArena } from "./world.js";
 import { panel } from "./fx.js";
 import { updateBombs } from "./combat.js";
 import { updateWorld } from "./flow.js";
+import { enemyDef, hpOf, riseMsOf, shotsOf, inBoard, canRetaliate } from "./enemies.js";
 
 // ---------- waves ----------
 //
@@ -45,12 +46,9 @@ export function freeSlot(state, planned) {
   return { col, row };
 }
 
-// Metts and hoppers retaliate. A steel guard does not: it is the anchor of a
-// formation and already demands the one thing that pins you in place (a held
-// charge), so making it shoot as well would punish the exact behaviour it
-// exists to teach. Progs are friendly, and a rare's window is too short to
-// chase under fire.
-export const canRetaliate = (type) => type === "mett" || type === "hopper" || type === "sentinel";
+// Which types can be armed at all is a column of the enemy table now: see
+// enemies.js, where each row says why.
+export { canRetaliate };
 
 /**
  * Is a mechanic available yet? Classic answers from the stage syllabus (wave
@@ -140,6 +138,22 @@ export function planWave(state) {
     }
   }
 
+  // The later rot and static: each replaces one plain slot, in the order the
+  // road teaches them. `unlocked` short-circuits before the roll, so a run
+  // that has not reached them draws exactly the numbers it always did.
+  for (const [key, chance] of [
+    ["spreader", "spreaderWaveChance"],
+    ["darter", "darterWaveChance"],
+    ["warden", "wardenWaveChance"],
+  ]) {
+    if (!unlocked(state, key)) continue;
+    const at = state.tuning.unlockTable(C.modeById(state.modeId))[key];
+    if (state.rng() >= state.tuning[chance](arena.idx - at)) continue;
+    const plain = slots.filter((sl) => sl.type === "mett");
+    if (!plain.length) continue;
+    plain[Math.floor(state.rng() * plain.length)].type = key;
+  }
+
   if (unlocked(state, "ally") && state.rng() < state.tuning.allyWaveChance(chanceStage - C.UNLOCK.ally)) {
     const spot = freeSlot(state, slots);
     if (spot) slots.push({ ...spot, type: "ally", at: now + slots.length * stagger });
@@ -195,8 +209,8 @@ export function spawnFromSlot(state, slot, events) {
     col: slot.col, row: slot.row, type, state: "rising", t0: now,
     persistent: !!slot.persistent,
     refireAt: Infinity,
-    riseMs: type === "ally" ? state.tuning.ALLY_RISE_MS : state.tuning.RISE_MS,
-    hp: sent ? sent.hp : type === "hopper" ? 2 : 1,
+    riseMs: riseMsOf(state.tuning, type),
+    hp: sent ? sent.hp : hpOf(state.tuning, type),
     tier,
     lastHop: now, hopT0: -1e9,
     wave: state.wave ? state.wave.index : -1,
@@ -332,8 +346,9 @@ export function updateWave(state, events) {
 
 export function lifeOf(state, e) {
   if (e.persistent) return Infinity;   // stays until deleted; the road depends on it
-  if (e.type === "rare") return state.tuning.RARE_LIFE;
-  const base = e.type === "hopper" ? state.tuning.HOPPER_LIFE : state.tuning.upMs(state.deletions);
+  const lifeKey = enemyDef(e.type).lifeKey;
+  const base = lifeKey ? state.tuning[lifeKey] : state.tuning.upMs(state.deletions);
+  if (e.type === "rare") return base;
   if (!e.willAttack) return base;
   // an attacker sticks around long enough to actually follow through
   return Math.max(base, aimOf(state, e) + state.tuning.ATTACK_FOLLOW_MS);
@@ -353,6 +368,7 @@ export function updateEnemies(state, events) {
   for (let i = state.enemies.length - 1; i >= 0; i--) {
     const e = state.enemies[i];
     const t = now - e.t0;
+    if (e.pending) updatePending(state, e, events);
     switch (e.state) {
       case "rising":
         if (t >= (e.riseMs || state.tuning.RISE_MS)) {
@@ -384,8 +400,9 @@ export function updateEnemies(state, events) {
         // the green hopper hops; the yellow mett, as a low-level hopper, hops
         // too but at a third of the pace -- and only while it holds a road,
         // so classic's metts are untouched
-        const hopEvery = e.type === "hopper" ? state.tuning.HOP_MS
-          : e.type === "mett" && e.persistent ? state.tuning.MET_HOP_MS : Infinity;
+        const def = enemyDef(e.type);
+        const hopEvery = !def.hopKey || (def.hopWhenHeld && !e.persistent)
+          ? Infinity : state.tuning[def.hopKey];
         if (!aiming && now - e.lastHop >= hopEvery) {
           hopTo(state, e, events);
           e.lastHop = now;
@@ -442,7 +459,7 @@ export function hopTo(state, e, events) {
 // ---------- incoming fire ----------
 
 /**
- * Incoming fire. Two kinds, and the difference is the mechanic:
+ * Incoming fire. Two bolt kinds, and the difference is the mechanic:
  *
  *   slow — the mett's siege shell. Huge and lumbering; you can still leave the
  *          row after it launches.
@@ -450,24 +467,54 @@ export function hopTo(state, e, events) {
  *          during the telegraph — which is why the hopper's aim is the longest
  *          window in the game.
  *
+ * What a virus throws with them is its attack (see enemies.js): one bolt down
+ * its own lane, a fan across three, a two-shot volley, or a slow fat wall. A
+ * shot with a delay is held on the firer and released later, so a volley dies
+ * with the thing that started it.
+ *
  * The bolt carries everything the renderer needs as data: `kind` for the look,
  * `radius` in px (already scaled to the board) for the size, `speed` in px/ms.
  * `heavy` is kept as a legacy alias for the slow bolt so an older shell (and
  * the audio bank, which keys its bass layer off it) still reads correctly.
  */
-export function fireBolt(state, e, events) {
-  const p = panel(state, e.col, e.row);
+export function launchBolt(state, e, shot, events) {
+  const row = e.row + shot.dRow;
+  if (!inBoard(row)) return;
+  const p = panel(state, e.col, row);
   const kind = e.boltKind || C.boltKindFor(e.type);
   state.bolts.push({
-    row: e.row,
+    row,
     x: p.x + p.w / 2,
-    speed: state.G.pw / state.tuning.boltPanelMs(state.deletions, kind),  // px per ms, travelling left
+    // px per ms, travelling left
+    speed: (state.G.pw / state.tuning.boltPanelMs(state.deletions, kind)) * shot.speedFactor,
     kind,
-    radius: state.G.pw * state.tuning.BOLT[kind].radiusFrac,
+    radius: state.G.pw * state.tuning.BOLT[kind].radiusFrac * shot.radiusFactor,
     heavy: kind === "slow",
   });
   events.push({
-    type: "enemyFired", enemyType: e.type, col: e.col, row: e.row,
+    type: "enemyFired", enemyType: e.type, col: e.col, row,
     kind, heavy: kind === "slow", x: p.x + p.w / 2, y: p.y,
   });
+}
+
+/** Fire a virus's whole attack: the shots due now, the rest held on it. */
+export function fireBolt(state, e, events) {
+  const shots = shotsOf(state.tuning, e.type);
+  const now = state.clock;
+  for (const shot of shots) {
+    if (shot.delay > 0) (e.pending || (e.pending = [])).push({ at: now + shot.delay, shot });
+    else launchBolt(state, e, shot, events);
+  }
+}
+
+/** Release the held shots of a volley whose beat has come. */
+export function updatePending(state, e, events) {
+  const q = e.pending;
+  if (!q || !q.length) return;
+  const now = state.clock;
+  for (let i = 0; i < q.length; ) {
+    if (q[i].at > now) { i++; continue; }
+    launchBolt(state, e, q[i].shot, events);
+    q.splice(i, 1);
+  }
 }

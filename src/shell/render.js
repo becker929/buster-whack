@@ -995,7 +995,8 @@ function blastOf(e) {
   if (e.type === "ally") return BLASTS.prog;
   if (e.type === "rare") return BLASTS.rare;
   if (e.type === "guard") return BLASTS.guard;
-  if (e.type === "hopper") return BLASTS.hopper;
+  if (e.type === "hopper" || e.type === "darter") return BLASTS.hopper;
+  if (e.type === "spreader" || e.type === "warden") return BLASTS.guard;
   return e.tier && e.tier.scale && e.tier.scale.peak >= 1.9 ? BLASTS.charged : BLASTS.normal;
 }
 

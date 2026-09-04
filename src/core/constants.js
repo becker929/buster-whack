@@ -245,7 +245,9 @@ export const UNLOCK = { guard: 1, retaliate: 2, ally: 3, hopper: 4, rare: 5 };
 export const HURT_SHAKE_MS = 260;
 
 /** Which bolt a skin fires. Guards are anchors and never shoot. */
-export const boltKindFor = (type) => (type === "hopper" ? "fast" : "slow");
+// Which bolt a type throws is a column of the enemy table; re-exported here
+// because the shell has always asked constants for it.
+export { boltKindFor } from "./enemies.js";
 
 // attackChance(), OC_START, OC_SLOPE and bonusFactor() are tuning: see tuning.js.
 
@@ -304,6 +306,7 @@ export const LANE_MS = 240;          // the row stays lit behind a landed shot
 // player a slower run clock, or a kill spammer would farm it.
 export const HITSTOP = {
   normal: 26, charged: 52, guard: 46, hopper: 30, rare: 96,
+  spreader: 38, warden: 44, darter: 32,
   block: 12, stagger: 18, prog: 34, hurt: 70, chain: 26,
 };
 export const MAX_HITSTOP = 150;      // never freeze longer than this at once
@@ -316,6 +319,9 @@ export const SHAKE = {
   guard:   { amp: 7,   ms: 190 },
   hopper:  { amp: 4.5, ms: 150 },
   rare:    { amp: 13,  ms: 380 },
+  spreader: { amp: 6,   ms: 175 },
+  warden:   { amp: 7.5, ms: 200 },
+  darter:   { amp: 5,   ms: 160 },
   prog:    { amp: 6,   ms: 220 },
   hurt:    { amp: 9,   ms: HURT_SHAKE_MS },
   chain:   { amp: 6,   ms: 260 },
@@ -328,6 +334,9 @@ export const DEBRIS = {
   hopper: ["#5ee87c", "#a6f5bb", "#c8ffd8"],
   ally:   ["#58c7ff", "#a9defc", "#e2f4ff"],
   rare:   ["#fff3c4", "#ffc95a", "#ffd23f"],
+  spreader: ["#ffa23f", "#ffd0a0", "#ffe8d0"],
+  warden:   ["#c07be0", "#e0bcf0", "#f0dcff"],
+  darter:   ["#3fd8b0", "#a0f0dc", "#d8fff4"],
   player: ["#ff5470", "#ff9f45", "#ffd7de"],
 };
 
@@ -335,6 +344,7 @@ export const DEBRIS = {
 // still bounded by MAX_BITS.
 export const BIT_COUNT = {
   normal: 9, charged: 14, guard: 13, hopper: 11, rare: 22,
+  spreader: 12, warden: 13, darter: 11,
   block: 4, stagger: 5, prog: 8, hurt: 12,
 };
 

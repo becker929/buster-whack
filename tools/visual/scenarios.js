@@ -209,6 +209,59 @@ export const scenarios = [
   },
 
   {
+    name: "art-late-bodies",
+    title: "Art: the three viruses the far road teaches",
+    why: "The spreader, the warden and the darter at rest, in their own colours, so pack zero covers the whole enemy table and a pack that redraws one of them is checked like the rest. Each wears its attack on its face: three vents for the fan, one wide slot for the wall, two close eyes for the volley.",
+    seed: 3,
+    width: W,
+    height: H,
+    frames: 3,
+    modes: ["playing"],
+    artIdentity: true,
+    capture: [{ at: 1, as: "rest" }],
+    cues: [
+      {
+        at: 0,
+        place: [
+          { col: 3, row: 0, type: "spreader" },
+          { col: 4, row: 1, type: "warden" },
+          { col: 5, row: 2, type: "darter" },
+          { col: 5, row: 0, type: "mett" },
+        ],
+      },
+    ],
+  },
+
+  {
+    name: "late-attacks",
+    title: "The fan, the wall and the volley in flight",
+    why: "The three attack shapes the table can build out of one vocabulary: a spreader's bolts crossing three lanes at once, a warden's wall -- slower and fatter than any other shot -- owning the middle lane, and the two halves of a darter's volley strung out down the bottom one. A regression here means an attack changed shape, not just a number.",
+    seed: 5,
+    width: W,
+    height: H,
+    frames: 26,
+    modes: ["playing"],
+    capture: [{ at: 12, as: "in-flight" }],
+    cues: [
+      {
+        at: 0,
+        place: [
+          { col: 5, row: 0, type: "spreader" },
+          { col: 5, row: 1, type: "warden" },
+          { col: 5, row: 2, type: "darter" },
+        ],
+        bolt: [
+          { col: 4, row: 0, heavy: true },
+          { col: 4, row: 1, heavy: true },
+          { col: 4, row: 2, heavy: true },
+          { col: 4, row: 1, heavy: true, kind: "slow", radius: 26, speed: 0.06 },
+          { col: 3, row: 2, heavy: false, kind: "fast" },
+        ],
+      },
+    ],
+  },
+
+  {
     name: "art-people",
     title: "Art: everyone who stands on a tower, and the journal",
     why: "The other half of pack zero: the keepers and their companions in their own colours, the journal, and a bomb on the ground, all at rest on the first tower. Rendered through the pack and through the painters by the identity check.",
