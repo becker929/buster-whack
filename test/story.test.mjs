@@ -48,7 +48,7 @@ test("the context verb is TALK beside the keeper and BOMB anywhere else", () => 
 
 test("pressing the button beside the keeper talks, counts, and never throws a bomb", () => {
   const s = story();
-  s.bombs = 1;
+  s.stash.push("bomb"); s.bombs = 1;
   s.player.col = 2; s.player.row = 1;
   const ev = step(s, 16, [{ type: "bomb" }]);
   const talk = find(ev, "talk");
@@ -89,7 +89,7 @@ test("the other modes are untouched: no tower, arena 0 born entered", () => {
 
 test("pressing the button with an empty stash says so instead of doing nothing", () => {
   const s = story();
-  s.bombs = 0;
+  s.stash.length = 0; s.bombs = 0;
   const ev = step(s, 16, [{ type: "bomb" }]);
   assert.ok(find(ev, "bombEmpty"), "an event the shell can show");
   assert.ok(!find(ev, "bombThrown"));

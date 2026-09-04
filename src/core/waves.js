@@ -11,6 +11,7 @@ import { updateBombs } from "./combat.js";
 import { updateWorld } from "./flow.js";
 import { enemyDef, hpOf, riseMsOf, shotsOf, inBoard, canRetaliate } from "./enemies.js";
 import { bumpTask } from "./tasks-count.js";
+import { SHARDS } from "./items.js";
 
 // ---------- waves ----------
 //
@@ -292,7 +293,20 @@ export function endWave(state, events) {
       const pp = panel(state, pc, pr);
       events.push({ type: "pickupSpawned", kind: "bomb", col: pc, row: pr, x: pp.x + pp.w / 2, y: pp.y });
     }
- // Taking an arena pays like everything else pays: through the overclock.
+    // and a shard, further out: the cheap ones first, so what you find gets
+    // stranger the deeper the run goes. `unlocked` short-circuits the roll.
+    if (a.idx >= state.tuning.SHARD_UNLOCK && state.rng() < state.tuning.shardDropChance(a.idx)) {
+      const reach = Math.min(SHARDS.length, 1 + Math.floor((a.idx - state.tuning.SHARD_UNLOCK) / 15));
+      const kind = SHARDS[Math.floor(state.rng() * reach)];
+      const sc = road.x0 + Math.floor(state.rng() * road.cols);
+      const sr = road.rows === 1 ? C.ROAD_MID_ROW : Math.floor(state.rng() * C.ROWS);
+      if (!state.pickups.some((q) => q.col === sc && q.row === sr)) {
+        state.pickups.push({ col: sc, row: sr, kind });
+        const sp = panel(state, sc, sr);
+        events.push({ type: "pickupSpawned", kind, col: sc, row: sr, x: sp.x + sp.w / 2, y: sp.y });
+      }
+    }
+    // Taking an arena pays like everything else pays: through the overclock.
     // Undecayed it was the road's whole income, and the pulse bar sat pinned
     // at its cap for the first thirty arenas -- a clock that is always full
     // is not a clock.
@@ -407,7 +421,8 @@ export function updateEnemies(state, events) {
           events.push({ type: "enemyAim", col: e.col, row: e.row, boltKind: e.boltKind });
           break;
         }
-        const aiming = e.willAttack && !e.fired;
+        // a sock shard cloaks you: while it holds, nothing draws a bead
+        const aiming = e.willAttack && !e.fired && now >= (state.cloakUntil || -1e9);
         // the green hopper hops; the yellow mett, as a low-level hopper, hops
         // too but at a third of the pace -- and only while it holds a road,
         // so classic's metts are untouched

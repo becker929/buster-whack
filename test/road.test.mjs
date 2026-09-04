@@ -178,7 +178,7 @@ test("a bomb arcs three columns, splashes a 3x3 at charged strength, and can hit
   step(s, 0, [{ type: "bomb" }]);
   assert.equal(s.bombsInFlight.length, 0);
 
-  s.bombs = 1;
+  s.stash.push("bomb"); s.bombs = 1;
   const inside = [place(s, { col: 3, row: 0 }), place(s, { col: 4, row: 1 }), place(s, { col: 5, row: 2 })];
   const guard = place(s, { col: 4, row: 2, type: "guard" });     // a charged delete kills a guard
   place(s, { col: 5, row: 0 });                                   // corner of the 3x3 around col 4
@@ -204,7 +204,7 @@ test("a bomb arcs three columns, splashes a 3x3 at charged strength, and can hit
 
   // stand in the splash and it hurts you too
   const s2 = advanceGame(6);
-  s2.bombs = 1; s2.player.col = 2; s2.player.row = 1;
+  s2.stash.push("bomb"); s2.bombs = 1; s2.player.col = 2; s2.player.row = 1;
   step(s2, 0, [{ type: "bomb" }]);                   // lands at col 5
   s2.player.col = 4;                                 // walk into range before it lands
   const t0 = s2.timeLeft;

@@ -7,10 +7,11 @@ import * as C from "./constants.js";
 import { activeArena, npcBeside } from "./world.js";
 import { panel, hitStop, shake, spawnBits, ripple } from "./fx.js";
 import { land } from "./movement.js";
-import { hopTo } from "./waves.js";
+import { hopTo, fireBolt, spawnFromSlot } from "./waves.js";
 import { enemyDef } from "./enemies.js";
 import { bumpTask } from "./tasks-count.js";
 import { taskExchange } from "./tasks.js";
+import { itemDef, topOf, takeTop, syncStash } from "./items.js";
 
 // dt rather than the clock: bolts move in real time, and the early return
 // freezes them for pause and the interlevel card alike.
@@ -25,7 +26,18 @@ export function updateBolts(state, dt, events) {
     const b = state.bolts[i];
     b.x -= b.speed * dt;
     if (b.row === state.player.row && now >= state.hurtUntil && Math.abs(b.x - px) <= hitR) {
+      // a cloak: it goes straight through, and nothing is aimed at you either
+      if (now < (state.cloakUntil || 0)) continue;
       state.bolts.splice(i, 1);
+      // a parry set by the spell shard: this one, and only this one, does not land
+      if (state.parry) {
+        state.parry = false;
+        ripple(state, state.player.col, state.player.row, "#c9f6ff", now, 2);
+        state.fx.popups.push({ x: px, y: pr.y - 8, t0: now, text: "PARRIED", color: "#c9f6ff" });
+        events.push({ type: "parried", col: state.player.col, row: state.player.row, x: px, y: pr.y });
+        events.push({ type: "statsChanged" });
+        continue;
+      }
       takeHit(state, events);
       continue;
     }
@@ -38,14 +50,15 @@ export function updateBolts(state, dt, events) {
  * shot: no charge, no hitscan, one per pickup.
  */
 /**
- * The context button. Beside a keeper it is TALK; anywhere else it is the
- * bomb. The core records the press and who it was to; the shell turns that
- * into a line from the sealed canon, so no text ever lives here.
+ * The context button. Beside a keeper it is TALK; anywhere else it uses the
+ * top of the stash -- the last thing you picked up, which is the one the HUD
+ * shows on top. The core records the press and who it was to; the shell turns
+ * that into a line from the sealed canon, so no text ever lives here.
  */
 export function contextAction(state, events) {
   if (state.mode !== "playing" || state.paused) return;
   const n = npcBeside(state.world, state.player.col, state.player.row);
-  if (!n) { throwBomb(state, events); return; }
+  if (!n) { useTop(state, events); return; }
   state.talks[n.id] = (state.talks[n.id] || 0) + 1;
   const p = panel(state, n.col, n.row);
   ripple(state, n.col, n.row, "#ffd23f", state.clock, 1);
@@ -55,14 +68,96 @@ export function contextAction(state, events) {
   taskExchange(state, n.id, events);
 }
 
+/**
+ * Use the top of the stash. Each item names one effect from the vocabulary
+ * in items.js; this is where the vocabulary is spoken.
+ */
+export function useTop(state, events) {
+  if (state.mode !== "playing" || state.paused) return;
+  const id = topOf(state.stash);
+  // an empty stash is told, so a press that does nothing is never a mystery
+  if (!id) { events.push({ type: "bombEmpty" }); return; }
+  const def = itemDef(id);
+  if (!def) { takeTop(state.stash); syncStash(state); return; }
+  if (def.effect === "blast") { throwBomb(state, events); return; }
+
+  takeTop(state.stash);
+  syncStash(state);
+  const now = state.clock;
+  const p = panel(state, state.player.col, state.player.row);
+  const pop = (text, color) => state.fx.popups.push({ x: p.x + p.w / 2, y: p.y - 8, t0: now, text, color });
+
+  switch (def.effect) {
+    case "parry":
+      // the next bolt that would land on you does not
+      state.parry = true;
+      pop("PARRY SET", "#c9f6ff");
+      break;
+    case "cloak":
+      // nothing aims at you while it holds, and what is already in the air
+      // passes straight through
+      state.cloakUntil = now + def.arg;
+      pop("CLOAK", "#a9defc");
+      break;
+    case "provoke": {
+      // everything armed on the board fires this instant: the board empties
+      // its telegraphs at once, and then has to reload
+      let n = 0;
+      for (const e of state.enemies) {
+        if (!e.willAttack || e.fired || e.state !== "up") continue;
+        fireBolt(state, e, events);
+        e.fired = true;
+        e.refireAt = now + state.tuning.REFIRE_MS;
+        n++;
+      }
+      pop("BELL ×" + n, "#ffd23f");
+      break;
+    }
+    case "summon":
+      // one more thing to shoot, and one more thing shooting: the shard is
+      // worth taking when the clock is the thing hurting you
+      summonOne(state, def.arg, events);
+      pop("SUMMONED", "#5ee87c");
+      break;
+    case "echo":
+      // your last shot, taken again, for a share of what it was worth
+      if (state.lastShotTier) {
+        state.echo = { tier: state.lastShotTier, share: def.arg };
+        shoot(state, state.lastShotTier, events);
+        state.echo = null;
+        pop("ECHO", "#45e0e8");
+      } else {
+        pop("NOTHING TO ECHO", "#8a96b8");
+      }
+      break;
+    default: break;
+  }
+  events.push({ type: "itemUsed", item: def.id, effect: def.effect, stash: state.stash.slice() });
+  events.push({ type: "statsChanged" });
+}
+
+/** Put one virus of a named type into the player's row, if there is room. */
+function summonOne(state, type, events) {
+  if (state.enemies.length >= state.tuning.MAX_ALIVE) return;
+  const a = activeArena(state.world);
+  if (a.owner !== "enemy") return;
+  for (let col = a.x0 + a.cols - 1; col > state.player.col; col--) {
+    if (state.enemies.some((e) => e.col === col && e.row === state.player.row)) continue;
+    spawnFromSlot(state, { col, row: state.player.row, type, persistent: true, tier: 0 }, events);
+    return;
+  }
+}
+
 export function throwBomb(state, events) {
   if (state.mode !== "playing" || state.paused) return;
-  // an empty stash is told, so a press that does nothing is never a mystery
   if (state.bombs <= 0) { events.push({ type: "bombEmpty" }); return; }
   const now = state.clock;
   const a = activeArena(state.world);
   const toCol = Math.min(state.player.col + state.tuning.BOMB_RANGE, a.x0 + a.cols - 1);
-  state.bombs--;
+  // the bomb leaves the stash from wherever it is: the top, if that is a bomb
+  const at = state.stash.lastIndexOf("bomb");
+  if (at >= 0) state.stash.splice(at, 1);
+  syncStash(state);
   state.bombsInFlight.push({
     fromCol: state.player.col, fromRow: state.player.row,
     toCol, toRow: state.player.row, t0: now, dur: state.tuning.BOMB_ARC_MS,
@@ -223,13 +318,14 @@ export function deleteEnemy(state, target, tierName, land, events) {
   // table's `scoreKey`), otherwise the shot's tier -- a mett pays for the
   // shot you spent on it, a guard pays for being a guard.
   const baseKey = enemyDef(target.type).scoreKey || tierName;
-  const pts = (state.tuning.PTS[baseKey] === undefined ? state.tuning.PTS[tierName] : state.tuning.PTS[baseKey]) * mult;
+  const share = state.echo ? state.echo.share : 1;
+  const pts = Math.round((state.tuning.PTS[baseKey] === undefined ? state.tuning.PTS[tierName] : state.tuning.PTS[baseKey]) * mult * share);
   state.score += pts;
   state.deletions++;
 
   const bf = state.tuning.pulseScale(state.deletions, C.modeById(state.modeId).advancing);
   const factor = baseKey === "rare" ? Math.sqrt(bf) : bf;
-  const timeBonus = (state.tuning.BONUS[baseKey] === undefined ? state.tuning.BONUS[tierName] : state.tuning.BONUS[baseKey]) * factor;
+  const timeBonus = (state.tuning.BONUS[baseKey] === undefined ? state.tuning.BONUS[tierName] : state.tuning.BONUS[baseKey]) * factor * share;
   state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + timeBonus);
 
   // The felt half of a delete: debris in the skin's own colours, a ring in the
@@ -288,6 +384,8 @@ export function shoot(state, tierName, events) {
   state.fx.muzzleT0 = now;
   state.fx.muzzleTier = tierName;
   state.shots++;
+  // what a footnote shard would take again, if you spend one
+  if (!state.echo) state.lastShotTier = tierName;
 
   const row = state.player.row;
   let target = null;

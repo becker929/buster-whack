@@ -21,7 +21,7 @@ import * as C from "../core/constants.js";
 import { hudView, hopPose } from "../core/select.js";
 import { tileAt, segmentAt, npcAt, TILE } from "../core/world.js";
 import { SKINS, SENTINEL_CORE, KEEPER, PEOPLE, enemyBox, playerBox, keeperBox, itemBox, pickupRadius,
-         paintEnemy, paintSentinel, paintPlayer, paintKeeper, paintItem, paintPickup,
+         paintEnemy, paintSentinel, paintPlayer, paintKeeper, paintItem, paintPickup, paintShard, SHARD_LOOK,
          SENTINEL_OPEN_FRAMES, frameAt } from "./painters.js";
 
 // The art pack for the frame being drawn: set by draw(), read by the body
@@ -127,15 +127,17 @@ function drawPickups(ctx, state, now) {
     const p = panel(G, pk.col, pk.row);
     const cx = p.x + p.w / 2, cy = p.y + p.h * 0.5 + Math.sin(now / 260) * 3;
     const r = pickupRadius(G);
+    const shard = SHARD_LOOK[pk.kind];
     // the glow is an effect, not the body
     ctx.globalAlpha = 0.35 + 0.15 * Math.sin(now / 180);
-    ctx.fillStyle = "#ff9f45";
+    ctx.fillStyle = shard ? shard.body : "#ff9f45";
     ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2 - C.RING_GAP); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.save();
     ctx.translate(Math.round(cx), Math.round(cy));
     const f = frameAt({ frames: 2, ms: 120 }, now);
-    body(ctx, "pickup.bomb", "idle", f, (c) => paintPickup(c, r, f));
+    if (shard) body(ctx, "pickup." + pk.kind, "idle", f, (c) => paintShard(c, r, shard, f));
+    else body(ctx, "pickup.bomb", "idle", f, (c) => paintPickup(c, r, f));
     ctx.restore();
   }
 }

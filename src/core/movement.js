@@ -5,6 +5,7 @@
  */
 
 import * as C from "./constants.js";
+import { stow, syncStash, itemDef } from "./items.js";
 import { walkable, worldEnd } from "./world.js";
 import { panel, ripple } from "./fx.js";
 
@@ -215,10 +216,18 @@ export function land(state, col, row, events) {
     for (let i = state.pickups.length - 1; i >= 0; i--) {
       const pk = state.pickups[i];
       if (pk.col !== col || pk.row !== row) continue;
+      const pp0 = panel(state, col, row);
+      // into the stash, if there is room; a full stash leaves it on the road
+      if (!stow(state.stash, pk.kind, state.tuning.STASH_SLOTS)) {
+        state.fx.popups.push({ x: pp0.x + pp0.w / 2, y: pp0.y - 8, t0: state.clock, text: "STASH FULL", color: "#8a96b8" });
+        events.push({ type: "stashFull", kind: pk.kind, col, row });
+        continue;
+      }
       state.pickups.splice(i, 1);
-      if (pk.kind === "bomb") state.bombs++;
-      const pp = panel(state, col, row);
-      state.fx.popups.push({ x: pp.x + pp.w / 2, y: pp.y - 8, t0: state.clock, text: "+BOMB", color: "#ff9f45" });
+      syncStash(state);
+      const pp = pp0;
+      const took = itemDef(pk.kind);
+      state.fx.popups.push({ x: pp.x + pp.w / 2, y: pp.y - 8, t0: state.clock, text: "+" + (took ? took.name : "?"), color: "#ff9f45" });
       events.push({ type: "pickup", kind: pk.kind, col, row, x: pp.x + pp.w / 2, y: pp.y, bombs: state.bombs });
       events.push({ type: "statsChanged" });
     }

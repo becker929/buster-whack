@@ -49,7 +49,12 @@ export function createState(opts = {}) {
     cam: 0,
     // ADVANCE inventory and ordnance. Pickups live on road tiles; a bomb in
     // flight is { fromCol,fromRow,toCol,toRow,t0,dur }; blasts are fx.
-    bombs: 0,
+    bombs: 0,               // bombs in the stash: kept equal by syncStash()
+    stash: [],              // what you are carrying, oldest first; the top is used
+    parry: false,           // the spell shard: the next bolt that would land does not
+    cloakUntil: -1e9,       // the sock shard: nothing aims at you until then
+    lastShotTier: null,     // what the footnote shard would echo
+    echo: null,             // { tier, share } while an echoed shot is resolving
     bombsInFlight: [],
     pickups: [],               // { col, row, kind }
     levelT0: -1e9,             // when the level last changed (advance: arena entry)

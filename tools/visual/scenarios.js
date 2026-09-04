@@ -123,7 +123,7 @@ export const scenarios = [
     cues: [
       {
         at: 0,
-        set: { modeId: "advance", bombs: 1, "player.col": 1, "player.row": 1,
+        set: { modeId: "advance", bombs: 1, stash: ["bomb"], "player.col": 1, "player.row": 1,
                pickups: [{ col: 2, row: 0, kind: "bomb" }] },
         place: [
           { col: 3, row: 0 },
@@ -257,6 +257,34 @@ export const scenarios = [
           { col: 4, row: 1, heavy: true, kind: "slow", radius: 26, speed: 0.06 },
           { col: 3, row: 2, heavy: false, kind: "fast" },
         ],
+      },
+    ],
+  },
+
+  {
+    name: "art-shards",
+    title: "Art: the five shards on the road",
+    why: "One cell per shard, in its own colour: the spell, the footnote, the sock, the weather and the bell, plus a bomb for scale. A pack that redraws a shard is checked against its painter like every other body.",
+    seed: 3,
+    width: W,
+    height: H,
+    frames: 3,
+    modes: ["playing"],
+    artIdentity: true,
+    capture: [{ at: 1, as: "rest" }],
+    cues: [
+      {
+        at: 0,
+        set: {
+          "pickups": [
+            { col: 3, row: 0, kind: "spell" },
+            { col: 4, row: 0, kind: "footnote" },
+            { col: 5, row: 0, kind: "sock" },
+            { col: 3, row: 2, kind: "weather" },
+            { col: 4, row: 2, kind: "bell" },
+            { col: 5, row: 2, kind: "bomb" },
+          ],
+        },
       },
     ],
   },

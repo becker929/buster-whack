@@ -287,6 +287,29 @@ on `stageIdx`, so a mechanic can never appear before the card that explains it,
 and the OVERCLOCK card stamps `state.ocFrom` with the live deletion count — the
 decay and its announcement are the same moment.
 
+### The stash, and the five shards
+
+What you carry is one list with a capacity in slots (`STASH_SLOTS`). The bomb
+is the first item and costs one slot; the five shards the bible names cost
+one to three. A pickup only leaves the road when there is room for it, and
+the context button spends the **top** of the stash — the last thing you
+picked up, which is the name the HUD shows first — so what a press will do is
+always visible before you press it.
+
+Each item names one effect from a closed vocabulary in `src/core/items.js`:
+
+| item | slots | what it does |
+| --- | --- | --- |
+| BOMB | 1 | the arc onto a panel ahead, splashing a 3×3 |
+| SPELL | 1 | the next bolt that would land on you does not |
+| FOOTNOTE | 1 | your last shot is taken again, for half its worth |
+| SOCK | 2 | nothing aims at you for a beat, and fire in the air passes through |
+| WEATHER | 2 | one more virus arrives in your row — a target, and a shooter |
+| BELL | 3 | everything armed on the board fires this instant, then reloads |
+
+Shards start turning up on the road at `SHARD_UNLOCK`, cheapest first, and the
+range of what can drop widens the further out you go.
+
 ### Bonus tasks
 
 The people on the towers ask for things. A task is a row in

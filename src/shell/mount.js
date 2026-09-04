@@ -15,6 +15,7 @@ import { createStory } from "./story.js";
 import { createInput } from "./input.js";
 import { draw } from "./render.js";
 import { createArt, loadArtPack } from "./art.js";
+import { stashView } from "../core/items.js";
 
 const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
 
@@ -141,7 +142,7 @@ export function mountBusterWhack(container, options = {}) {
   let verb = "bomb";
   function refreshStats() {
     renderStats(els, statsView(state));
-    renderBombs(els, state.bombs || 0, verb);
+    renderBombs(els, state.bombs || 0, verb, stashView(state.stash || []));
   }
 
   // ---------- story ----------

@@ -57,6 +57,11 @@ export function resetGame(state, events, modeId) {
   state.path = null;
   state.arenasCleared = 0;
   state.bombs = 0;
+  state.stash.length = 0;
+  state.parry = false;
+  state.cloakUntil = -1e9;
+  state.lastShotTier = null;
+  state.echo = null;
   state.bombsInFlight.length = 0;
   state.pickups.length = 0;
   state.fx.blasts.length = 0;

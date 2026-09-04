@@ -313,6 +313,22 @@ export const TEMPLATE = `
     transition: opacity 240ms ease;
   }
   #place.on { opacity: 1; }
+  /* The stash: what you are carrying, top first -- the leftmost name is what
+     the context button would spend. */
+  #stash {
+    position: absolute;
+    right: 28px;
+    top: 74px;
+    color: var(--bw-ink-dim);
+    font: 600 11px/1 var(--bw-mono);
+    letter-spacing: 0.18em;
+    text-align: right;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 240ms ease;
+  }
+  #stash.has { opacity: 1; }
+  #stash::first-letter { color: var(--bw-accent); }
   #say b { display: block; color: var(--bw-accent); font-size: 11px; letter-spacing: 0.22em; margin-bottom: 3px; }
   #say b:empty { display: none; }
   #bombBtn.talk {
@@ -747,6 +763,7 @@ export const TEMPLATE = `
     <div id="deck" aria-hidden="true"></div>
     <div id="say" role="status" aria-live="polite"><b id="sayWho"></b><span id="sayText"></span></div>
     <div id="place" aria-live="polite"></div>
+    <div id="stash" aria-live="polite" aria-label="Stash"></div>
     <button id="pauseBtn" aria-label="Pause">II</button>
     <button id="bombBtn" class="empty" aria-label="Throw bomb"><span id="bombLabel">BOMB</span><b id="bombCount">0</b></button>
     <button id="fireBtn" aria-label="Fire"><span>FIRE</span><span class="glyph">&#9679;</span></button>
@@ -759,7 +776,7 @@ const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
   "splash", "spBest", "spStart", "spModes", "spModeRule", "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "bombBtn", "bombCount", "bombLabel", "muteFlag", "deck",
-  "say", "sayWho", "sayText", "place",
+  "say", "sayWho", "sayText", "place", "stash",
 ];
 
 /**
@@ -923,14 +940,28 @@ export function placeTouchControls(els, G) {
  * stand (TALK beside a keeper). Empty of bombs and with nothing to say, it
  * greys to an outline.
  */
-export function renderBombs(els, n, verb = "bomb") {
+/**
+ * The context button, and the stash behind it. Beside someone it reads TALK;
+ * otherwise it names the top of the stash, because that is what a press will
+ * spend. `stash` is the view from the core: top first.
+ */
+export function renderBombs(els, n, verb = "bomb", stash = null) {
   const talk = verb !== "bomb";
-  const label = { read: "READ", talk: "TALK", next: "NEXT", done: "DONE" }[verb] || "BOMB";
-  els.bombCount.textContent = String(n);
+  const top = stash && stash.length ? stash[0] : null;
+  const label = { read: "READ", talk: "TALK", next: "NEXT", done: "DONE" }[verb]
+    || (top ? top.name : "BOMB");
+  // the count is what is left of the thing the button would use
+  const count = talk ? n : (top ? stash.filter((it) => it.id === top.id).length : 0);
+  els.bombCount.textContent = String(talk ? n : count);
   els.bombLabel.textContent = label;
-  els.bombBtn.setAttribute("aria-label", talk ? label[0] + label.slice(1).toLowerCase() : "Throw bomb");
+  els.bombBtn.setAttribute("aria-label", talk ? label[0] + label.slice(1).toLowerCase() : "Use " + label.toLowerCase());
   els.bombBtn.classList.toggle("talk", talk);
-  els.bombBtn.classList.toggle("empty", !talk && n <= 0);
+  els.bombBtn.classList.toggle("empty", !talk && !top);
+  if (els.stash) {
+    // everything you are carrying, top first, so the order of use is visible
+    els.stash.textContent = stash && stash.length ? stash.map((it) => it.name).join(" · ") : "";
+    els.stash.classList.toggle("has", !!(stash && stash.length));
+  }
 }
 
 /** The context button refusing a press (no bomb to throw): a short shake. */

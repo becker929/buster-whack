@@ -230,6 +230,38 @@ export function paintPickup(ctx, r, frame = 0) {
   ctx.fillRect(r * 1.0, -r * 1.8, 3, 3);
 }
 
+// A shard is not ordnance: a faceted stone in its own colour, one per kind,
+// with a highlight that flips on the frame so it reads as picked out of the
+// road rather than painted on it.
+export const SHARD_LOOK = {
+  spell:    { body: "#c9f6ff", edge: "#4f8dff" },
+  footnote: { body: "#ffe08a", edge: "#e8a020" },
+  sock:     { body: "#a9defc", edge: "#2a7ab8" },
+  weather:  { body: "#a6f5bb", edge: "#1f7c3d" },
+  bell:     { body: "#f0d7ff", edge: "#5f2f7a" },
+};
+
+export function paintShard(ctx, r, look, frame = 0) {
+  ctx.fillStyle = look.edge;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 1.25);
+  ctx.lineTo(r * 0.85, -r * 0.2);
+  ctx.lineTo(0, r * 1.05);
+  ctx.lineTo(-r * 0.85, -r * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = look.body;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.9);
+  ctx.lineTo(r * 0.5, -r * 0.18);
+  ctx.lineTo(0, r * 0.7);
+  ctx.lineTo(-r * 0.5, -r * 0.18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = frame ? "#ffffff" : look.edge;
+  ctx.fillRect(-r * 0.16, -r * 0.62, r * 0.3, r * 0.36);
+}
+
 // ---------- the manifest ----------
 // What a pack must contain. Cells are sized from the panel so a pack baked
 // for one stage size fits that stage exactly; the same function gives an
@@ -287,6 +319,13 @@ export function manifestFor(G) {
     states: { idle: { frames: 2, ms: 120 } },
     paint: (ctx, frame) => paintPickup(ctx, pr, frame),
   };
+  for (const [kind, look] of Object.entries(SHARD_LOOK)) {
+    ents["pickup." + kind] = {
+      cell: { w: 2 * ceil(pr * 0.9) + 4, h: ceil(pr * 1.3) + ceil(pr * 1.1) + 4, ax: ceil(pr * 0.9) + 2, ay: ceil(pr * 1.3) + 2 },
+      states: { idle: { frames: 2, ms: 120 } },
+      paint: (ctx, frame) => paintShard(ctx, pr, look, frame),
+    };
+  }
   return { pw: G.pw, ph: G.ph, entities: ents };
 }
 

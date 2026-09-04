@@ -100,6 +100,11 @@ export const TUNING_SCHEMA = [
     ["WAVE_SIZE_PER_ARENAS", 25, 1, 200, 1, "arenas", "One more per wave every this many arenas."],
     ["WAVE_SIZE_MAX", 5, 1, 8, 1, "viruses", "The most dealt together."],
     ["MAX_ALIVE", 6, 1, 12, 1, "viruses", "Hard ceiling on the board: wave plus runner plus rare."],
+    ["STASH_SLOTS", 4, 1, 12, 1, "slots", "How much you can carry: a bomb is one slot, a bell is three."],
+    ["SHARD_DROP_BASE", 0.18, 0, 1, 0.02, "p", "Chance a taken arena leaves a shard on the road."],
+    ["SHARD_DROP_PER", 0.004, 0, 0.1, 0.001, "p", "Plus this per arena, so the far road is better stocked."],
+    ["SHARD_DROP_MAX", 0.45, 0, 1, 0.05, "p", ""],
+    ["SHARD_UNLOCK", 20, 0, 500, 1, "arena", "Shards start turning up on the road from this arena."],
   ]],
   ["story unlocks", [
     ["UNLOCK_GUARD", 10, 0, 500, 1, "arena", "Steel guards from this arena on."],
@@ -334,6 +339,8 @@ function assemble(v, applied, version) {
   // arena late on the road costs more pulse to stand in than arena zero did.
   // It saturates well before the far road, where what is on the board is the
   // difficulty and the clock would only pile on.
+  t.shardDropChance = (idx) =>
+    Math.min(v.SHARD_DROP_MAX, v.SHARD_DROP_BASE + Math.max(0, idx - v.SHARD_UNLOCK) * v.SHARD_DROP_PER);
   t.drainRate = (idx) => Math.min(v.DRAIN_MAX, v.DRAIN_BASE + Math.max(0, idx) * v.DRAIN_PER_ARENA);
   t.upMs = (del) => Math.max(v.UP_MS_MIN, v.UP_MS_BASE - del * v.UP_MS_PER_KILL);
   t.level = (del) => 1 + Math.floor(del / v.LEVEL_PER_KILLS);
