@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, addEnemy, fire, fireCharged, step, find, count, C } from "./helpers.mjs";
+import { newGame, addEnemy, fire, fireCharged, step, find, count, C, T } from "./helpers.mjs";
 
 test("a normal shot deletes a mett for 100 points and 1.2s", () => {
   const s = newGame();
@@ -28,7 +28,7 @@ test("a charged shot scores the charged tier", () => {
   const s = newGame();
   addEnemy(s, { type: "mett" });
   fireCharged(s);
-  assert.equal(s.score, C.PTS.charged);
+  assert.equal(s.score, T.PTS.charged);
 });
 
 test("chain multipliers step at 5, 10 and 20 and are announced once", () => {
@@ -59,8 +59,8 @@ test("points are the base value times the live multiplier", () => {
   const ev = fireCharged(s);
   const hit = find(ev, "hit");
   assert.equal(hit.mult, 3);
-  assert.equal(hit.points, C.PTS.guard * 3);
-  assert.equal(s.score, C.PTS.guard * 3);
+  assert.equal(hit.points, T.PTS.guard * 3);
+  assert.equal(s.score, T.PTS.guard * 3);
 });
 
 test("a rare pays its own base and time bonus", () => {
@@ -69,16 +69,16 @@ test("a rare pays its own base and time bonus", () => {
   addEnemy(s, { type: "rare" });
   const ev = fire(s);
   const hit = find(ev, "hit");
-  assert.equal(hit.points, C.PTS.rare);
-  assert.equal(Number(s.timeLeft.toFixed(4)), 10 + C.BONUS.rare);
+  assert.equal(hit.points, T.PTS.rare);
+  assert.equal(Number(s.timeLeft.toFixed(4)), 10 + T.BONUS.rare);
 });
 
 test("the time reward is capped at TIME_CAP", () => {
   const s = newGame();
-  s.timeLeft = C.TIME_CAP - 0.4;
+  s.timeLeft = T.TIME_CAP - 0.4;
   addEnemy(s, { type: "mett" });
   fire(s);
-  assert.equal(s.timeLeft, C.TIME_CAP);
+  assert.equal(s.timeLeft, T.TIME_CAP);
 });
 
 test("a whiff costs accuracy and breaks a chain", () => {
@@ -123,8 +123,8 @@ test("hitting a prog costs time, points and the chain", () => {
   addEnemy(s, { type: "ally", state: "up" });
   const ev = fire(s);
 
-  assert.equal(s.score, 500 - C.ALLY_PTS_PENALTY);
-  assert.equal(Number(s.timeLeft.toFixed(4)), 20 - C.ALLY_TIME_PENALTY);
+  assert.equal(s.score, 500 - T.ALLY_PTS_PENALTY);
+  assert.equal(Number(s.timeLeft.toFixed(4)), 20 - T.ALLY_TIME_PENALTY);
   assert.equal(s.chain, 0);
   assert.equal(s.whiffs, 1);
   assert.equal(s.deletions, 0);
@@ -156,9 +156,9 @@ test("an untouched prog that reaches cover pays a little time back", () => {
   const s = newGame();
   s.timeLeft = 10;
   addEnemy(s, { type: "ally", state: "sinking", t0: s.clock });
-  const ev = step(s, C.SINK_MS + 1, []);
+  const ev = step(s, T.SINK_MS + 1, []);
   assert.equal(Number(s.timeLeft.toFixed(4)),
-    Number((10 - (C.SINK_MS + 1) / 1000 + C.ALLY_SPARE_BONUS).toFixed(4)));
+    Number((10 - (T.SINK_MS + 1) / 1000 + T.ALLY_SPARE_BONUS).toFixed(4)));
   assert.ok(find(ev, "allySpared"));
   assert.equal(s.enemies.length, 0);
 });
@@ -192,7 +192,7 @@ test("hopper stamina: a tap staggers and moves it, a second tap deletes it", () 
   s.player.row = 1;
   const ev2 = fire(s);
   assert.equal(s.deletions, 1);
-  assert.equal(find(ev2, "hit").points, C.PTS.hopper * C.multOf(4));
+  assert.equal(find(ev2, "hit").points, T.PTS.hopper * C.multOf(4));
 });
 
 test("a charged shot deletes a full-stamina hopper outright", () => {
@@ -200,5 +200,5 @@ test("a charged shot deletes a full-stamina hopper outright", () => {
   addEnemy(s, { type: "hopper" });
   const ev = fireCharged(s);
   assert.equal(s.deletions, 1);
-  assert.equal(find(ev, "hit").points, C.PTS.hopper);
+  assert.equal(find(ev, "hit").points, T.PTS.hopper);
 });

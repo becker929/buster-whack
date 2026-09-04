@@ -179,8 +179,8 @@ function drawBombs(ctx, state, now) {
     ctx.fillRect(x + r * 0.6, y - r * 1.5, 3, 3);
   }
   for (const bl of state.fx.blasts || []) {
-    const q = Math.min(1, (now - bl.t0) / C.BOMB_BLAST_MS);
-    const R = C.BOMB_RADIUS;
+    const q = Math.min(1, (now - bl.t0) / state.tuning.BOMB_BLAST_MS);
+    const R = state.tuning.BOMB_RADIUS;
     // every square in the nine lights, then cools
     ctx.globalAlpha = 0.55 * (1 - q) ** 1.5;
     ctx.fillStyle = "#ff9f45";
@@ -207,7 +207,7 @@ function drawBombs(ctx, state, now) {
 
 function drawPanels(ctx, state, now) {
   const G = state.G;
-  const oc = state.deletions >= C.OC_START;
+  const oc = state.deletions >= state.tuning.OC_START;
   const skin = oc ? PANELS_OC : PANELS;
   const advancing = C.modeById(state.modeId).advancing;
   const world = state.world;
@@ -382,7 +382,7 @@ function drawLane(ctx, state, now) {
 function drawAim(ctx, state, now) {
   if (state.mode !== "playing") return;
   const G = state.G;
-  const fallbackAim = C.aimMs(state.deletions);
+  const fallbackAim = state.tuning.aimMs(state.deletions);
   for (const e of state.enemies) {
     if (!e.willAttack || e.fired || e.state !== "up") continue;
     // Each enemy bakes its own aim window at spawn: a hopper telegraphs far
@@ -557,7 +557,7 @@ function drawPlayer(ctx, state, now, rm) {
   const cdn = state.charge.downAt;
   const charging = cdn !== null && state.mode === "playing";
   const held = charging ? now - cdn : 0;
-  const prog = charging ? Math.min(1, held / C.CHARGE_MS) : 0;
+  const prog = charging ? Math.min(1, held / state.tuning.CHARGE_MS) : 0;
 
   // The charge should look like it is *loading*, not just counting: a glow
   // that swells behind the sprite, brightest the instant before release.
@@ -641,7 +641,7 @@ function drawPlayer(ctx, state, now, rm) {
 function drawStepRation(ctx, state, now, p) {
   const mode = C.modeById(state.modeId);
   if (mode.controls !== "touch" || state.mode !== "playing") return;
-  const ms = mode.moveMs || C.MOVE_REPEAT_MS;
+  const ms = mode.hop ? state.tuning.TAP_MOVE_MS : state.tuning.MOVE_REPEAT_MS;
   const t = now - state.lastMoveAt;
   if (t >= 0 && t < ms) {
     const frac = t / ms;
@@ -671,9 +671,9 @@ function drawStepRation(ctx, state, now, p) {
  * pulsing faster as the spell runs out. Drawn in the same translated frame
  * as the dome so hit squash-and-kick apply.
  */
-function drawSentinel(ctx, e, now, bw, bh) {
+function drawSentinel(ctx, state, e, now, bw, bh) {
   const open = e.state === "up" && (e.willAttack ? !e.fired : true);
-  const cfg = C.SENTINEL[e.tier] || C.SENTINEL[1];
+  const cfg = state.tuning.SENTINEL[e.tier] || state.tuning.SENTINEL[1];
   const q = open ? Math.min(1, (now - e.t0) / cfg.openMs) : 0;   // spell spent
   const core = SENTINEL_CORE[e.tier] || SENTINEL_CORE[1];
   const R = bw * 0.62, cy = -bh * 0.44;
@@ -720,8 +720,8 @@ function drawEnemy(ctx, state, now, e) {
 
   let grow = 1, sx = 1, sy = 1, flash = 0;
 
-  if (e.state === "rising") grow = EASE.out2(Math.min(1, t / (e.riseMs || C.RISE_MS)));
-  else if (e.state === "sinking") grow = 1 - EASE.out2(t / C.SINK_MS);
+  if (e.state === "rising") grow = EASE.out2(Math.min(1, t / (e.riseMs || state.tuning.RISE_MS)));
+  else if (e.state === "sinking") grow = 1 - EASE.out2(t / state.tuning.SINK_MS);
   else if (e.state === "hit") {
     const tier = e.tier;
     const uniform = 1 + (tier.scale.peak - 1) * impulseValue(e.fx.scale, now);
@@ -732,20 +732,20 @@ function drawEnemy(ctx, state, now, e) {
     // The hit clock starts when the tracer *lands*, so `t` is negative for the
     // whole flight: the victim must look untouched until the shot gets there.
     flash = t < 0 ? 0 : Math.max(0, 1 - t / 70);
-    grow = Math.min(1, 1 - Math.max(0, (t - C.HIT_MS * 0.55) / (C.HIT_MS * 0.45)));
+    grow = Math.min(1, 1 - Math.max(0, (t - state.tuning.HIT_MS * 0.55) / (state.tuning.HIT_MS * 0.45)));
   }
 
   const ht = now - e.hopT0;
-  if (e.state === "up" && ht < C.HOP_GROW_MS) grow *= EASE.out2(ht / C.HOP_GROW_MS);
+  if (e.state === "up" && ht < state.tuning.HOP_GROW_MS) grow *= EASE.out2(ht / state.tuning.HOP_GROW_MS);
 
   if (grow <= 0) return;
 
   const skin = SKINS[e.type];
 
   // hopper afterimage: the arc it just took, still hanging in the air
-  if (e.state === "up" && e.hopFromCol !== undefined && ht >= 0 && ht < C.HOP_GROW_MS * 2) {
+  if (e.state === "up" && e.hopFromCol !== undefined && ht >= 0 && ht < state.tuning.HOP_GROW_MS * 2) {
     const from = panel(G, e.hopFromCol, e.hopFromRow);
-    const k = 1 - ht / (C.HOP_GROW_MS * 2);
+    const k = 1 - ht / (state.tuning.HOP_GROW_MS * 2);
     ctx.fillStyle = skin.dome;
     for (let i = 1; i <= 2; i++) {
       const f = i / 3;
@@ -763,7 +763,7 @@ function drawEnemy(ctx, state, now, e) {
   ctx.globalAlpha = e.state === "hit" ? grow : 1;
 
   if (e.type === "sentinel") {
-    drawSentinel(ctx, e, now, bw, bh);
+    drawSentinel(ctx, state, e, now, bw, bh);
     ctx.restore();
     return;
   }
@@ -1249,8 +1249,8 @@ function drawHurtWorld(ctx, state, now, rm) {
   // i-frames, as a clock: the arc unwinds and the last stretch turns cyan, so
   // the moment you are mortal again is a thing you saw happen.
   const left = state.hurtUntil - now;
-  if (left > 0 && left <= C.HIT_IFRAME_MS && state.mode === "playing") {
-    const k = left / C.HIT_IFRAME_MS;
+  if (left > 0 && left <= state.tuning.HIT_IFRAME_MS && state.mode === "playing") {
+    const k = left / state.tuning.HIT_IFRAME_MS;
     const ending = k < 0.28;
     ctx.globalAlpha = (ending ? 0.85 : 0.45) * (rm ? 0.75 : 1);
     ctx.strokeStyle = ending ? "#45e0e8" : "#ff8ba0";
@@ -1374,7 +1374,7 @@ function levelUpAt(state) {
 
 function levelUpFromKills(state) {
   const del = state.deletions;
-  if (del <= 0 || C.level(del) === C.level(del - 1)) return -Infinity;
+  if (del <= 0 || state.tuning.level(del) === state.tuning.level(del - 1)) return -Infinity;
   const d = lastDeletion(state);
   return d ? d.at : -Infinity;
 }
@@ -1387,12 +1387,12 @@ function levelUpFromKills(state) {
  * stage the ladder steps to coarser pips rather than shaving them below
  * PIP_MIN_W, because six unreadable slivers are worse than three fat ones.
  */
-function pipLayout(G) {
+function pipLayout(G, t) {
   const w = G.w - PAD * 2;
   let L = null;
   for (let i = 0; i < PIP_LADDER.length; i++) {
     const secs = PIP_LADDER[i];
-    const n = Math.max(1, Math.round(C.TIME_CAP / secs));
+    const n = Math.max(1, Math.round(t.TIME_CAP / secs));
     const sections = Math.ceil(n / PIP_SECTION);
     const pw = (w - (n - 1) * PIP_GAP - (sections - 1) * PIP_SECTION_GAP) / n;
     L = { x: PAD, w, n, secs, pw };
@@ -1417,10 +1417,10 @@ function eachPip(L, a, b, fn) {
 }
 
 function drawTimePips(ctx, state, now, hud, rm) {
-  const L = pipLayout(state.G);
+  const L = pipLayout(state.G, state.tuning);
   const y = PIP_Y, h = PIP_H;
   const playing = hud.mode === "playing";
-  const low = hud.timeLeft < C.LOW_TIME && playing;
+  const low = hud.timeLeft < state.tuning.LOW_TIME && playing;
   const col = low ? "#ff5470" : hud.overclock ? "#ff9f45" : "#45e0e8";
   const filled = Math.max(0, Math.min(L.n, hud.timeLeft / L.secs));
 
@@ -1462,7 +1462,7 @@ function drawTimePips(ctx, state, now, hud, rm) {
   if (ht >= 0 && ht < PIP_LOSS_MS && playing) {
     const q = ht / PIP_LOSS_MS;
     const lift = rm ? 0 : 11 * EASE.out2(q);
-    const lost = C.HIT_TIME_PENALTY / L.secs;
+    const lost = state.tuning.HIT_TIME_PENALTY / L.secs;
     ctx.globalAlpha = (1 - q) * (rm ? 0.75 : 1);
     ctx.fillStyle = "#ff5470";
     eachPip(L, filled, filled + lost, (x, w) =>
@@ -1482,7 +1482,7 @@ function drawTimePips(ctx, state, now, hud, rm) {
     ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
-    eachPip(L, filled, filled + (C.BONUS.normal * hud.overclockFactor) / L.secs,
+    eachPip(L, filled, filled + (state.tuning.BONUS.normal * hud.overclockFactor) / L.secs,
       (x, w) => ctx.strokeRect(x + 0.5, y + 0.5, Math.max(1, w - 1), h - 1));
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
@@ -1641,9 +1641,9 @@ function drawHUD(ctx, state, now, rm) {
   // motion.
   // the pips still read red when the clock is low, but the pulse is the
   // clock running -- and in a safe zone it is not
-  const low = hud.timeLeft < C.LOW_TIME;
+  const low = hud.timeLeft < state.tuning.LOW_TIME;
   if (hud.mode === "playing" && !hud.paused && low && !hud.safe) {
-    const urg = 1 - Math.max(0, hud.timeLeft) / C.LOW_TIME;
+    const urg = 1 - Math.max(0, hud.timeLeft) / state.tuning.LOW_TIME;
     const pulse = rm ? 0.5 : 0.5 + 0.5 * Math.sin(now / 105);
     const a = (0.08 + 0.2 * urg) * (0.45 + 0.55 * pulse);
     ctx.strokeStyle = "#ff5470";

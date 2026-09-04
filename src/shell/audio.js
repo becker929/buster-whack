@@ -102,7 +102,7 @@ export function createAudio(win) {
   /** Every source node currently alive, so teardown can silence all of them. */
   const live = new Set();
 
-  const AC = win.AudioContext || win.webkitAudioContext;
+  const AC = /** @type {any} */ (win).AudioContext || /** @type {any} */ (win).webkitAudioContext;
 
   function build() {
     ac = new AC();

@@ -3,7 +3,7 @@
  * Never mutates state.
  */
 
-import { OC_START, bonusFactor, level, multOf, TIME_CAP, modeById } from "./constants.js";
+import { multOf, modeById } from "./constants.js";
 import * as C from "./constants.js";
 import { activeArena, npcBeside, safeZone } from "./world.js";
 
@@ -17,14 +17,14 @@ export function hopPose(state, now) {
   const still = { col: state.player.col, row: state.player.row, lift: 0, sx: 1, sy: 1, phase: "still" };
   if (!h) return still;
   const t = now - h.t0;
-  if (t < 0 || t >= C.HOP_TOTAL_MS) return still;
-  if (t < C.HOP_WINDUP_MS) {
-    const k = t / C.HOP_WINDUP_MS;
+  if (t < 0 || t >= state.tuning.HOP_TOTAL_MS) return still;
+  if (t < state.tuning.HOP_WINDUP_MS) {
+    const k = t / state.tuning.HOP_WINDUP_MS;
     return { col: h.fromCol, row: h.fromRow, lift: 0, sx: 1 + 0.12 * k, sy: 1 - 0.14 * k, phase: "windup" };
   }
-  const m = t - C.HOP_WINDUP_MS;
-  if (m < C.HOP_MOVE_MS) {
-    const k = m / C.HOP_MOVE_MS;
+  const m = t - state.tuning.HOP_WINDUP_MS;
+  if (m < state.tuning.HOP_MOVE_MS) {
+    const k = m / state.tuning.HOP_MOVE_MS;
     const e = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);   // ease in-out
     return {
       col: h.fromCol + (h.toCol - h.fromCol) * e,
@@ -34,7 +34,7 @@ export function hopPose(state, now) {
       phase: "move",
     };
   }
-  const st = (m - C.HOP_MOVE_MS) / C.HOP_SETTLE_MS;
+  const st = (m - state.tuning.HOP_MOVE_MS) / state.tuning.HOP_SETTLE_MS;
   const d = Math.sin(Math.PI * st) * (1 - st);
   return { col: h.toCol, row: h.toRow, lift: 0, sx: 1 + 0.16 * d, sy: 1 - 0.2 * d, phase: "settle" };
 }
@@ -80,21 +80,21 @@ export function statsView(state) {
 
 /** Everything the canvas HUD draws. */
 export function hudView(state) {
-  const oc = state.deletions >= OC_START;
+  const oc = state.deletions >= state.tuning.OC_START;
   return {
     score: String(state.score).padStart(6, "0"),
     chain: state.chain,
     mult: multOf(state.chain),
     // advance counts arenas: the level is where you are on the road
-    level: modeById(state.modeId).advancing ? activeArena(state.world).idx + 1 : level(state.deletions),
+    level: modeById(state.modeId).advancing ? activeArena(state.world).idx + 1 : state.tuning.level(state.deletions),
     unlimited: !!state.unlimited,
     bombs: state.bombs || 0,
     timeLeft: state.timeLeft,
-    timeFrac: Math.max(0, Math.min(1, state.timeLeft / TIME_CAP)),
+    timeFrac: Math.max(0, Math.min(1, state.timeLeft / state.tuning.TIME_CAP)),
     // the clock is paused: nothing here is held against you
     safe: safeZone(state.world),
     overclock: oc,
-    overclockFactor: bonusFactor(state.deletions),
+    overclockFactor: state.tuning.bonusFactor(state.deletions),
     paused: state.paused,
     mode: state.mode,
   };
@@ -123,8 +123,8 @@ export function gameOverView(state) {
     eyebrow: "run complete",
     title: state.rank,
     rank: true,
-    sub: state.deletions >= OC_START
-      ? "overclock reached ×" + bonusFactor(state.deletions).toFixed(2)
+    sub: state.deletions >= state.tuning.OC_START
+      ? "overclock reached ×" + state.tuning.bonusFactor(state.deletions).toFixed(2)
       : "",
     rows: [
       ["score", state.score + " pts", "big"],

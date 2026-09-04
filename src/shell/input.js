@@ -180,12 +180,15 @@ export function createTouchMove(dispatch) {
  * @param {Window} o.win
  * @param {Element} o.host - the element the game is mounted into (the shadow host)
  * @param {ShadowRoot} o.root - the shadow root holding `els`
- * @param {Record<string, Element>} o.els - refs from dom.createUI
+ * @param {Record<string, any>} o.els - refs from dom.createUI
  * @param {(target, type, fn, opts?) => void} o.on - listener registrar that also records teardown
  * @param {(intent: object) => void} o.dispatch - queue an intent for the next step
  * @param {() => void} o.onGesture - user gesture (unlock audio)
  * @param {() => void} o.onMute - toggle sound (shell-side)
- * @returns {{ hold: () => ({dc:number,dr:number}|null), focus: () => void }}
+ * @param {Array<{id: string}>} [o.modes] - the menu's modes, in order
+ * @param {(id: string) => void} [o.onModeChange] - the menu's selection moved
+ * @returns {{ hold: () => ({dc:number,dr:number}|null), focus: () => void,
+ *             setControls: (controls: string, opts?: {tapMove?: boolean}) => void }}
  */
 export function createInput({ win, host, root, els, on, dispatch, onGesture, onMute, modes, onModeChange }) {
   const doc = (host && host.ownerDocument) || win.document;

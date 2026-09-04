@@ -10,7 +10,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, addEnemy, step, typesOf, count, C } from "./helpers.mjs";
+import { newGame, addEnemy, step, typesOf, count, C, T } from "./helpers.mjs";
 import { createFireLatch } from "../src/shell/input.js";
 
 /** A latch wired to a recording dispatch. */
@@ -128,7 +128,7 @@ test("extra releases behind the real one cannot double-fire a charge", () => {
   addEnemy(s, { type: "mett", col: 3, row: 1 });
 
   step(s, 0, [{ type: "firePressed" }]);     // normal shot + charge starts
-  step(s, C.CHARGE_MS + 20, []);
+  step(s, T.CHARGE_MS + 20, []);
   assert.equal(s.charge.full, true);
   assert.equal(s.canFire, false);
   const shots = s.shots;
@@ -155,7 +155,7 @@ test("the press/charge/release cycle still works, repeatedly", () => {
     // the previous iteration's kill leaves a hit-stop freeze pending, and a
     // freeze eats the front of a frame's dt, so hold for long enough to outlast
     // the worst case as well as the charge itself
-    const held = step(s, C.CHARGE_MS + 20 + C.MAX_HITSTOP, []);
+    const held = step(s, T.CHARGE_MS + 20 + C.MAX_HITSTOP, []);
     assert.ok(typesOf(held).includes("chargeReady"), "the charge announces itself once");
 
     const up = step(s, 16, [{ type: "fireReleased" }]);
@@ -178,7 +178,7 @@ test("a double press is a no-op while the button is held", () => {
 test("blur releases a held charge without leaving the game unfirable", () => {
   const s = newGame();
   step(s, 0, [{ type: "firePressed" }]);
-  step(s, C.CHARGE_MS + 20, []);
+  step(s, T.CHARGE_MS + 20, []);
   assert.equal(s.canFire, false);
 
   step(s, 16, [{ type: "fireReleased" }, { type: "pauseOnBlur" }]);

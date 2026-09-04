@@ -3,7 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, addEnemy, fire, fireCharged, step, typesOf, find, C } from "./helpers.mjs";
+import { newGame, addEnemy, fire, fireCharged, step, typesOf, find, C, T } from "./helpers.mjs";
 import { statsView, hudView, accuracyText, interlevelView, gameOverView } from "../src/core/select.js";
 
 const VOCABULARY = new Set([
@@ -69,14 +69,14 @@ test("every audible moment has an event", () => {
   // charge ready
   const c = newGame();
   step(c, 0, [{ type: "firePressed" }]);
-  assert.ok(find(step(c, C.CHARGE_MS, []), "chargeReady"));
+  assert.ok(find(step(c, T.CHARGE_MS, []), "chargeReady"));
 
   // aim / bolt / hurt, for both bolts
   for (const [type, kind] of [["mett", "slow"], ["hopper", "fast"]]) {
     const a = newGame();
-    a.deletions = C.ATTACK_START + 4;
+    a.deletions = T.ATTACK_START + 4;
     addEnemy(a, { type, state: "rising", t0: a.clock, willAttack: true });
-    assert.ok(find(step(a, C.RISE_MS, []), "enemyAim"), type);
+    assert.ok(find(step(a, T.RISE_MS, []), "enemyAim"), type);
     let fired = null;
     for (let i = 0; i < 120 && !fired; i++) fired = find(step(a, 16, []), "enemyFired");
     assert.ok(fired, type + " fired");
@@ -128,11 +128,11 @@ test("selectors describe the state without touching it", () => {
   const hud = hudView(s);
   assert.equal(hud.score, "001234");
   assert.equal(hud.mult, 3);
-  assert.equal(hud.level, C.level(9));
+  assert.equal(hud.level, T.level(9));
   assert.equal(hud.overclock, false);
-  assert.equal(hud.timeFrac, 12.34 / C.TIME_CAP);
+  assert.equal(hud.timeFrac, 12.34 / T.TIME_CAP);
 
-  const il = interlevelView(s, C.STAGES[0], C.STAGE_BONUS);
+  const il = interlevelView(s, C.STAGES[0], T.STAGE_BONUS);
   assert.equal(il.title, C.STAGES[0].title);
   assert.ok(il.rows.some((r) => r[0] === "stage bonus" && r[1] === "+2.0s"));
 

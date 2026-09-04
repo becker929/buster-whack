@@ -18,8 +18,8 @@
  * renderer, as a translate. Deterministic: road heights come from state.rng.
  */
 
-import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, NARROW_ROAD_CHANCE, arenaPlan,
-         TOWER_COLS, STORY_ROUTE, towerSpec } from "./constants.js";
+import { COLS, PCOLS, ROWS, ROAD_COLS, ROAD_MID_ROW, TOWER_COLS, STORY_ROUTE, towerSpec } from "./constants.js";
+import { defaultTuning } from "./tuning.js";
 
 export const TILE = {
   PLAYER: "player",
@@ -34,8 +34,9 @@ export const TILE = {
  * tower at the origin with the first arena as its guard beyond it.
  */
 export function createWorld(opts = {}) {
-  if (!opts.story) return { segs: [arena(0, 0)] };
-  return { segs: [tower(0, STORY_ROUTE[0], true), arena(TOWER_COLS, 0, false)] };
+  const t = opts.tuning || defaultTuning();
+  if (!opts.story) return { segs: [arena(0, 0, true, t)] };
+  return { segs: [tower(0, STORY_ROUTE[0], true), arena(TOWER_COLS, 0, false, t)] };
 }
 
 /** A roost on the strip: the player's own ground, with people on it. */
@@ -48,8 +49,8 @@ function tower(x0, roost, entered = false) {
   };
 }
 
-function arena(x0, idx, entered = idx === 0) {
-  const plan = arenaPlan(idx);
+function arena(x0, idx, entered = idx === 0, t = defaultTuning()) {
+  const plan = t.arenaPlan(idx);
   return {
     kind: "arena", x0, cols: COLS, idx, owner: "enemy", entered,
     // the guard: how many viruses hold this road, how many join at once, and
@@ -138,9 +139,10 @@ export const inArena = (a, wx) => wx >= a.x0 && wx < a.x0 + a.cols;
  * and the new arena so the caller can announce them.
  */
 export function clearArena(world, rng, opts = {}) {
+  const tun = opts.tuning || defaultTuning();
   const a = activeArena(world);
   a.owner = "player";
-  const narrow = rng() < NARROW_ROAD_CHANCE;
+  const narrow = rng() < tun.NARROW_ROAD_CHANCE;
   const road = {
     kind: "road",
     x0: a.x0 + a.cols,
@@ -156,7 +158,7 @@ export function clearArena(world, rng, opts = {}) {
     world.segs.push(t);
     x += t.cols;
   }
-  const next = arena(x, a.idx + 1);
+  const next = arena(x, a.idx + 1, false, tun);
   world.segs.push(next);
   return { cleared: a, road, tower: t, next };
 }

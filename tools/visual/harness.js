@@ -42,7 +42,7 @@ function placeEnemy(state, o) {
     type,
     state: o.state || "up",
     t0: o.t0 === undefined ? state.clock : o.t0,
-    riseMs: type === "ally" ? C.ALLY_RISE_MS : C.RISE_MS,
+    riseMs: type === "ally" ? state.tuning.ALLY_RISE_MS : state.tuning.RISE_MS,
     hp: o.hp === undefined ? (type === "hopper" ? 2 : 1) : o.hp,
     lastHop: state.clock,
     hopT0: -1e9,
@@ -71,7 +71,7 @@ function placeBolt(state, o) {
   const bolt = {
     row: o.row,
     x: p.x + p.w / 2,
-    speed: o.speed === undefined ? state.G.pw / C.boltPanelMs(state.deletions) : o.speed,
+    speed: o.speed === undefined ? state.G.pw / state.tuning.boltPanelMs(state.deletions) : o.speed,
     heavy: !!o.heavy,
   };
   if (o.kind !== undefined) bolt.kind = o.kind;

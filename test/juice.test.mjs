@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCanvas } from "@napi-rs/canvas";
-import { newGame, addEnemy, fire, fireCharged, step, find, C, setLayout } from "./helpers.mjs";
+import { newGame, addEnemy, fire, fireCharged, step, find, C, setLayout, T } from "./helpers.mjs";
 import { createState } from "../src/core/state.js";
 import { draw } from "../src/shell/render.js";
 import { snapshot } from "./helpers.mjs";
@@ -212,7 +212,7 @@ test("a mid-run resize carries everything in flight with it", () => {
   step(s, 40, []);
   s.bolts.push({
     row: 0, x: C.panelRect(s.G, 5, 0).x + s.G.pw / 2, speed: s.G.pw / 150,
-    kind: "slow", radius: s.G.pw * C.BOLT.slow.radiusFrac, heavy: true,
+    kind: "slow", radius: s.G.pw * T.BOLT.slow.radiusFrac, heavy: true,
   });
 
   const before = s.G;
@@ -227,7 +227,7 @@ test("a mid-run resize carries everything in flight with it", () => {
   assert.equal(Number((s.bolts[0].speed / G.pw).toFixed(12)),
     Number((s.G.pw / 150 / G.pw).toFixed(12)), "and it still crosses a panel in the same time");
   assert.equal(Number((s.bolts[0].radius / G.pw).toFixed(12)),
-    Number(C.BOLT.slow.radiusFrac.toFixed(12)),
+    Number(T.BOLT.slow.radiusFrac.toFixed(12)),
     "and the head stays the same fraction of a panel — the renderer reads px");
 });
 

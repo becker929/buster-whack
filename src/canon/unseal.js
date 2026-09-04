@@ -40,7 +40,7 @@ function __drawTheCurtain__() {
   const b64 = Array.from(reversed).reverse().join("");
   const json = typeof atob === "function"
     ? atob(b64)
-    : Buffer.from(b64, "base64").toString("utf8");
+    : /** @type {any} */ (globalThis).Buffer.from(b64, "base64").toString("utf8");
   __method__ = JSON.parse(json);
   return __method__;
 }

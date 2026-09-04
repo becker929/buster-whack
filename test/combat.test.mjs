@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, addEnemy, fire, step, find, count, C } from "./helpers.mjs";
+import { newGame, addEnemy, fire, step, find, count, C, T } from "./helpers.mjs";
 
 const px = (s) => {
   const p = C.panelRect(s.G, s.player.col, s.player.row);
@@ -11,18 +11,18 @@ test("an enemy walks rising -> up -> sinking -> gone", () => {
   const s = newGame();
   const e = addEnemy(s, { type: "mett", state: "rising", t0: s.clock });
 
-  step(s, C.RISE_MS - 1, []);
+  step(s, T.RISE_MS - 1, []);
   assert.equal(e.state, "rising");
   const ev = step(s, 2, []);
   assert.equal(e.state, "up");
   assert.equal(count(ev, "enemyAim"), 0, "a passive enemy never telegraphs");
 
-  step(s, C.upMs(s.deletions) - 1, []);
+  step(s, T.upMs(s.deletions) - 1, []);
   assert.equal(e.state, "up");
   step(s, 2, []);
   assert.equal(e.state, "sinking");
 
-  step(s, C.SINK_MS - 1, []);
+  step(s, T.SINK_MS - 1, []);
   assert.equal(s.enemies.length, 1);
   const ev2 = step(s, 2, []);
   assert.equal(s.enemies.length, 0);
@@ -46,7 +46,7 @@ test("a deleted enemy lingers for HIT_MS after the tracer lands", () => {
   step(s, C.HITSTOP.normal, []);
   assert.equal(s.clock, s.enemies[0].t0, "hit-stop froze the simulation clock");
 
-  step(s, C.HIT_MS - 1, []);
+  step(s, T.HIT_MS - 1, []);
   assert.equal(s.enemies.length, 1);
   const ev = step(s, 2, []);
   assert.equal(s.enemies.length, 0);
@@ -56,22 +56,22 @@ test("a deleted enemy lingers for HIT_MS after the tracer lands", () => {
 test("progs rise slower than viruses", () => {
   const s = newGame();
   const a = addEnemy(s, { type: "ally", state: "rising", t0: s.clock });
-  step(s, C.RISE_MS + 1, []);
+  step(s, T.RISE_MS + 1, []);
   assert.equal(a.state, "rising");
-  step(s, C.ALLY_RISE_MS - C.RISE_MS, []);
+  step(s, T.ALLY_RISE_MS - T.RISE_MS, []);
   assert.equal(a.state, "up");
 });
 
 test("an attacker telegraphs on surfacing, fires after aimMs, then sticks around", () => {
   const s = newGame();
-  s.deletions = C.ATTACK_START + 10;
+  s.deletions = T.ATTACK_START + 10;
   const e = addEnemy(s, { type: "mett", col: 4, row: 2, state: "rising", t0: s.clock, willAttack: true });
 
-  const rise = step(s, C.RISE_MS, []);
+  const rise = step(s, T.RISE_MS, []);
   assert.ok(find(rise, "enemyAim"));
   assert.equal(e.state, "up");
 
-  const aim = C.aimMs(s.deletions, "slow");
+  const aim = T.aimMs(s.deletions, "slow");
   step(s, aim - 1, []);
   assert.equal(s.bolts.length, 0);
   const ev = step(s, 2, []);
@@ -85,11 +85,11 @@ test("an attacker telegraphs on surfacing, fires after aimMs, then sticks around
   const b = s.bolts[0];
   assert.equal(b.row, 2);
   assert.equal(b.kind, "slow");
-  assert.equal(b.speed, s.G.pw / C.boltPanelMs(s.deletions, "slow"));
+  assert.equal(b.speed, s.G.pw / T.boltPanelMs(s.deletions, "slow"));
 
   // it outlives its own aim, so the follow-through is always visible
-  const life = Math.max(C.upMs(s.deletions), aim + C.ATTACK_FOLLOW_MS);
-  assert.ok(life >= aim + C.ATTACK_FOLLOW_MS);
+  const life = Math.max(T.upMs(s.deletions), aim + T.ATTACK_FOLLOW_MS);
+  assert.ok(life >= aim + T.ATTACK_FOLLOW_MS);
   step(s, life - aim - 2, []);
   assert.equal(e.state, "up", "still up past a passive enemy's lifetime");
   step(s, 2, []);
@@ -102,9 +102,9 @@ test("an attacker telegraphs on surfacing, fires after aimMs, then sticks around
 // where dodging it does not fight the mechanic the guard exists to teach.
 test("a steel guard is an anchor and never fires", () => {
   const s = newGame();
-  s.deletions = C.ATTACK_START + 5;
+  s.deletions = T.ATTACK_START + 5;
   const g = addEnemy(s, { type: "guard", state: "up", willAttack: true });
-  step(s, C.aimMs(s.deletions, "slow") + C.aimMs(s.deletions, "fast") + 200, []);
+  step(s, T.aimMs(s.deletions, "slow") + T.aimMs(s.deletions, "fast") + 200, []);
   assert.equal(s.bolts.length, 0, "nothing left the guard");
   assert.equal(C.boltKindFor("guard"), "slow", "and if one ever did it would be a shell");
   assert.ok(g);
@@ -112,7 +112,7 @@ test("a steel guard is an anchor and never fires", () => {
 
 test("the two bolts differ in size and speed, and both are large", () => {
   const s = newGame();
-  s.deletions = C.ATTACK_START + 5;
+  s.deletions = T.ATTACK_START + 5;
   addEnemy(s, { type: "mett", col: 4, row: 0, state: "up", willAttack: true });
   addEnemy(s, { type: "hopper", col: 4, row: 2, state: "up", willAttack: true });
   // one frame at a time: the fast bolt crosses the whole board in well under
@@ -127,7 +127,7 @@ test("the two bolts differ in size and speed, and both are large", () => {
   assert.ok(slow.radius > fast.radius, "and the mett's is genuinely bigger");
   // both read as large projectiles: the old sprite was a flat 8px / 11px
   assert.ok(fast.radius > 11, "even the small one is larger than the old heavy bolt");
-  assert.equal(slow.radius, s.G.pw * C.BOLT.slow.radiusFrac, "radius scales with the board");
+  assert.equal(slow.radius, s.G.pw * T.BOLT.slow.radiusFrac, "radius scales with the board");
 });
 
 test("only metts and hoppers retaliate", () => {
@@ -149,47 +149,47 @@ test("only metts and hoppers retaliate", () => {
 // dodged during the aim rather than after the launch.
 test("telegraph + travel is the whole dodge window, and it stays fair", () => {
   const REACTION = 420;              // ms; a generous human reaction floor
-  for (const del of [C.ATTACK_START, 52, 150, 300, 600]) {
-    const slowAim = C.aimMs(del, "slow"), fastAim = C.aimMs(del, "fast");
+  for (const del of [T.ATTACK_START, 52, 150, 300, 600]) {
+    const slowAim = T.aimMs(del, "slow"), fastAim = T.aimMs(del, "fast");
     assert.ok(fastAim > slowAim,
       `the fast bolt telegraphs longer (del ${del}: ${fastAim} vs ${slowAim})`);
-    assert.ok(C.boltPanelMs(del, "fast") < C.boltPanelMs(del, "slow") * 0.6,
+    assert.ok(T.boltPanelMs(del, "fast") < T.boltPanelMs(del, "slow") * 0.6,
       "and it really is much faster in flight");
 
     for (const kind of ["slow", "fast"]) {
       // one panel apart is the tightest engagement the board allows
-      const tightest = C.dodgeWindowMs(del, kind, 1);
+      const tightest = T.dodgeWindowMs(del, kind, 1);
       assert.ok(tightest >= REACTION,
         `${kind} at ${del} deletions leaves ${tightest.toFixed(0)}ms — under the floor`);
       assert.equal(
-        C.dodgeWindowMs(del, kind, 3),
-        C.aimMs(del, kind) + (3 - C.BOLT_HIT_R) * C.boltPanelMs(del, kind),
+        T.dodgeWindowMs(del, kind, 3),
+        T.aimMs(del, kind) + (3 - T.BOLT_HIT_R) * T.boltPanelMs(del, kind),
         "the window is exactly telegraph + travel, nothing else");
       // the window shrinks with difficulty but never inverts
-      assert.ok(C.dodgeWindowMs(del, kind, 3) <= C.dodgeWindowMs(C.ATTACK_START, kind, 3));
+      assert.ok(T.dodgeWindowMs(del, kind, 3) <= T.dodgeWindowMs(T.ATTACK_START, kind, 3));
     }
     // the fast bolt is the one you must read early: after it launches there is
     // less than a reaction's worth of time left
-    assert.ok(C.dodgeWindowMs(del, "fast", 3) - fastAim < REACTION);
+    assert.ok(T.dodgeWindowMs(del, "fast", 3) - fastAim < REACTION);
     // the slow one can still be left after it launches
-    assert.ok(C.dodgeWindowMs(del, "slow", 3) - slowAim > REACTION);
+    assert.ok(T.dodgeWindowMs(del, "slow", 3) - slowAim > REACTION);
   }
 });
 
 test("a hopper plants itself while it aims, then goes back to fleeing", () => {
   const s = newGame();
-  s.deletions = C.ATTACK_START + 5;
+  s.deletions = T.ATTACK_START + 5;
   const h = addEnemy(s, { type: "hopper", col: 4, row: 1, state: "up", willAttack: true });
-  const aim = C.aimMs(s.deletions, "fast");
-  assert.ok(aim > C.HOP_MS, "the aim outlasts a hop, so planting is observable");
+  const aim = T.aimMs(s.deletions, "fast");
+  assert.ok(aim > T.HOP_MS, "the aim outlasts a hop, so planting is observable");
 
-  step(s, C.HOP_MS + 1, []);
+  step(s, T.HOP_MS + 1, []);
   assert.equal(h.col + "," + h.row, "4,1", "it does not hop mid-telegraph");
 
-  step(s, aim - C.HOP_MS + 1, []);
+  step(s, aim - T.HOP_MS + 1, []);
   assert.equal(s.bolts.length, 1);
   assert.equal(s.bolts[0].kind, "fast");
-  step(s, C.HOP_MS + 1, []);
+  step(s, T.HOP_MS + 1, []);
   assert.notEqual(h.col + "," + h.row, "4,1", "and it bolts again once it has fired");
 });
 
@@ -204,12 +204,12 @@ test("a bolt travelling into the player's panel costs time and the chain", () =>
   assert.equal(s.bolts.length, 0, "the bolt is consumed");
   const hit = find(ev, "playerHit");
   assert.ok(hit);
-  assert.equal(hit.timePenalty, C.HIT_TIME_PENALTY);
-  assert.equal(Number(s.timeLeft.toFixed(4)), Number((20 - 0.07 - C.HIT_TIME_PENALTY).toFixed(4)));
+  assert.equal(hit.timePenalty, T.HIT_TIME_PENALTY);
+  assert.equal(Number(s.timeLeft.toFixed(4)), Number((20 - 0.07 - T.HIT_TIME_PENALTY).toFixed(4)));
   assert.equal(s.chain, 0);
   assert.equal(find(ev, "chainBroken").cause, "hurt");
   assert.equal(s.charge.downAt, null, "a hit spills the charge");
-  assert.equal(s.hurtUntil, s.clock + C.HIT_IFRAME_MS);
+  assert.equal(s.hurtUntil, s.clock + T.HIT_IFRAME_MS);
 });
 
 test("a bolt in another row misses and eventually leaves the board", () => {
@@ -228,7 +228,7 @@ test("i-frames swallow a second hit inside HIT_IFRAME_MS", () => {
   s.timeLeft = 30;
   s.bolts.push({ row: s.player.row, x: px(s) + 60, speed: 1, heavy: false });
   step(s, 70, []);
-  assert.equal(s.timeLeft.toFixed(2), (30 - 0.07 - C.HIT_TIME_PENALTY).toFixed(2));
+  assert.equal(s.timeLeft.toFixed(2), (30 - 0.07 - T.HIT_TIME_PENALTY).toFixed(2));
   const after = s.timeLeft;
 
   s.bolts.push({ row: s.player.row, x: px(s) + 20, speed: 1, heavy: false });
@@ -238,7 +238,7 @@ test("i-frames swallow a second hit inside HIT_IFRAME_MS", () => {
   assert.equal(s.bolts.length, 1, "the bolt passes straight through");
 
   // once the window closes, the next bolt lands again
-  step(s, C.HIT_IFRAME_MS, []);
+  step(s, T.HIT_IFRAME_MS, []);
   s.bolts.length = 0;
   s.timeLeft = 30;
   s.bolts.push({ row: s.player.row, x: px(s) + 60, speed: 1, heavy: false });
@@ -258,7 +258,7 @@ test("hoppers flee on the hop timer while they are up", () => {
   const s = newGame();
   const h = addEnemy(s, { type: "hopper", col: 3, row: 0 });
   const before = h.col + "," + h.row;
-  step(s, C.HOP_MS - 1, []);
+  step(s, T.HOP_MS - 1, []);
   assert.equal(h.col + "," + h.row, before);
   const ev = step(s, 2, []);
   assert.ok(find(ev, "hopperHop"));
@@ -276,7 +276,7 @@ test("a wave is bounded by its size, and the board by MAX_ALIVE", () => {
   for (let i = 0; i < 600; i++) {
     for (const ev of step(s, 16, [])) if (ev.type === "waveStart") waves++;
     peak = Math.max(peak, s.enemies.length);
-    assert.ok(s.enemies.length <= C.MAX_ALIVE, "over the ceiling: " + s.enemies.length);
+    assert.ok(s.enemies.length <= T.MAX_ALIVE, "over the ceiling: " + s.enemies.length);
   }
   assert.ok(waves >= 2, "waves kept coming");
   assert.ok(peak >= 2, "and a whole formation was on the board at once");
@@ -287,7 +287,7 @@ test("a wave is bounded by its size, and the board by MAX_ALIVE", () => {
   for (let i = 0; i < 900; i++) {
     step(s2, 16, []);
     peak2 = Math.max(peak2, s2.enemies.length);
-    assert.ok(s2.enemies.length <= C.MAX_ALIVE);
+    assert.ok(s2.enemies.length <= T.MAX_ALIVE);
   }
   assert.ok(peak2 > 2, "the late game stacks enemies");
 });
@@ -310,8 +310,8 @@ test("waves arrive as a formation, with a readable lull between them", () => {
   }
   for (let i = 1; i + 1 < marks.length; i += 2) {
     const lull = marks[i + 1].at - marks[i].at;
-    assert.ok(lull >= C.LOW_TIME_LULL_MS - 20, "the lull is real: " + lull + "ms");
-    assert.ok(lull <= C.waveLullMs(0) + 40, "and bounded: " + lull + "ms");
+    assert.ok(lull >= T.LOW_TIME_LULL_MS - 20, "the lull is real: " + lull + "ms");
+    assert.ok(lull <= T.waveLullMs(0) + 40, "and bounded: " + lull + "ms");
   }
   // arrivals inside a wave are staggered, not simultaneous
   const staggered = marks.some((m) => m.type === "waveStart" && m.ev.size >= 2);
@@ -343,20 +343,20 @@ test("clearing every virus in a wave shortens the lull and pays time", () => {
   assert.ok(cleared.timeBonus > 0, "a clear pays time back");
   assert.equal(lapsed.timeBonus, 0, "letting one expire pays nothing");
   assert.ok(cleared.points > 0);
-  assert.ok(cleared.lullMs < C.waveLullMs(cleared.index),
+  assert.ok(cleared.lullMs < T.waveLullMs(cleared.index),
     "and the next wave comes sooner");
 });
 
 test("a lull never becomes dead air while the clock is low", () => {
   const s = newGame({ spawn: true, seed: 8 });
-  s.timeLeft = C.LOW_TIME - 1;
+  s.timeLeft = T.LOW_TIME - 1;
   let seen = 0;
   for (let i = 0; i < 900; i++) {
-    s.timeLeft = C.LOW_TIME - 1;           // hold it at the panic threshold
+    s.timeLeft = T.LOW_TIME - 1;           // hold it at the panic threshold
     for (const ev of step(s, 16, [])) {
       if (ev.type === "waveEnded") {
         seen++;
-        assert.ok(ev.lullMs <= C.LOW_TIME_LULL_MS, "lull " + ev.lullMs + "ms");
+        assert.ok(ev.lullMs <= T.LOW_TIME_LULL_MS, "lull " + ev.lullMs + "ms");
       }
     }
   }

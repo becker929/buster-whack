@@ -6,7 +6,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, step, C, find, count } from "./helpers.mjs";
+import { newGame, step, C, find, count, T } from "./helpers.mjs";
 import { createState } from "../src/core/state.js";
 import { clearArena, activeArena } from "../src/core/world.js";
 import { createTouchMove } from "../src/shell/input.js";
@@ -40,7 +40,7 @@ test("classic, one-hand and advance are retired: off the menu, still resolvable 
   assert.equal(C.modeById("no-such-mode").id, C.DEFAULT_MODE, "an unknown id falls back to the default");
   for (const m of C.MODES) {
     assert.ok(m.controls === "touch" || m.controls === "pad", m.id + " names a control scheme");
-    assert.ok(m.moveMs > 0, m.id + " names a step ration");
+    assert.ok(typeof m.hop === "boolean" || m.hop === undefined, m.id + " says whether it hops (which picks its ration)");
   }
   assert.equal(C.modeById("onehand").controls, "touch");
   assert.equal(C.modeById("advance").controls, "pad");
@@ -49,17 +49,17 @@ test("classic, one-hand and advance are retired: off the menu, still resolvable 
 });
 
 test("the step ration is a little over a quarter of a charge, and a hop fits inside it", () => {
-  const r = C.modeById("onehand").moveMs / C.CHARGE_MS;
+  const r = T.TAP_MOVE_MS / T.CHARGE_MS;
   assert.ok(r >= 0.25 && r <= 0.32, "ration/charge = " + r);
-  assert.equal(C.modeById("story").moveMs, C.TAP_MOVE_MS, "the story hops at the same ration");
-  assert.ok(C.HOP_TOTAL_MS < C.TAP_MOVE_MS, "the landing settles before the next step is allowed");
-  assert.equal(C.modeById("advance").moveMs, C.MOVE_REPEAT_MS, "the ring keeps its repeat rate");
+  assert.equal(C.modeById("story").hop, true, "the story hops at that ration");
+  assert.ok(T.HOP_TOTAL_MS < T.TAP_MOVE_MS, "the landing settles before the next step is allowed");
+  assert.ok(!C.modeById("advance").hop, "the retired ring mode keeps its repeat rate");
 });
 
 // A hop takes time: the square changes at the top of the arc (HOP_COMMIT_MS)
 // and the next step is allowed a ration (TAP_MOVE_MS) after the last began.
-const commit = (s) => step(s, C.HOP_COMMIT_MS, []);
-const ration = (s) => step(s, C.TAP_MOVE_MS, []);
+const commit = (s) => step(s, T.HOP_COMMIT_MS, []);
+const ration = (s) => step(s, T.TAP_MOVE_MS, []);
 
 // ---------- the ration ----------
 
@@ -73,7 +73,7 @@ test("a second step inside the ration is held, then taken when it ends", () => {
   step(s, 16, [{ type: "move", dc: 0, dr: 1 }]);
   assert.equal(at(s), "1,0", "the second step waits");
   assert.deepEqual(s.queuedMove, { kind: "by", dc: 0, dr: 1 });
-  step(s, C.TAP_MOVE_MS - C.HOP_COMMIT_MS - 40 - 16, []);
+  step(s, T.TAP_MOVE_MS - T.HOP_COMMIT_MS - 40 - 16, []);
   assert.equal(at(s), "1,0", "still inside the ration");
   assert.equal(s.queuedMove !== null, true);
   step(s, 40, []);
@@ -105,7 +105,7 @@ test("in advance a step inside the repeat window is dropped, as before, and land
   assert.equal(s.hop, null);
   step(s, 16, [{ type: "move", dc: 0, dr: 1 }]);
   assert.equal(s.queuedMove, null, "no queue outside one-hand");
-  step(s, C.MOVE_REPEAT_MS, []);
+  step(s, T.MOVE_REPEAT_MS, []);
   assert.equal(at(s), "1,0", "the dropped step never lands");
 });
 
@@ -228,7 +228,7 @@ test("a tap across a narrow road's void is refused: the funnel must be walked", 
   s.player.col = 5; s.player.row = 1;
   tap(s, road.x0 + 1, 0, 16);
   assert.equal(s.hop, null, "void is not standable");
-  tap(s, road.x0 + 1, 1, C.TAP_MOVE_MS);
+  tap(s, road.x0 + 1, 1, T.TAP_MOVE_MS);
   assert.deepEqual(s.path, { col: road.x0 + 1, row: 1 }, "the road's own row is");
 });
 
@@ -243,9 +243,9 @@ test("a held stick walks at the ration, not the ring's repeat rate", () => {
   assert.ok(s.hop && s.hop.toCol === 1, "the first hop starts at once");
   commit(s);
   assert.equal(at(s), "1,1");
-  step(s, C.MOVE_REPEAT_MS, { actions: [], hold });
+  step(s, T.MOVE_REPEAT_MS, { actions: [], hold });
   assert.equal(at(s), "1,1", "past the ring's repeat window nothing more happens");
-  step(s, C.TAP_MOVE_MS, { actions: [], hold });
+  step(s, T.TAP_MOVE_MS, { actions: [], hold });
   commit(s);
   assert.equal(at(s), "2,1", "the second hop lands a ration later");
   // a flick: held for one frame inside the ration still lands its one step

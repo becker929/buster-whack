@@ -765,11 +765,12 @@ const IDS = [
 /**
  * Attach (or reuse) the shadow root, stamp the template and collect refs.
  * @param {Element} container
- * @returns {{ root: ShadowRoot, els: Record<string, Element> }}
+ * @returns {{ root: ShadowRoot, els: Record<string, any> }}
  */
 export function createUI(container) {
   const root = container.shadowRoot || container.attachShadow({ mode: "open" });
   root.innerHTML = TEMPLATE;
+  /** @type {Record<string, any>} */
   const els = {};
   for (const id of IDS) els[id] = root.getElementById(id);
   return { root, els };
@@ -782,7 +783,7 @@ export function createUI(container) {
  * than fights. Kept as a no-op so the mount can keep announcing `statsChanged`
  * without knowing whether anything is listening.
  *
- * @param {Record<string, Element>} _els
+ * @param {Record<string, any>} _els
  * @param {ReturnType<import("../core/select.js").statsView>} _stats
  */
 export function renderStats(_els, _stats) {}

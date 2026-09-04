@@ -52,7 +52,7 @@ export function step(state, dtMs, intents = {}) {
     if (!safeZone(state.world)) state.timeLeft -= dtMs / 1000;
     if (state.timeLeft <= 0) { state.timeLeft = 0; gameOver(state, events); }
     if (state.charge.downAt !== null && !state.charge.full &&
-        state.clock - state.charge.downAt >= C.CHARGE_MS) {
+        state.clock - state.charge.downAt >= state.tuning.CHARGE_MS) {
       state.charge.full = true;
       events.push({ type: "chargeReady" });
     }

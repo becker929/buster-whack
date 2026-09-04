@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, addEnemy, fire, step, find, count, C } from "./helpers.mjs";
+import { newGame, addEnemy, fire, step, find, count, C, T } from "./helpers.mjs";
 import { computeRank } from "../src/core/select.js";
 
 test("stage gates are strictly ascending on both floors", () => {
@@ -12,7 +12,7 @@ test("stage gates are strictly ascending on both floors", () => {
   }
   // the overclock card and the overclock itself are the same moment
   const oc = C.STAGES.find((st) => st.title === "OVERCLOCK");
-  assert.equal(oc.at, C.OC_START);
+  assert.equal(oc.at, T.OC_START);
 });
 
 test("stageIdx advances linearly, one gate per crossing, in order", () => {
@@ -79,13 +79,13 @@ test("a stage gate pays a time bonus, drops bolts and parks the run", () => {
 
   const gate = find(ev, "stageGate");
   assert.ok(gate);
-  assert.equal(gate.timeBonus, C.STAGE_BONUS);
+  assert.equal(gate.timeBonus, T.STAGE_BONUS);
   assert.equal(s.mode, "interlevel");
   assert.equal(s.bolts.length, 0);
   assert.equal(s.charge.downAt, null);
   assert.equal(s.charge.full, false);
   assert.equal(Number(s.timeLeft.toFixed(4)),
-    Number((10 + C.BONUS.normal + C.STAGE_BONUS).toFixed(4)));
+    Number((10 + T.BONUS.normal + T.STAGE_BONUS).toFixed(4)));
 });
 
 test("the clock and enemies freeze during an interlevel, and resume restarts them", () => {
@@ -182,28 +182,28 @@ test("ranks follow accuracy and best chain", () => {
 });
 
 test("overclock decays the time reward past OC_START, rares at half rate", () => {
-  assert.equal(C.bonusFactor(C.OC_START), 1);
-  assert.equal(C.bonusFactor(C.OC_START - 1), 1);
-  assert.ok(C.bonusFactor(C.OC_START + 1) < 1);
-  assert.ok(C.bonusFactor(200) < C.bonusFactor(100));
-  assert.ok(C.bonusFactor(1000) > 0, "decay has no floor but never flips sign");
+  assert.equal(T.bonusFactor(T.OC_START), 1);
+  assert.equal(T.bonusFactor(T.OC_START - 1), 1);
+  assert.ok(T.bonusFactor(T.OC_START + 1) < 1);
+  assert.ok(T.bonusFactor(200) < T.bonusFactor(100));
+  assert.ok(T.bonusFactor(1000) > 0, "decay has no floor but never flips sign");
 
   const s = newGame();
-  s.deletions = C.OC_START + 39;      // the deletion below takes it to +40
+  s.deletions = T.OC_START + 39;      // the deletion below takes it to +40
   s.timeLeft = 10;
   addEnemy(s, { type: "mett" });
   const ev = fire(s);
-  const expected = C.BONUS.normal * C.bonusFactor(C.OC_START + 40);
+  const expected = T.BONUS.normal * T.bonusFactor(T.OC_START + 40);
   assert.equal(find(ev, "hit").timeBonus, expected);
-  assert.ok(expected < C.BONUS.normal);
+  assert.ok(expected < T.BONUS.normal);
 
   const r = newGame();
-  r.deletions = C.OC_START + 39;
+  r.deletions = T.OC_START + 39;
   r.timeLeft = 10;
   addEnemy(r, { type: "rare" });
   const rev = fire(r);
   assert.equal(find(rev, "hit").timeBonus,
-    C.BONUS.rare * Math.sqrt(C.bonusFactor(C.OC_START + 40)));
+    T.BONUS.rare * Math.sqrt(T.bonusFactor(T.OC_START + 40)));
 });
 
 // The OVERCLOCK card and the decay are the same moment by construction: the
@@ -211,16 +211,16 @@ test("overclock decays the time reward past OC_START, rares at half rate", () =>
 // the card that explains it.
 test("the overclock card fires on the deletion the decay starts at", () => {
   const oc = C.STAGES.findIndex((st) => st.title === "OVERCLOCK");
-  assert.equal(C.STAGES[oc].at, C.OC_START);
+  assert.equal(C.STAGES[oc].at, T.OC_START);
   const g = newGame();
   g.timeLeft = 1e6;
   g.stageIdx = oc;
   g.waveIdx = C.STAGES[oc].wave;
-  g.deletions = C.OC_START - 1;
-  assert.equal(C.bonusFactor(g.deletions), 1, "nothing has decayed yet");
+  g.deletions = T.OC_START - 1;
+  assert.equal(T.bonusFactor(g.deletions), 1, "nothing has decayed yet");
   step(g, 16, []);
   assert.equal(g.mode, "playing", "and the card has not fired yet either");
-  g.deletions = C.OC_START;
+  g.deletions = T.OC_START;
   assert.equal(find(step(g, 16, []), "stageGate").title, "OVERCLOCK");
 });
 
@@ -259,13 +259,13 @@ test("moving is clamped to the player's half and throttled", () => {
   assert.equal(s.player.col, 0, "throttled, and clamped at the left wall");
 
   // intents land before the frame's own dt, so the throttle opens a frame later
-  step(s, C.MOVE_REPEAT_MS, []);
+  step(s, T.MOVE_REPEAT_MS, []);
   step(s, 0, [{ type: "move", dc: 0, dr: -1 }]);
   assert.equal(s.player.row, 0);
-  step(s, C.MOVE_REPEAT_MS, []);
+  step(s, T.MOVE_REPEAT_MS, []);
   step(s, 0, [{ type: "move", dc: 0, dr: -1 }]);
   assert.equal(s.player.row, 0, "clamped at the top wall");
-  step(s, C.MOVE_REPEAT_MS, []);
+  step(s, T.MOVE_REPEAT_MS, []);
   step(s, 0, [{ type: "move", dc: 3, dr: 3 }]);
   assert.equal(s.player.col, C.PCOLS - 1);
   assert.equal(s.player.row, C.ROWS - 1);
@@ -279,9 +279,9 @@ test("a held d-pad direction repeats on the move throttle", () => {
   assert.equal(s.player.col, 1);
   step(s, 16, { actions: [], hold });
   assert.equal(s.player.col, 1, "still inside the repeat window");
-  step(s, C.MOVE_REPEAT_MS, { actions: [], hold });
+  step(s, T.MOVE_REPEAT_MS, { actions: [], hold });
   assert.equal(s.player.col, 2);
-  step(s, C.MOVE_REPEAT_MS, { actions: [{ type: "resetMoveThrottle" }], hold: { dc: -1, dr: 0 } });
+  step(s, T.MOVE_REPEAT_MS, { actions: [{ type: "resetMoveThrottle" }], hold: { dc: -1, dr: 0 } });
   assert.equal(s.player.col, 1, "rocking the ring responds immediately");
 });
 
@@ -305,7 +305,7 @@ test("a fresh run resets the scoreboard but keeps the best", () => {
   assert.equal(s.waveIdx, 0, "and the wave counter starts over");
   assert.equal(s.waveState, "lull");
   assert.equal(s.wave, null);
-  assert.equal(s.timeLeft, C.START_TIME);
+  assert.equal(s.timeLeft, T.START_TIME);
   assert.equal(s.enemies.length, 0);
   assert.equal(s.bolts.length, 0);
   assert.equal(s.best, 5000);

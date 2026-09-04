@@ -9,7 +9,6 @@ import { createWorld, activeArena, segmentAt } from "./world.js";
 import { computeRank } from "./select.js";
 import { shoot } from "./combat.js";
 import { clearFx } from "./fx.js";
-import { step } from "./step.js";
 
 export function firePressed(state, events) {
   if (!state.canFire) return;
@@ -50,7 +49,7 @@ export function togglePause(state, events) {
 export function resetGame(state, events, modeId) {
   const cfg = C.modeById(modeId || state.modeId);
   state.modeId = cfg.id;
-  state.world = createWorld({ story: !!cfg.story });
+  state.world = createWorld({ story: !!cfg.story, tuning: state.tuning });
   state.talks = {};
   state.routeIdx = 1;
   state.hop = null;
@@ -71,7 +70,7 @@ export function resetGame(state, events, modeId) {
   state.deletions = 0;
   state.shots = 0; state.whiffs = 0;
   state.chain = 0; state.bestChain = 0;
-  state.timeLeft = C.START_TIME;
+  state.timeLeft = state.tuning.START_TIME;
   state.player.col = 1; state.player.row = 1;
   state.queuedMove = null;
   state.lastMoveAt = -1e9;
@@ -142,13 +141,13 @@ export function enterInterlevel(state, events) {
   state.charge.full = false;
   state.bolts.length = 0;   // don't resume the run into a bolt you can't see coming
   state.hitStopMs = 0;      // nor into the tail of a freeze from the kill that opened the gate
-  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.STAGE_BONUS);
+  state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + state.tuning.STAGE_BONUS);
   events.push({
     type: "stageGate",
     stage,
     index,
     title: stage.title,
-    timeBonus: C.STAGE_BONUS,
+    timeBonus: state.tuning.STAGE_BONUS,
   });
   events.push({ type: "statsChanged" });
 }
@@ -176,10 +175,10 @@ export function updateWorld(state, events) {
   if (!a.entered && state.player.col >= a.x0) {
     a.entered = true;
     state.camAnchor = a.x0;
-    state.nextSpawnAt = now + C.ARENA_ENTRY_DELAY_MS;
+    state.nextSpawnAt = now + state.tuning.ARENA_ENTRY_DELAY_MS;
     state.levelT0 = now;
     events.push({ type: "arenaEntered", index: a.idx, x0: a.x0 });
-    if (a.idx >= C.ROAD_END) state.unlimited = true;
+    if (a.idx >= state.tuning.ROAD_END) state.unlimited = true;
     // the chapter card, at the arena boundary -- the one moment a pause is
     // free. Not in the story: there, people say what is coming.
     const st = C.modeById(state.modeId).story ? null : C.ADVANCE_STAGES.find((x) => x.arena === a.idx);
@@ -205,7 +204,7 @@ export function updateWorld(state, events) {
   state.camClock = now;
   const d = target - state.cam;
   if (Math.abs(d) < 0.002) state.cam = target;
-  else state.cam += d * (1 - Math.exp(-dt / C.CAM_TAU_MS));
+  else state.cam += d * (1 - Math.exp(-dt / state.tuning.CAM_TAU_MS));
 }
 
 /** Advance's chapter card: same overlay as a classic gate, keyed to an arena. */
@@ -214,8 +213,8 @@ export function showCard(state, events, stage, index) {
   state.charge.downAt = null;
   state.charge.full = false;
   state.bolts.length = 0;
-  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + C.STAGE_BONUS);
-  events.push({ type: "stageGate", stage, index, title: stage.title, timeBonus: C.STAGE_BONUS });
+  state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + state.tuning.STAGE_BONUS);
+  events.push({ type: "stageGate", stage, index, title: stage.title, timeBonus: state.tuning.STAGE_BONUS });
   events.push({ type: "statsChanged" });
 }
 

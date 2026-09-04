@@ -6,12 +6,10 @@
 
 import * as C from "./constants.js";
 import { walkable, worldEnd } from "./world.js";
-import { panel } from "./fx.js";
-import { ripple } from "./fx.js";
-import { step } from "./step.js";
+import { panel, ripple } from "./fx.js";
 
 /** The step ration for this run's mode: one-hand paces steps at half a charge. */
-export const moveMs = (state) => C.modeById(state.modeId).moveMs || C.MOVE_REPEAT_MS;
+export const moveMs = (state) => (C.modeById(state.modeId).hop ? state.tuning.TAP_MOVE_MS : state.tuning.MOVE_REPEAT_MS);
 export const moveReady = (state) => state.clock - state.lastMoveAt >= moveMs(state);
 /** Hopping modes hop; the retired ring modes step on the spot. */
 export const hops = (state) => !!C.modeById(state.modeId).hop;
@@ -111,11 +109,11 @@ export function updateHop(state, events) {
   const h = state.hop;
   if (!h) return;
   const t = state.clock - h.t0;
-  if (!h.committed && t >= C.HOP_COMMIT_MS) {
+  if (!h.committed && t >= state.tuning.HOP_COMMIT_MS) {
     h.committed = true;
     land(state, h.toCol, h.toRow, events);
   }
-  if (t >= C.HOP_TOTAL_MS) state.hop = null;
+  if (t >= state.tuning.HOP_TOTAL_MS) state.hop = null;
 }
 
 /**

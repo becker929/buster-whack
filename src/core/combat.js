@@ -5,10 +5,8 @@
 
 import * as C from "./constants.js";
 import { activeArena, npcBeside } from "./world.js";
-import { panel } from "./fx.js";
-import { hitStop, shake, spawnBits, ripple } from "./fx.js";
-import { move, land } from "./movement.js";
-import { step } from "./step.js";
+import { panel, hitStop, shake, spawnBits, ripple } from "./fx.js";
+import { land } from "./movement.js";
 import { hopTo } from "./waves.js";
 
 // dt rather than the clock: bolts move in real time, and the early return
@@ -19,7 +17,7 @@ export function updateBolts(state, dt, events) {
   const G = state.G;
   const pr = panel(state, state.player.col, state.player.row);
   const px = pr.x + pr.w / 2;
-  const hitR = G.pw * C.BOLT_HIT_R;
+  const hitR = G.pw * state.tuning.BOLT_HIT_R;
   for (let i = state.bolts.length - 1; i >= 0; i--) {
     const b = state.bolts[i];
     b.x -= b.speed * dt;
@@ -58,11 +56,11 @@ export function throwBomb(state, events) {
   if (state.bombs <= 0) { events.push({ type: "bombEmpty" }); return; }
   const now = state.clock;
   const a = activeArena(state.world);
-  const toCol = Math.min(state.player.col + C.BOMB_RANGE, a.x0 + a.cols - 1);
+  const toCol = Math.min(state.player.col + state.tuning.BOMB_RANGE, a.x0 + a.cols - 1);
   state.bombs--;
   state.bombsInFlight.push({
     fromCol: state.player.col, fromRow: state.player.row,
-    toCol, toRow: state.player.row, t0: now, dur: C.BOMB_ARC_MS,
+    toCol, toRow: state.player.row, t0: now, dur: state.tuning.BOMB_ARC_MS,
   });
   const p = panel(state, state.player.col, state.player.row);
   events.push({ type: "bombThrown", col: state.player.col, row: state.player.row,
@@ -80,12 +78,12 @@ export function updateBombs(state, events) {
     detonate(state, b.toCol, b.toRow, events);
   }
   const bl = state.fx.blasts;
-  for (let i = bl.length - 1; i >= 0; i--) if (now - bl[i].t0 > C.BOMB_BLAST_MS) bl.splice(i, 1);
+  for (let i = bl.length - 1; i >= 0; i--) if (now - bl[i].t0 > state.tuning.BOMB_BLAST_MS) bl.splice(i, 1);
 }
 
 export function detonate(state, col, row, events) {
   const now = state.clock;
-  const R = C.BOMB_RADIUS;
+  const R = state.tuning.BOMB_RADIUS;
   const p = panel(state, col, row);
   const cx = p.x + p.w / 2, cy = p.y + p.h * 0.5;
   let kills = 0;
@@ -97,20 +95,20 @@ export function detonate(state, col, row, events) {
       hitFx(e, C.TIERS.charged, now);
       state.whiffs++;
       breakChain(state, events, "prog");
-      state.timeLeft = Math.max(0, state.timeLeft - C.ALLY_TIME_PENALTY);
-      state.score = Math.max(0, state.score - C.ALLY_PTS_PENALTY);
+      state.timeLeft = Math.max(0, state.timeLeft - state.tuning.ALLY_TIME_PENALTY);
+      state.score = Math.max(0, state.score - state.tuning.ALLY_PTS_PENALTY);
       const ep = panel(state, e.col, e.row);
       state.fx.popups.push({ x: ep.x + ep.w / 2, y: ep.y - 8, t0: now,
-        text: "PROG HIT \u2212" + C.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470" });
+        text: "PROG HIT \u2212" + state.tuning.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470" });
       events.push({ type: "progHit", tier: "charged", col: e.col, row: e.row,
-        x: ep.x + ep.w / 2, y: ep.y, timePenalty: C.ALLY_TIME_PENALTY, pointsPenalty: C.ALLY_PTS_PENALTY });
+        x: ep.x + ep.w / 2, y: ep.y, timePenalty: state.tuning.ALLY_TIME_PENALTY, pointsPenalty: state.tuning.ALLY_PTS_PENALTY });
       continue;
     }
     if (e.type === "sentinel") {
       const open = e.willAttack ? !e.fired : true;
       if (!open) continue;
-      if (e.hp > C.SENTINEL_CHARGED_DMG) {
-        e.hp -= C.SENTINEL_CHARGED_DMG;
+      if (e.hp > state.tuning.SENTINEL_CHARGED_DMG) {
+        e.hp -= state.tuning.SENTINEL_CHARGED_DMG;
         const ep = panel(state, e.col, e.row);
         events.push({ type: "sentinelHit", col: e.col, row: e.row, x: ep.x + ep.w / 2, y: ep.y, hp: e.hp });
         continue;
@@ -137,16 +135,16 @@ export function detonate(state, col, row, events) {
 
 export function takeHit(state, events) {
   const now = state.clock;
-  state.hurtUntil = now + C.HIT_IFRAME_MS;
+  state.hurtUntil = now + state.tuning.HIT_IFRAME_MS;
   state.fx.hurtT0 = now;
-  state.timeLeft = Math.max(0, state.timeLeft - C.HIT_TIME_PENALTY);
+  state.timeLeft = Math.max(0, state.timeLeft - state.tuning.HIT_TIME_PENALTY);
   breakChain(state, events, "hurt");
   state.charge.downAt = null; state.charge.full = false;   // a hit spills your charge
   state.path = null;                                        // and stops an auto-walk: the world spoke
   const p = panel(state, state.player.col, state.player.row);
   state.fx.popups.push({
     x: p.x + p.w / 2, y: p.y - 8, t0: now,
-    text: "HIT −" + C.HIT_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
+    text: "HIT −" + state.tuning.HIT_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
   });
   state.fx.sparks.push({ x: p.x + p.w / 2, y: p.y + p.h * 0.3, t0: now });
   spawnBits(state, p.x + p.w / 2, p.y + p.h * 0.4, C.BIT_COUNT.hurt, C.DEBRIS.player,
@@ -156,7 +154,7 @@ export function takeHit(state, events) {
   hitStop(state, now, C.HITSTOP.hurt);
   events.push({
     type: "playerHit", col: state.player.col, row: state.player.row,
-    x: p.x + p.w / 2, y: p.y, timePenalty: C.HIT_TIME_PENALTY,
+    x: p.x + p.w / 2, y: p.y, timePenalty: state.tuning.HIT_TIME_PENALTY,
   });
   events.push({ type: "statsChanged" });
   // the clock running out is the frame loop's call, same as any other drain
@@ -219,14 +217,14 @@ export function deleteEnemy(state, target, tierName, land, events) {
     target.type === "hopper" ? "hopper" :
     target.type === "rare" ? "rare" :
     target.type === "sentinel" ? "sentinel" : tierName;
-  const pts = (C.PTS[baseKey] === undefined ? C.PTS[tierName] : C.PTS[baseKey]) * mult;
+  const pts = (state.tuning.PTS[baseKey] === undefined ? state.tuning.PTS[tierName] : state.tuning.PTS[baseKey]) * mult;
   state.score += pts;
   state.deletions++;
 
-  const bf = C.bonusFactor(state.deletions);
+  const bf = state.tuning.bonusFactor(state.deletions);
   const factor = baseKey === "rare" ? Math.sqrt(bf) : bf;
-  const timeBonus = (C.BONUS[baseKey] === undefined ? C.BONUS[tierName] : C.BONUS[baseKey]) * factor;
-  state.timeLeft = Math.min(C.TIME_CAP, state.timeLeft + timeBonus);
+  const timeBonus = (state.tuning.BONUS[baseKey] === undefined ? state.tuning.BONUS[tierName] : state.tuning.BONUS[baseKey]) * factor;
+  state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + timeBonus);
 
   // The felt half of a delete: debris in the skin's own colours, a ring in the
   // struck panel, a kick on the whole screen and a freeze — all sized by what
@@ -335,11 +333,11 @@ export function shoot(state, tierName, events) {
     hitFx(target, tier, land);
     state.whiffs++;                        // accuracy and rank take the hit too
     breakChain(state, events, "prog", land);
-    state.timeLeft = Math.max(0, state.timeLeft - C.ALLY_TIME_PENALTY);
-    state.score = Math.max(0, state.score - C.ALLY_PTS_PENALTY);
+    state.timeLeft = Math.max(0, state.timeLeft - state.tuning.ALLY_TIME_PENALTY);
+    state.score = Math.max(0, state.score - state.tuning.ALLY_PTS_PENALTY);
     state.fx.popups.push({
       x: cx, y: p.y - 8, t0: land,
-      text: "PROG HIT −" + C.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
+      text: "PROG HIT −" + state.tuning.ALLY_TIME_PENALTY.toFixed(1) + "s", color: "#ff5470",
     });
     spawnBits(state, cx, cy, C.BIT_COUNT.prog, C.DEBRIS.ally, { at: land, speed: 0.18 });
     ripple(state, target.col, target.row, "#ff5470", land, 3);
@@ -347,7 +345,7 @@ export function shoot(state, tierName, events) {
     hitStop(state, land, C.HITSTOP.prog);
     events.push({
       type: "progHit", tier: tierName, col: target.col, row: target.row, x: cx, y: p.y,
-      timePenalty: C.ALLY_TIME_PENALTY, pointsPenalty: C.ALLY_PTS_PENALTY,
+      timePenalty: state.tuning.ALLY_TIME_PENALTY, pointsPenalty: state.tuning.ALLY_PTS_PENALTY,
     });
     events.push({ type: "statsChanged" });
     return;
@@ -377,7 +375,7 @@ export function shoot(state, tierName, events) {
       events.push({ type: "guardBlocked", col: target.col, row: target.row, x: cx, y: p.y });
       return;
     }
-    const dmg = tierName === "charged" ? C.SENTINEL_CHARGED_DMG : 1;
+    const dmg = tierName === "charged" ? state.tuning.SENTINEL_CHARGED_DMG : 1;
     if (target.hp > dmg) {
       target.hp -= dmg;
       state.fx.sparks.push({ x: cx, y: p.y + p.h * 0.2, t0: land });

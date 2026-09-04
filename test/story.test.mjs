@@ -4,7 +4,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, step, C, find } from "./helpers.mjs";
+import { newGame, step, C, find, T } from "./helpers.mjs";
 import { activeArena, clearArena, tileAt, walkable, npcBeside, TILE } from "../src/core/world.js";
 import { contextVerb, hudView } from "../src/core/select.js";
 
@@ -103,10 +103,10 @@ test("towers arrive on the route, one before every tenth arena, and announce the
   const roosts = () => s.world.segs.filter((g) => g.kind === "tower").map((g) => g.roost);
   assert.deepEqual(roosts(), ["roost.01"]);
   // wipe arenas by hand the way the core does, and watch the strip grow
-  for (let i = 0; i < 2 * C.TOWER_EVERY; i++) {
+  for (let i = 0; i < 2 * T.TOWER_EVERY; i++) {
     const a = activeArena(s.world);
     const next = a.idx + 1;
-    const roost = next % C.TOWER_EVERY === 0 ? C.STORY_ROUTE[s.routeIdx] : null;
+    const roost = next % T.TOWER_EVERY === 0 ? C.STORY_ROUTE[s.routeIdx] : null;
     clearArena(s.world, s.rng, { tower: roost || undefined });
     if (roost) s.routeIdx++;
   }
@@ -179,10 +179,10 @@ test("the route visits every roost once before any repeat, a tower before every 
   for (let i = 1; i <= 8; i++) assert.ok(first.includes("roost.0" + i), "roost.0" + i + " is on the first pass");
   const s = story();
   for (let k = 1; k <= 4; k++) {
-    const idx = k * C.TOWER_EVERY;
+    const idx = k * T.TOWER_EVERY;
     while (activeArena(s.world).idx < idx) {
       const a = activeArena(s.world);
-      const roost = (a.idx + 1) % C.TOWER_EVERY === 0 ? C.STORY_ROUTE[s.routeIdx] : null;
+      const roost = (a.idx + 1) % T.TOWER_EVERY === 0 ? C.STORY_ROUTE[s.routeIdx] : null;
       clearArena(s.world, s.rng, { tower: roost || undefined });
       if (roost) s.routeIdx++;
     }
@@ -211,14 +211,14 @@ test("every tower has its keeper mid-floor, a lane past them, and the journal re
 });
 
 test("the story has no cards: unlocks follow the towers that announce them", () => {
-  assert.equal(C.unlockTable(C.modeById("story")), C.STORY_UNLOCK);
-  for (const [k, at] of Object.entries(C.STORY_UNLOCK)) {
+  assert.equal(T.unlockTable(C.modeById("story")), T.STORY_UNLOCK);
+  for (const [k, at] of Object.entries(T.STORY_UNLOCK)) {
     if (k === "unlimited") continue;
-    assert.equal((at % C.TOWER_EVERY), 0, k + " unlocks at an arena a tower stands before (" + at + ")");
+    assert.equal((at % T.TOWER_EVERY), 0, k + " unlocks at an arena a tower stands before (" + at + ")");
   }
   const s = story();
   // walk to the first card arena of the arcade schedule; the story shows none
-  for (let i = 0; i < C.ADV_UNLOCK.guard; i++) clearArena(s.world, s.rng);
+  for (let i = 0; i < T.ADV_UNLOCK.guard; i++) clearArena(s.world, s.rng);
   const a = activeArena(s.world);
   s.player.col = a.x0 + 1; s.cam = a.x0; s.camAnchor = a.x0;
   step(s, 16, []);

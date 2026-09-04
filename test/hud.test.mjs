@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { draw } from "../src/shell/render.js";
 import * as C from "../src/core/constants.js";
-import { newGame, addEnemy, fire, fireCharged, step, setLayout } from "./helpers.mjs";
+import { newGame, addEnemy, fire, fireCharged, step, setLayout, T } from "./helpers.mjs";
 
 const BAR_Y = 72;   // the middle of the pip bar, in CSS px from the top
 
@@ -51,20 +51,20 @@ const red = (r, g, b) => r > 190 && g < 130 && b > 70 && b < 160;
 function playing(opts = {}) {
   const s = newGame({ seed: 5, width: opts.width || 900, height: opts.height || 640 });
   setLayout(s, opts.width || 900, opts.height || 640);
-  s.timeLeft = opts.timeLeft === undefined ? C.TIME_CAP : opts.timeLeft;
+  s.timeLeft = opts.timeLeft === undefined ? T.TIME_CAP : opts.timeLeft;
   return s;
 }
 
 test("the time bar is drawn as discrete pips, one per 1.25s of the cap", () => {
   const s = playing();
   const { ctx } = frame(s);
-  assert.equal(pipRuns(ctx, 900, cyan), Math.round(C.TIME_CAP / 1.25),
+  assert.equal(pipRuns(ctx, 900, cyan), Math.round(T.TIME_CAP / 1.25),
     "a full clock fills every pip, and each one is its own run of pixels");
 });
 
 test("a hit costs a countable number of pips", () => {
   const before = playing({ timeLeft: 30 });
-  const after = playing({ timeLeft: 30 - C.HIT_TIME_PENALTY });
+  const after = playing({ timeLeft: 30 - T.HIT_TIME_PENALTY });
   const a = pipRuns(frame(before).ctx, 900, cyan);
   const b = pipRuns(frame(after).ctx, 900, cyan);
   assert.equal(a - b, 2, "HIT_TIME_PENALTY is exactly two pips wide");
@@ -124,7 +124,7 @@ test("a detonation is deterministic and damped by reducedMotion", () => {
 test("taking a hit reads differently under reducedMotion", () => {
   const s = playing({ timeLeft: 20 });
   s.fx.hurtT0 = s.clock;
-  s.hurtUntil = s.clock + C.HIT_IFRAME_MS;
+  s.hurtUntil = s.clock + T.HIT_IFRAME_MS;
   const full = frame(s).canvas.toBuffer("image/png");
   s.reducedMotion = true;
   const damped = frame(s).canvas.toBuffer("image/png");

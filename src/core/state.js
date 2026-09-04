@@ -5,7 +5,8 @@
  * is the point — so nothing here is frozen or copied per frame.
  */
 
-import { START_TIME, TIERS, layout, makeImpulse, DEFAULT_MODE } from "./constants.js";
+import { TIERS, layout, makeImpulse, DEFAULT_MODE } from "./constants.js";
+import { resolveTuning } from "./tuning.js";
 import { createWorld } from "./world.js";
 import { mulberry32 } from "./rng.js";
 
@@ -16,15 +17,20 @@ import { mulberry32 } from "./rng.js";
  * @param {number} [opts.best=0] - persisted best score.
  * @param {number} [opts.width=0] - stage width in CSS px.
  * @param {number} [opts.height=0] - stage height in CSS px.
+ * @param {string} [opts.modeId] - the mode a fresh state is set to (DEFAULT_MODE otherwise).
+ * @param {object} [opts.tuning] - overrides against the tuning schema, or a resolved tuning.
  * @param {boolean} [opts.reducedMotion=false] - damp shake and flashing. The
  *   renderer cannot read `matchMedia` (it never touches a DOM), so the shell
  *   reads the media query and hands the answer in as data.
  */
 export function createState(opts = {}) {
   const seed = opts.seed === undefined ? 1 : opts.seed;
+  // every number the game is balanced on, as data: defaults unless overridden
+  const tuning = opts.tuning && opts.tuning.values ? opts.tuning : resolveTuning(opts.tuning);
   return {
     rng: opts.rng || mulberry32(seed),
     seed,
+    tuning,
 
     mode: "ready",             // ready | playing | interlevel | over
     paused: false,
@@ -58,7 +64,7 @@ export function createState(opts = {}) {
     whiffs: 0,
     chain: 0,
     bestChain: 0,
-    timeLeft: START_TIME,
+    timeLeft: tuning.START_TIME,
     player: { col: 1, row: 1 },
     // { col,row,type,state,t0,hp, lastHop,hopT0, fx?,tier?, wave,
     //   willAttack,fired, boltKind,aimMs }

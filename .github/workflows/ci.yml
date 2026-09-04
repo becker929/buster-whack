@@ -15,9 +15,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run canon:check
+      - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run test:smoke
       - run: npm run build
+      - run: npm run size
 
       - name: Visual goldens
         run: npm run visual
@@ -42,3 +45,20 @@ jobs:
           path: .visual/diff/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The touch and keyboard suite drives the real shell in Chromium: pointer
+  # capture, the fire latch, the stick, the context bar, gesture containment.
+  # Playwright is not a devDependency (it is large and only this job needs
+  # it), so it is installed here without touching the lockfile.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

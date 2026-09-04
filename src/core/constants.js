@@ -23,11 +23,8 @@ export const PCOLS = 3;          // leftmost columns are the player's half by de
 // either full height or a single middle row, so some crossings funnel you.
 export const ROAD_COLS = 3;
 export const ROAD_MID_ROW = 1;
-export const NARROW_ROAD_CHANCE = 0.5;
-export const ARENA_CLEAR_BONUS = 3.0;    // seconds for taking an arena
-export const ARENA_CLEAR_PTS = 1500;
-export const ARENA_ENTRY_DELAY_MS = 650;  // the beat between stepping in and the wave waking
-export const CAM_TAU_MS = 170;            // camera ease: 63% of the way per TAU
+// NARROW_ROAD_CHANCE, ARENA_CLEAR_BONUS, ARENA_CLEAR_PTS, ARENA_ENTRY_DELAY_MS
+// and CAM_TAU_MS are tuning: see tuning.js.
 
 // An arena guards the road with a POOL of viruses, dealt in waves. A wave is
 // the group that joins the board together; its members stay until deleted,
@@ -35,62 +32,43 @@ export const CAM_TAU_MS = 170;            // camera ease: 63% of the way per TAU
 // when the pool is spent. So "enemies on screen" and "enemies guarding the
 // road" are different numbers: arena 0 is four viruses in two waves of two.
 // Ramps by arena index, independent of the stage-gate syllabus.
-export const ARENA_WAVE_GAP_MS = 550;     // the beat between a wave dying and the next dealing
-export const REFIRE_MS = 1400;            // a persistent attacker re-aims this long after firing
-export function arenaPlan(idx) {
-  const pool = Math.min(20, 4 + Math.floor(idx * 0.16));
-  const waveSize = Math.min(5, 2 + Math.floor(idx / 25));
-  return { pool, waveSize };
-}
+// ARENA_WAVE_GAP_MS, REFIRE_MS and arenaPlan() are tuning: see tuning.js.
 
 // ADVANCE progression, by arena index. The classic syllabus is keyed to wave
 // counts and had taught its last lesson by about arena 30, which is why the
 // road went flat around level 40-50. Here each mechanic has an arena, the
 // card shows as you step into it, and past ROAD_END the run is UNLIMITED:
 // nothing new is held back and the ramps just keep climbing.
-export const ROAD_END = 100;
-export const ADV_UNLOCK = {
-  guard: 5, retaliate: 9, hopper: 15, sentinel1: 20, ally: 30,
-  sentinel2: 40, swarm: 55, sentinel3: 70, unlimited: ROAD_END,
-};
+// ROAD_END and ADV_UNLOCK are tuning (see tuning.js); the retired ADVANCE
+// mode's cards are pinned to the shipped arenas.
 export const ADVANCE_STAGES = [
-  { arena: ADV_UNLOCK.guard,     title: "STEEL GUARDS" },
-  { arena: ADV_UNLOCK.retaliate, title: "RETALIATION" },
-  { arena: ADV_UNLOCK.hopper,    title: "HOPPERS" },
-  { arena: ADV_UNLOCK.sentinel1, title: "SENTINELS" },
-  { arena: ADV_UNLOCK.ally,      title: "PROGS ONLINE" },
-  { arena: ADV_UNLOCK.sentinel2, title: "SENTINEL MK II" },
-  { arena: ADV_UNLOCK.swarm,     title: "SWARM" },
-  { arena: ADV_UNLOCK.sentinel3, title: "SENTINEL MK III" },
-  { arena: ADV_UNLOCK.unlimited, title: "UNLIMITED" },
+  { arena: 5,   title: "STEEL GUARDS" },
+  { arena: 9,   title: "RETALIATION" },
+  { arena: 15,  title: "HOPPERS" },
+  { arena: 20,  title: "SENTINELS" },
+  { arena: 30,  title: "PROGS ONLINE" },
+  { arena: 40,  title: "SENTINEL MK II" },
+  { arena: 55,  title: "SWARM" },
+  { arena: 70,  title: "SENTINEL MK III" },
+  { arena: 100, title: "UNLIMITED" },
 ];
 
-// The yellow mett is a low-level hopper now: it does move, but at a third of
-// the green one's pace, so its lane is still something you can plan around.
-export const MET_HOP_MS = 1500;
+// MET_HOP_MS (the yellow mett's shuffle) is tuning: see tuning.js.
 
 // The Sentinel: a turret with an iris. Closed, it is armour; it opens on a
 // rhythm, and the open window is both its telegraph and the only time it can
 // be hurt. It fires a heavy shell as it closes. Three marks: more hits to
 // kill, a shorter window, a quicker cycle. Timing, where the mett asks for
 // aim and the hopper asks for a chase.
-export const SENTINEL = {
-  1: { hp: 1, openMs: 1400, closedMs: 1500 },
-  2: { hp: 2, openMs: 1050, closedMs: 1250 },
-  3: { hp: 3, openMs: 780,  closedMs: 1050 },
-};
-export const SENTINEL_CHARGED_DMG = 2;
-export const sentinelWaveChance = (idx) => Math.min(0.7, 0.35 + (idx - ADV_UNLOCK.sentinel1) * 0.006);
+// The marks' numbers (SENTINEL), SENTINEL_CHARGED_DMG and sentinelWaveChance
+// are tuning: see tuning.js.
 
 // The bomb. Thrown BOMB_RANGE columns ahead along your row, it arcs for
 // BOMB_ARC_MS and then splashes a 3x3: charged-shot damage to every virus in
 // it, and a hit on you if you are standing in it. One per pickup, found on
 // roads; single use, and you can carry as many as you find.
-export const BOMB_RANGE = 3;
-export const BOMB_ARC_MS = 640;
-export const BOMB_RADIUS = 1;               // tiles either side of the landing square
-export const BOMB_PICKUP_CHANCE = 0.6;      // per road; the first road always has one
-export const BOMB_BLAST_MS = 460;
+// BOMB_RANGE, BOMB_ARC_MS, BOMB_RADIUS, BOMB_PICKUP_CHANCE and BOMB_BLAST_MS
+// are tuning: see tuning.js.
 
 // ---------- towers (story) ----------
 // A tower is a roost on the strip: a wide segment of the player's own ground
@@ -101,7 +79,7 @@ export const BOMB_BLAST_MS = 460;
 // the ferry, act two back along the same links. Exits-per-row and sunsets
 // come later; for now the route is a line so the story arrives on time.
 export const TOWER_COLS = 6;
-export const TOWER_EVERY = 10;
+// TOWER_EVERY is tuning: see tuning.js.
 // Every roost once before any repeats (bible: regions.json strip.route_v3),
 // then the sunset-order returns. The Substation comes before the Elevator so
 // the person there can warn of the crew's numbers.
@@ -124,51 +102,23 @@ export const TOWER_SPECS = {
 };
 export const towerSpec = (roost) => TOWER_SPECS[roost] || { npcs: [] };
 
-// The story's unlocks, keyed to arenas so that the tower before each one is
-// where a person announces it (there are no cards in the story). Towers stand
-// before arenas 10, 20, 30, ...: the Tower warns of steel before 10, the
-// Annex asks you to spare the runners before 20, and so on.
-export const STORY_UNLOCK = {
-  guard: 10, ally: 20, retaliate: 30, hopper: 40, sentinel1: 50,
-  swarm: 60, sentinel2: 70, sentinel3: 90, unlimited: ROAD_END,
-};
-export const unlockTable = (mode) => (mode.story ? STORY_UNLOCK : ADV_UNLOCK);
+// STORY_UNLOCK and unlockTable() are tuning: see tuning.js.
 
-// ---------- the hop (touch modes) ----------
-// A step is a hop, one square, never diagonal: a crouch, the arc, a landing
-// squash, and the rest of the ration as cooldown. The square you count as
-// standing on changes at the top of the arc, so a bolt reads the sprite where
-// it is. A tap further than one square away lays a path and the hops follow
-// it, one per ration, until any new directive replaces it.
-export const HOP_WINDUP_MS = 30;
-export const HOP_MOVE_MS = 80;
-export const HOP_SETTLE_MS = 55;
-export const HOP_TOTAL_MS = HOP_WINDUP_MS + HOP_MOVE_MS + HOP_SETTLE_MS;
-export const HOP_COMMIT_MS = HOP_WINDUP_MS + HOP_MOVE_MS / 2;
+// The hop's phases (HOP_WINDUP_MS, HOP_MOVE_MS, HOP_SETTLE_MS, HOP_TOTAL_MS,
+// HOP_COMMIT_MS) are tuning: see tuning.js.
 
 // ---------- clock ----------
 
-export const START_TIME = 30;
-export const TIME_CAP = 45;
+// START_TIME and TIME_CAP are tuning: see tuning.js.
 
 // ---------- scoring ----------
 
-export const BONUS = { sentinel: 3.0, normal: 1.2, charged: 2.5, guard: 3.0, hopper: 1.8, rare: 8.0 };
-export const PTS   = { sentinel: 500, normal: 100, charged: 300, guard: 400, hopper: 250, rare: 1000 };
-export const ALLY_TIME_PENALTY = 3.0;
-export const ALLY_PTS_PENALTY = 200;
-export const ALLY_SPARE_BONUS = 0.5;
+// BONUS, PTS and the ALLY_* penalties are tuning: see tuning.js.
 
 // ---------- timings ----------
 
-export const CHARGE_MS = 700;
-export const RISE_MS = 220, SINK_MS = 180, HIT_MS = 280;
-export const MOVE_REPEAT_MS = 130;
-// One-hand movement: a tap is one step and a held stick is one step per
-// ration -- 195ms, a bit over a quarter of a charge -- so a position is a
-// commitment rather than a twitch while still reading as quick. A step asked
-// for during the cooldown is held and taken the moment it ends.
-export const TAP_MOVE_MS = 195;
+// CHARGE_MS, RISE_MS, SINK_MS, HIT_MS and MOVE_REPEAT_MS are tuning: see tuning.js.
+// TAP_MOVE_MS (the step ration) is tuning: see tuning.js.
 // A tap this far outside the grid (in panels) still lands on the nearest row:
 // the top row's upper half is thin under a thumb.
 export const TAP_SLACK = 0.4;
@@ -176,7 +126,7 @@ export const TAP_SLACK = 0.4;
 // ---------- modes (see the board section above for what ADVANCE means) ----------
 // `controls` is the shell's business -- which surfaces it wires and how it
 // lays them out -- but it rides on the mode so the menu is the one place a
-// player chooses. `moveMs` is the core's: the step ration for this mode.
+// player chooses. The step ration is tuning: `hop` picks which one applies.
 //
 // ONE HAND is built for a phone held in one hand: the bottom of the stage is a
 // two-button deck (FIRE left, BOMB right) where a keyboard would sit, and the
@@ -188,7 +138,7 @@ export const MODES = [
   // ring and the quarter-circle FIRE -- with the board taking taps to walk
   // there, and every step a hop.
   { id: "story", name: "STORY", blurb: "the Rookery", advancing: true, story: true,
-    controls: "pad", hop: true, tapMove: true, moveMs: TAP_MOVE_MS },
+    controls: "pad", hop: true, tapMove: true },
 ];
 // Retired: off the menu, but still resolvable by id. CLASSIC is the fixed
 // six-column board every renderer golden was pinned against; ONE HAND and
@@ -196,18 +146,16 @@ export const MODES = [
 // and goldens. Nothing on the menu starts them.
 export const RETIRED_MODES = [
   { id: "onehand", name: "ONE HAND", blurb: "stick · tap · fire", advancing: true,
-    controls: "touch", hop: true, tapMove: true, moveMs: TAP_MOVE_MS },
+    controls: "touch", hop: true, tapMove: true },
   { id: "advance", name: "ADVANCE", blurb: "ring + fire", advancing: true,
-    controls: "pad", moveMs: MOVE_REPEAT_MS },
+    controls: "pad" },
   { id: "classic", name: "CLASSIC", blurb: "hold the line", advancing: false,
-    controls: "pad", moveMs: MOVE_REPEAT_MS },
+    controls: "pad" },
 ];
 export const DEFAULT_MODE = "story";
 export const modeById = (id) =>
   MODES.find((m) => m.id === id) || RETIRED_MODES.find((m) => m.id === id) || MODES[0];
-export const HOP_MS = 550, HOP_GROW_MS = 120;
-export const HOPPER_LIFE = 2200, RARE_LIFE = 650;
-export const ALLY_RISE_MS = 460;  // progs surface slowly and can't be hit until fully up
+// HOP_MS, HOP_GROW_MS, HOPPER_LIFE, RARE_LIFE and ALLY_RISE_MS are tuning: see tuning.js.
 
 // ---------- difficulty ramps ----------
 //
@@ -226,8 +174,7 @@ export const ALLY_RISE_MS = 460;  // progs surface slowly and can't be hit until
 // Waves add a third, `waveIdx`, but it only tightens the rhythm (stagger and
 // lull), never the content.
 
-export const upMs  = (del) => Math.max(520, 1250 - del * 18);
-export const level = (del) => 1 + Math.floor(del / 6);
+// upMs() and level() are tuning: see tuning.js.
 
 // ---------- waves ----------
 //
@@ -236,32 +183,17 @@ export const level = (del) => 1 + Math.floor(del / 6);
 // charge, and read the board. It is short enough that the clock never drains
 // alarmingly, and it collapses further when the clock is genuinely low.
 
-export const MAX_ALIVE = 6;              // hard ceiling: wave + prog + rare
+// MAX_ALIVE is tuning: see tuning.js.
 export const WAVE_SIZE = [2, 2, 3, 3, 3, 4, 4, 4, 5];
 /** How many viruses a wave holds, by how many stage cards have been shown. */
 export const waveSize = (stageIdx) =>
   WAVE_SIZE[Math.max(0, Math.min(WAVE_SIZE.length - 1, stageIdx))];
 
-/** Gap between arrivals inside one wave: a formation lands, it does not blink in. */
-export const waveStaggerMs = (w) => Math.max(170, 420 - w * 4);
-/**
- * The pause between waves. It tightens slowly as the run goes on, and takes a
- * real step down at the SWARM card — which is the card that promises exactly
- * that, so the promise is kept in the numbers and not just in the copy.
- */
+// The rhythm numbers -- waveStaggerMs(), waveLullMs(), WAVE_CLEAR_LULL,
+// LOW_TIME_LULL_MS, waveClearBonus(), WAVE_CLEAR_PTS, WAVE_GRACE_MS -- are
+// tuning: see tuning.js. The lull takes its step down once the SWARM card
+// has been shown, in the retired card modes:
 export const LULL_TIGHTEN_STAGE = 7;     // stageIdx once the SWARM card is shown
-export const waveLullMs = (w, stage = 0) =>
-  Math.max(620, (1900 - w * 10) * (stage >= LULL_TIGHTEN_STAGE ? 0.7 : 1));
-/** Clearing every virus in a wave cuts the lull — pressure is a reward. */
-export const WAVE_CLEAR_LULL = 0.62;
-/** …but a lull never outstays a nearly-dead clock. */
-export const LOW_TIME_LULL_MS = 420;
-/** Time paid for a perfect clear, before overclock decay. */
-export const waveClearBonus = (n) => 0.55 + 0.3 * n;
-/** Points paid for a perfect clear, per virus, times the live multiplier. */
-export const WAVE_CLEAR_PTS = 60;
-/** A wave gives up and starts its lull once every member has had its chance. */
-export const WAVE_GRACE_MS = 900;
 
 // Formations. Each is five slots in *arrival order*, so a small wave is the
 // head of the same shape and a big one completes it. `anchor` names the slot
@@ -286,15 +218,9 @@ export const FORMATIONS = [
 
 export const UNLOCK = { guard: 1, retaliate: 2, ally: 3, hopper: 4, rare: 5 };
 
-/** Per-wave chance the anchor slot is a steel guard. */
-export const guardWaveChance  = (stage) => Math.min(0.8, 0.4 + (stage - UNLOCK.guard) * 0.08);
-/** Per-wave chance one non-anchor slot is a hopper (two once waves are big). */
-export const hopperWaveChance = (stage) => Math.min(0.65, 0.35 + (stage - UNLOCK.hopper) * 0.08);
-/** Per-wave chance a prog tags along as an extra body. */
-export const allyWaveChance   = (stage) => Math.min(0.45, 0.25 + (stage - UNLOCK.ally) * 0.05);
-/** Per-wave chance a rare leads the wave in. Desperation raises it. */
-export const rareWaveChance   = (stage, timeLeft) =>
-  (0.05 + (stage - UNLOCK.rare) * 0.01) * (timeLeft < LOW_TIME * 2 ? 2.5 : 1);
+// The per-wave composition chances (guard, hopper, ally, rare) are tuning:
+// see tuning.js. They take "steps past the unlock", which the caller computes
+// from UNLOCK above.
 
 // ---------- counterattack ----------
 //
@@ -313,59 +239,15 @@ export const rareWaveChance   = (stage, timeLeft) =>
 // `radiusFrac` is a fraction of panel width, so the head scales with the board
 // and the renderer never has to know the difficulty.
 
-export const ATTACK_START = 12;          // deletions; the earliest anything shoots
-export const HIT_TIME_PENALTY = 2.5;
-export const HIT_IFRAME_MS = 800;
+// ATTACK_START, HIT_TIME_PENALTY, HIT_IFRAME_MS, BOLT_HIT_R, ATTACK_FOLLOW_MS,
+// the BOLT kinds and aimMs()/boltPanelMs()/dodgeWindowMs() are tuning: see
+// tuning.js.
 export const HURT_SHAKE_MS = 260;
-export const BOLT_HIT_R = 0.28;          // fraction of panel width
-export const ATTACK_FOLLOW_MS = 300;     // an attacker outlives its own aim by this
-
-export const BOLT = {
-  slow: {
-    radiusFrac: 0.19,
-    aimMs:   (del) => Math.max(340, 560 - Math.max(0, del - ATTACK_START) * 0.8),
-    panelMs: (del) => Math.max(175, 300 - Math.max(0, del - ATTACK_START) * 0.45),
-  },
-  fast: {
-    radiusFrac: 0.135,
-    aimMs:   (del) => Math.max(480, 780 - Math.max(0, del - ATTACK_START) * 1.1),
-    panelMs: (del) => Math.max(72, 130 - Math.max(0, del - ATTACK_START) * 0.2),
-  },
-};
-
-/**
- * The whole dodge window for one bolt, in ms: the telegraph plus the time the
- * bolt spends crossing `panels` panels to reach the player. This is the number
- * the fairness of the counterattack lives or dies by, so it is one function
- * rather than something each caller re-derives.
- */
-export const dodgeWindowMs = (del, kind, panels = 3) =>
-  BOLT[kind].aimMs(del) + Math.max(0, panels - BOLT_HIT_R) * BOLT[kind].panelMs(del);
 
 /** Which bolt a skin fires. Guards are anchors and never shoot. */
 export const boltKindFor = (type) => (type === "hopper" ? "fast" : "slow");
-export const aimMs = (del, kind = "slow") => BOLT[kind].aimMs(del);
-export const boltPanelMs = (del, kind = "slow") => BOLT[kind].panelMs(del);
 
-/** Per-enemy chance it will retaliate at all. Hoppers snipe less often. */
-export const attackChance = (del, type = "mett") => {
-  if (del < ATTACK_START) return 0;
-  const t = Math.max(0, del - ATTACK_START);
-  return type === "hopper"
-    ? Math.min(0.45, 0.18 + t * 0.003)
-    : Math.min(0.55, 0.24 + t * 0.004);
-};
-
-// OVERCLOCK: past OC_START deletions, time rewards decay forever (no floor),
-// so every run mathematically ends. OC_SLOPE sets the slope; rares decay at
-// sqrt of the factor — half the exponential rate — so late-game survival
-// becomes rare-hunting rather than a fixed death spiral.
-//
-// OC_START is also the deletion floor on the OVERCLOCK gate, so the decay and
-// the card that announces it are the same moment by construction.
-export const OC_START = 170;
-export const OC_SLOPE = 0.988;
-export const bonusFactor = (del) => (del < OC_START ? 1 : Math.pow(OC_SLOPE, del - OC_START));
+// attackChance(), OC_START, OC_SLOPE and bonusFactor() are tuning: see tuning.js.
 
 export const multOf = (chain) => (chain >= 20 ? 4 : chain >= 10 ? 3 : chain >= 5 ? 2 : 1);
 
@@ -381,11 +263,11 @@ export const STAGES = [
   { wave: 40,  at: 78,       title: "PROGS ONLINE" },
   { wave: 52,  at: 105,      title: "HOPPERS" },
   { wave: 64,  at: 130,      title: "RARE VIRUS" },
-  { wave: 76,  at: OC_START, title: "OVERCLOCK" },
+  { wave: 76,  at: 170,      title: "OVERCLOCK" },   // the shipped OC_START
   { wave: 90,  at: 195,      title: "SWARM" },
   { wave: 106, at: 235,      title: "MAXIMUM LOAD" },
 ];
-export const STAGE_BONUS = 2.0;
+// STAGE_BONUS is tuning: see tuning.js.
 
 
 // ---------- fx lifetimes (core owns the data, the renderer only reads it) ----------
@@ -414,7 +296,7 @@ export const FLARE_MS = 520;         // chain-milestone flourish
 export const CHAIN_BREAK_MS = 620;   // and what a broken chain looks like
 export const GHOST_MS = 170;         // player afterimage on a move
 export const LANE_MS = 240;          // the row stays lit behind a landed shot
-export const LOW_TIME = 6;           // seconds; the urgency frame comes on here
+// LOW_TIME is tuning: see tuning.js.
 
 // Hit-stop: a few frozen milliseconds at the moment the tracer lands, scaled by
 // what died. It freezes the *simulation* clock (animations, bolts, spawn and

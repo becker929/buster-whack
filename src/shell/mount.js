@@ -5,7 +5,8 @@
 
 import { createState, setLayout } from "../core/state.js";
 import { step } from "../core/step.js";
-import { STAGE_BONUS, MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
+import { MODES, DEFAULT_MODE, modeById } from "../core/constants.js";
+import { resolveTuning } from "../core/tuning.js";
 import { statsView, hudView, interlevelView, gameOverView, contextVerb } from "../core/select.js";
 import { createUI, showOverlay, hideOverlay, showSplash, renderStats, renderSound, statRows,
          renderModes, selectMode, renderBombs, renderSay, renderPlace, denyBomb, setControls, deckInset, placeTouchControls } from "./dom.js";
@@ -22,7 +23,8 @@ const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
  * @param {object} [options]
  * @param {string} [options.storageKey="bw_best"] - localStorage key for the best score.
  * @param {number} [options.seed] - PRNG seed; omit for a fresh random run.
- * @returns {{ destroy: () => void }}
+ * @param {object} [options.tuning] - overrides against the tuning schema (core/tuning.js).
+ * @returns {{ destroy: () => void, setTuning: (overrides: object) => boolean, tuningVersion: string }}
  */
 export function mountBusterWhack(container, options = {}) {
   const doc = container && container.ownerDocument;
@@ -63,7 +65,9 @@ export function mountBusterWhack(container, options = {}) {
   const motionQuery = win.matchMedia
     ? win.matchMedia("(prefers-reduced-motion: reduce)")
     : null;
-  const state = createState({ seed, best, reducedMotion: !!(motionQuery && motionQuery.matches) });
+  // `options.tuning` is a bag of overrides against the tuning schema (see
+  // core/tuning.js); unknown keys are ignored and values are clamped
+  const state = createState({ seed, best, reducedMotion: !!(motionQuery && motionQuery.matches), tuning: options.tuning });
   // Honour the OS toggle flipping mid-run. addEventListener is the modern API;
   // Safari before 14 only has addListener, hence the fallback.
   if (motionQuery) {
@@ -141,7 +145,7 @@ export function mountBusterWhack(container, options = {}) {
   });
 
   function showInterlevel(ev) {
-    const v = interlevelView(state, ev.stage, ev.timeBonus === undefined ? STAGE_BONUS : ev.timeBonus);
+    const v = interlevelView(state, ev.stage, ev.timeBonus === undefined ? state.tuning.STAGE_BONUS : ev.timeBonus);
     showOverlay(doc, els, {
       eyebrow: v.eyebrow,
       title: v.title,
@@ -198,7 +202,7 @@ export function mountBusterWhack(container, options = {}) {
       case "unpaused":
         // Drop focus off the pause button so Space doesn't re-trigger it, but
         // park it back on the stage — that is what keeps the keyboard ours.
-        if (root.activeElement && root.activeElement !== els.stage) root.activeElement.blur();
+        if (root.activeElement && root.activeElement !== els.stage) /** @type {HTMLElement} */ (root.activeElement).blur();
         input.focus();
         break;
       default: break;
@@ -263,7 +267,18 @@ export function mountBusterWhack(container, options = {}) {
     root.innerHTML = "";
   }
 
-  return { destroy };
+  /**
+   * Swap the tuning between runs. Refused while a run is live, so a run is
+   * always played under one set of numbers; the next start uses the new ones.
+   * @returns {boolean} whether it took
+   */
+  function setTuning(overrides) {
+    if (state.mode === "playing" || state.mode === "interlevel") return false;
+    state.tuning = resolveTuning(overrides);
+    return true;
+  }
+
+  return { destroy, setTuning, get tuningVersion() { return state.tuning.version; } };
 }
 
 export default mountBusterWhack;
