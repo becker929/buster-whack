@@ -193,7 +193,10 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
      */
     label(npc) {
       if (!convo || convo.npc !== npc) return null;
-      const more = convo.i + 1 < convo.beats.length && canon.t(convo.beats[convo.i + 1][1]) !== "";
+      // beatText, not canon.t: the next beat may be a task line, which carries
+      // its own plain sentence rather than a sealed id. Asking the canon for
+      // an object throws, and this runs on the frame that draws the button.
+      const more = convo.i + 1 < convo.beats.length && beatText(convo.beats[convo.i + 1][1]) !== "";
       return more ? "next" : "done";
     },
     /** Walking away from the person closes the box; it is theirs, not the road's. */

@@ -321,3 +321,24 @@ test("a task line meant for someone else is never spoken", async () => {
   st.handleAll([{ type: "taskNone", npc: "npc.keeper.01" }]);
   assert.equal(said.length, n, "and an empty exchange says nothing at all");
 });
+
+test("the button's label survives a task beat: asking the canon for one would throw", async () => {
+  const said = [];
+  const st = createStory({ say: (who, text) => said.push(text), hush: () => said.push("hush") });
+  await st.ready;
+  st.handleAll([{ type: "runStarted", modeId: "story", story: true }]);
+  st.handleAll([
+    { type: "talk", npc: "npc.keeper.01", verb: "talk", count: 1 },
+    { type: "taskGiven", npc: "npc.keeper.01", id: "sweep", text: "Take an arena without being hit." },
+  ]);
+  // Walk the whole conversation, asking for the label at every beat the way
+  // the frame does. The task line is the last one, and a raw canon lookup on
+  // it throws -- which killed the render loop, not just the label.
+  for (let i = 0; i < 12 && st.open; i++) {
+    assert.doesNotThrow(() => st.label("npc.keeper.01"), "label() must not throw on beat " + i);
+    const l = st.label("npc.keeper.01");
+    assert.ok(l === "next" || l === "done", "a real label on beat " + i + ", got " + l);
+    st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: i + 2 }]);
+  }
+  assert.equal(st.open, false, "and the conversation still closes");
+});

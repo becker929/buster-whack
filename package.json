@@ -36,7 +36,8 @@
     "test:browser": "node test/browser/touch.mjs",
     "art:check": "node tools/art-check.mjs",
     "art:dump": "node tools/art/dump.mjs",
-    "art:pack": "node tools/art/pack.mjs"
+    "art:pack": "node tools/art/pack.mjs",
+    "play": "node tools/play.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.53",
