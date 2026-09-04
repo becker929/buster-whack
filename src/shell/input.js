@@ -526,10 +526,18 @@ function installGestureGuards({ els, on, focusStage }) {
   // runs for the controls that stop propagation in their own pointerdown.
   on(surface, "pointerdown", () => focusStage(), true);
 
-  // Two fingers on the game is the fire-plus-ring grip, never a pinch.
+  // Claim every touch at touchstart, not just at the first move. Inside a
+  // native sheet (the Claude iOS app shows a page as one) the platform's own
+  // pan gesture -- drag to move or dismiss the sheet -- is decided the moment
+  // the finger lands: a touch the page has not already claimed is the
+  // sheet's, and cancelling the later touchmove is too late. So a touch that
+  // begins on any play surface is ours from its first event. The start card
+  // is the exception, because it scrolls and its rows are real clicks, and a
+  // prevented touchstart would swallow those.
   on(surface, "touchstart", (e) => {
     if (e.touches[0]) dragFromY = e.touches[0].clientY;
-    if (e.touches.length > 1 && e.cancelable && !onSplash(e.target)) e.preventDefault();
+    if (!e.cancelable || onSplash(e.target)) return;
+    e.preventDefault();
   }, nonPassive);
 
   // The main event: a drag on the ring, the canvas or a button belongs to the

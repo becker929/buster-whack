@@ -58,7 +58,9 @@ function tapState(src) {
 
 const RECORDER = `
   window.__moves = [];
+  window.__starts = [];
   document.addEventListener("touchmove", (e) => window.__moves.push(e.defaultPrevented), { passive: true });
+  document.addEventListener("touchstart", (e) => window.__starts.push(e.defaultPrevented), { passive: true });
 `;
 
 const TALL_HOST = `<!doctype html><html><head><meta charset="utf-8">
@@ -371,12 +373,25 @@ test("the whole game surface swallows drags, not just the ring", async (ctx) => 
   for (const id of ["cv", "fireBtn", "pauseBtn", "bwRoot"]) {
     const r = await rect(id);
     const from = id === "bwRoot" ? { cx: r.cx, cy: r.y + r.h - 14 } : r;   // the footer strip
-    await page.evaluate(() => { window.__moves.length = 0; });
+    await page.evaluate(() => { window.__moves.length = 0; window.__starts.length = 0; });
     await drag(t, from, -160, 8);
     const moves = await page.evaluate(() => window.__moves.slice());
+    const starts = await page.evaluate(() => window.__starts.slice());
     assert.ok(moves.length > 0, `#${id}: the drag produced touchmove events`);
     assert.ok(moves.every(Boolean), `#${id}: every touchmove must be defaultPrevented`);
+    // a native sheet decides at touchstart, so the touch must be claimed there too
+    assert.ok(starts.length > 0 && starts.every(Boolean), `#${id}: the touchstart itself must be defaultPrevented`);
   }
+  // a vertical drag on the board -- the sheet's own dismiss direction -- is claimed the same way
+  const board = await rect("cv");
+  await page.evaluate(() => { window.__starts.length = 0; window.__moves.length = 0; });
+  await t.down(7, board.cx, board.y + 40);
+  await wait(30);
+  for (let i = 1; i <= 6; i++) { await t.move(7, board.cx, board.y + 40 + i * 30); await wait(20); }
+  await t.up(7);
+  const vs = await page.evaluate(() => [window.__starts.slice(), window.__moves.slice()]);
+  assert.ok(vs[0].length > 0 && vs[0].every(Boolean), "a downward swipe on the board is claimed at touchstart");
+  assert.ok(vs[1].length > 0 && vs[1].every(Boolean), "and every move of it is cancelled");
   assert.equal(await page.evaluate(() => window.scrollY), scroll0,
     "no drag anywhere on the game scrolled the host page");
 });
