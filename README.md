@@ -287,6 +287,39 @@ on `stageIdx`, so a mechanic can never appear before the card that explains it,
 and the OVERCLOCK card stamps `state.ocFrom` with the live deletion count — the
 decay and its announcement are the same moment.
 
+### The difficulty curve, and how it was measured
+
+`node tools/curve.mjs` plays the road headlessly and prints what each arena
+actually felt like: how long the fight lasted, how much pulse it cost, how
+much it paid back, how far the bar fell, what was on the board. A bot drives
+the core — it shoots the nearest thing in its lane, charges when the target
+needs it, spares runners, steps out of a lane a bolt is crossing, and walks
+right when the arena is taken — so the numbers are repeatable. `--skill N`
+is its reaction time in frames, `--tune KEY=VAL,...` measures a candidate set
+without editing anything, `--json` for a machine.
+
+It was written because the road had no curve. Measured, the first thirty
+arenas came back identical: pulse pinned within a second of its cap, no hits
+taken, perfect accuracy — then a cliff when hoppers arrived. The road paid
+about four times what a fight cost it, and the cap hid the surplus.
+
+Two mechanisms fix it, both tunable:
+
+- **The drain rises with distance.** A second in a contested arena costs
+  `DRAIN_BASE` at the start of the road and climbs by `DRAIN_PER_ARENA` to
+  `DRAIN_MAX`, which it reaches well before the road's end — past that the
+  viruses are the difficulty and the clock stops piling on. Safe ground still
+  costs nothing at all.
+- **The road pays on its own scale.** `ROAD_PULSE` scales every pulse reward
+  on the road, where nothing escapes and every kill is eventually collected.
+  It replaces the arcade's overclock decay there rather than stacking with
+  it: counting the same squeeze twice, once by kill count and once by
+  distance, is what made arena forty a wall. Points are untouched by either.
+
+The shape that came out: a first arena that costs you something, a bank
+built through the teens, the squeeze starting in the twenties, return fire
+at thirty and hoppers at forty landing on a bar that is already moving.
+
 ### Visual regression
 
 Because the core is deterministic and `render.js` is a pure function of state,

@@ -24,6 +24,9 @@ import { enemyDef, hpOf, riseMsOf, shotsOf, inBoard, canRetaliate } from "./enem
 // `nextSpawnAt` keeps its old name and its old meaning ("the next thing
 // happens at"), so setting it to Infinity still gives a completely still board.
 
+/** Is this run walking a road? The road has its own pulse economy. */
+export const advancingMode = (state) => !!C.modeById(state.modeId).advancing;
+
 export function freePanels(state, excludeCol, excludeRow) {
   const occ = new Set(state.enemies.map((e) => e.col + "," + e.row));
   const out = [];
@@ -243,7 +246,7 @@ export function endWave(state, events) {
 
   let timeBonus = 0, points = 0;
   if (cleared) {
-    timeBonus = state.tuning.waveClearBonus(wave.virusCount) * state.tuning.bonusFactor(state.deletions);
+    timeBonus = state.tuning.waveClearBonus(wave.virusCount) * state.tuning.pulseScale(state.deletions, advancingMode(state));
     state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + timeBonus);
     points = state.tuning.WAVE_CLEAR_PTS * wave.virusCount * C.multOf(state.chain);
     state.score += points;
@@ -286,13 +289,18 @@ export function endWave(state, events) {
       const pp = panel(state, pc, pr);
       events.push({ type: "pickupSpawned", kind: "bomb", col: pc, row: pr, x: pp.x + pp.w / 2, y: pp.y });
     }
-    state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + state.tuning.ARENA_CLEAR_BONUS);
+ // Taking an arena pays like everything else pays: through the overclock.
+    // Undecayed it was the road's whole income, and the pulse bar sat pinned
+    // at its cap for the first thirty arenas -- a clock that is always full
+    // is not a clock.
+    const arenaBonus = state.tuning.ARENA_CLEAR_BONUS * state.tuning.pulseScale(state.deletions, advancingMode(state));
+    state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + arenaBonus);
     state.score += state.tuning.ARENA_CLEAR_PTS;
     state.nextSpawnAt = Infinity;
     events.push({
       type: "arenaCleared", index: a.idx, x0: a.x0,
       roadRows: road.rows, nextX0: next.x0,
-      timeBonus: state.tuning.ARENA_CLEAR_BONUS, points: state.tuning.ARENA_CLEAR_PTS,
+      timeBonus: arenaBonus, points: state.tuning.ARENA_CLEAR_PTS,
     });
   }
 

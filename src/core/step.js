@@ -17,7 +17,7 @@
  */
 
 import * as C from "./constants.js";
-import { safeZone } from "./world.js";
+import { safeZone, activeArena } from "./world.js";
 import { updateBolts, contextAction } from "./combat.js";
 import { firePressed, fireReleased, togglePause, resetGame, gameOver, checkStageGate, resumeFromInterlevel } from "./flow.js";
 import { cullFx } from "./fx.js";
@@ -49,7 +49,9 @@ export function step(state, dtMs, intents = {}) {
     state.clock += adv;
     // The run clock is fight pressure: it drains only while the arena you
     // are in is held against you. Towers, roads and taken arenas are safe.
-    if (!safeZone(state.world)) state.timeLeft -= dtMs / 1000;
+    if (!safeZone(state.world)) {
+      state.timeLeft -= (dtMs / 1000) * state.tuning.drainRate(activeArena(state.world).idx);
+    }
     if (state.timeLeft <= 0) { state.timeLeft = 0; gameOver(state, events); }
     if (state.charge.downAt !== null && !state.charge.full &&
         state.clock - state.charge.downAt >= state.tuning.CHARGE_MS) {

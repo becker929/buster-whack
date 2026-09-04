@@ -27,6 +27,9 @@ export const TUNING_SCHEMA = [
     ["TIME_CAP", 45, 10, 180, 1, "s", "The most pulse you can hold."],
     ["LOW_TIME", 6, 1, 20, 0.5, "s", "Below this the clock is low: alarm, red pips, shorter lulls, more rares."],
     ["HIT_TIME_PENALTY", 2.5, 0, 10, 0.1, "s", "Pulse lost to one hit."],
+    ["DRAIN_BASE", 1.0, 0.2, 3, 0.05, "x", "Pulse spent per second in a contested arena, at the start of the road."],
+    ["DRAIN_PER_ARENA", 0.02, 0, 0.2, 0.001, "x", "The road breathes harder: drain rises by this per arena."],
+    ["DRAIN_MAX", 1.45, 0.5, 4, 0.05, "x", "Drain stops rising here, and the viruses carry the rest."],
     ["HIT_IFRAME_MS", 800, 0, 3000, 50, "ms", "Invulnerable after a hit for this long."],
     ["STAGE_BONUS", 2.0, 0, 10, 0.1, "s", "Pulse for passing a stage card (retired modes)."],
   ]],
@@ -59,6 +62,7 @@ export const TUNING_SCHEMA = [
     ["WAVE_CLEAR_BONUS_PER", 0.3, 0, 2, 0.05, "s", "Extra pulse per virus in a perfect wave."],
     ["OC_START", 170, 20, 1000, 5, "kills", "Deletions after which pulse rewards decay (overclock)."],
     ["OC_SLOPE", 0.988, 0.9, 1, 0.001, "x", "Per-deletion decay factor past overclock."],
+    ["ROAD_PULSE", 0.4, 0.1, 2, 0.05, "x", "Pulse rewards on the road, where nothing escapes and every kill pays."],
     ["LEVEL_PER_KILLS", 6, 1, 50, 1, "kills", "Kills per level in the retired kill-counted modes."],
   ]],
   ["timings", [
@@ -326,9 +330,24 @@ function assemble(v, applied, version) {
   t.spreaderWaveChance = perArena(v.SPREADER_CHANCE_BASE, v.SPREADER_CHANCE_PER, v.SPREADER_CHANCE_MAX);
   t.darterWaveChance = perArena(v.DARTER_CHANCE_BASE, v.DARTER_CHANCE_PER, v.DARTER_CHANCE_MAX);
   t.wardenWaveChance = perArena(v.WARDEN_CHANCE_BASE, v.WARDEN_CHANCE_PER, v.WARDEN_CHANCE_MAX);
+  // The clock is the road's own pressure, and it rises with distance: an
+  // arena late on the road costs more pulse to stand in than arena zero did.
+  // It saturates well before the far road, where what is on the board is the
+  // difficulty and the clock would only pile on.
+  t.drainRate = (idx) => Math.min(v.DRAIN_MAX, v.DRAIN_BASE + Math.max(0, idx) * v.DRAIN_PER_ARENA);
   t.upMs = (del) => Math.max(v.UP_MS_MIN, v.UP_MS_BASE - del * v.UP_MS_PER_KILL);
   t.level = (del) => 1 + Math.floor(del / v.LEVEL_PER_KILLS);
   t.bonusFactor = (del) => (del < v.OC_START ? 1 : Math.pow(v.OC_SLOPE, del - v.OC_START));
+  // The road's own economy. The arcade numbers were tuned for a board where a
+  // virus you miss sinks away and pays nothing; on the road every virus is
+  // persistent, so every one of them is eventually collected and the pulse bar
+  // sat pinned at its cap for the first thirty arenas. The road scales its
+  // pulse income to the length of the fight it actually asks for -- and it
+  // does not also decay by kill count, because the road already has an axis
+  // for depth: the drain rises with the arena you are standing in. Stacking
+  // both halved the income twice and made arena forty a wall. Points are
+  // untouched by either.
+  t.pulseScale = (del, advancing) => (advancing ? v.ROAD_PULSE : t.bonusFactor(del));
   t.arenaPlan = (idx) => ({
     pool: Math.min(v.POOL_MAX, v.POOL_BASE + Math.floor(idx * v.POOL_PER_ARENA)),
     waveSize: Math.min(v.WAVE_SIZE_MAX, v.WAVE_SIZE_BASE + Math.floor(idx / v.WAVE_SIZE_PER_ARENAS)),

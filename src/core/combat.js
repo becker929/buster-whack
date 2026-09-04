@@ -221,7 +221,7 @@ export function deleteEnemy(state, target, tierName, land, events) {
   state.score += pts;
   state.deletions++;
 
-  const bf = state.tuning.bonusFactor(state.deletions);
+  const bf = state.tuning.pulseScale(state.deletions, C.modeById(state.modeId).advancing);
   const factor = baseKey === "rare" ? Math.sqrt(bf) : bf;
   const timeBonus = (state.tuning.BONUS[baseKey] === undefined ? state.tuning.BONUS[tierName] : state.tuning.BONUS[baseKey]) * factor;
   state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + timeBonus);

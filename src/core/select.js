@@ -80,7 +80,11 @@ export function statsView(state) {
 
 /** Everything the canvas HUD draws. */
 export function hudView(state) {
-  const oc = state.deletions >= state.tuning.OC_START;
+  // Overclock is the arcade's squeeze, counted in deletions. The road has its
+  // own -- the drain rising with distance -- so the badge only lights where
+  // the mechanic it names is the one actually running.
+  const advancing = !!C.modeById(state.modeId).advancing;
+  const oc = !advancing && state.deletions >= state.tuning.OC_START;
   return {
     score: String(state.score).padStart(6, "0"),
     chain: state.chain,
@@ -94,7 +98,9 @@ export function hudView(state) {
     // the clock is paused: nothing here is held against you
     safe: safeZone(state.world),
     overclock: oc,
-    overclockFactor: state.tuning.bonusFactor(state.deletions),
+    overclockFactor: state.tuning.pulseScale(state.deletions, advancing),
+    // what a second in this arena costs: 1 at the start of the road, more later
+    drain: advancing ? state.tuning.drainRate(activeArena(state.world).idx) : 1,
     paused: state.paused,
     mode: state.mode,
   };
@@ -123,7 +129,7 @@ export function gameOverView(state) {
     eyebrow: "run complete",
     title: state.rank,
     rank: true,
-    sub: state.deletions >= state.tuning.OC_START
+    sub: !C.modeById(state.modeId).advancing && state.deletions >= state.tuning.OC_START
       ? "overclock reached ×" + state.tuning.bonusFactor(state.deletions).toFixed(2)
       : "",
     rows: [
