@@ -303,7 +303,8 @@ export const TEMPLATE = `
   #place {
     position: absolute;
     left: 28px;
-    top: 74px;
+    /* clear of the pulse bar, which the canvas draws at y 66..78 */
+    top: 84px;
     color: var(--bw-ink-dim);
     font: 600 11px/1 var(--bw-mono);
     letter-spacing: 0.22em;
@@ -318,7 +319,8 @@ export const TEMPLATE = `
   #stash {
     position: absolute;
     right: 28px;
-    top: 74px;
+    top: 84px;
+    max-width: 45%;
     color: var(--bw-ink-dim);
     font: 600 11px/1 var(--bw-mono);
     letter-spacing: 0.18em;
@@ -328,7 +330,7 @@ export const TEMPLATE = `
     transition: opacity 240ms ease;
   }
   #stash.has { opacity: 1; }
-  #stash::first-letter { color: var(--bw-accent); }
+  #stash b { color: var(--bw-accent); font-weight: 600; }
   #say b { display: block; color: var(--bw-accent); font-size: 11px; letter-spacing: 0.22em; margin-bottom: 3px; }
   #say b:empty { display: none; }
   #bombBtn.talk {
@@ -1014,8 +1016,25 @@ export function renderBombs(els, n, verb = "bomb", stash = null) {
   els.bombBtn.classList.toggle("talk", talk);
   els.bombBtn.classList.toggle("empty", !talk && !top);
   if (els.stash) {
-    // everything you are carrying, top first, so the order of use is visible
-    els.stash.textContent = stash && stash.length ? stash.map((it) => it.name).join(" · ") : "";
+    // Everything you are carrying, the top of it first -- named once each with
+    // a count, so a full stash is one short line and not four words fighting
+    // the pulse bar for room. The leading name is what a press would spend.
+    els.stash.textContent = "";
+    if (stash && stash.length) {
+      const order = [], seen = new Map();
+      for (const it of stash) {
+        if (!seen.has(it.id)) { seen.set(it.id, 0); order.push(it); }
+        seen.set(it.id, seen.get(it.id) + 1);
+      }
+      const doc = els.stash.ownerDocument;
+      order.forEach((it, i) => {
+        const n = seen.get(it.id);
+        const tag = doc.createElement(i === 0 ? "b" : "span");
+        tag.textContent = it.name + (n > 1 ? " \u00d7" + n : "");
+        els.stash.appendChild(tag);
+        if (i < order.length - 1) els.stash.appendChild(doc.createTextNode(" \u00b7 "));
+      });
+    }
     els.stash.classList.toggle("has", !!(stash && stash.length));
   }
 }
