@@ -79,23 +79,32 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
     return c;
   }).catch((e) => { if (onError) onError(e); return null; });
 
+  /**
+   * A beat's words. Canon beats name a sealed id; a task beat carries its own
+   * plain sentence, because what the game asks you to *do* is instructions,
+   * not story, and the player has to be able to read it straight.
+   */
+  function beatText(what) {
+    return what && typeof what === "object" && what.plain !== undefined ? what.plain : canon.t(what);
+  }
+
   /** The n-th conversation (0-based) among those whose first beat is open; past the end, the last. */
   function nthOpen(list, n) {
-    const open = list.filter((beats) => canon.t(beats[0][1]) !== "");
+    const open = list.filter((beats) => beatText(beats[0][1]) !== "");
     if (!open.length) return null;
     return open[Math.min(n, open.length - 1)];
   }
 
   function showBeat() {
     const [who, what] = convo.beats[convo.i];
-    say(who ? canon.t(who) : "", canon.t(what));
+    say(who ? canon.t(who) : "", beatText(what));
   }
 
   /** TALK: open, advance, or close. The only thing that changes the box. */
   function press(npc, verb) {
     if (convo && convo.npc === npc) {
       convo.i++;
-      if (convo.i < convo.beats.length && canon.t(convo.beats[convo.i][1]) !== "") { showBeat(); return; }
+      if (convo.i < convo.beats.length && beatText(convo.beats[convo.i][1]) !== "") { showBeat(); return; }
       // the last beat was read: the conversation counts, and the box closes
       done[npc] = (done[npc] || 0) + 1;
       const key = npc.replace(/^(npc|boss|item)\./, "");
@@ -106,7 +115,7 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
     }
     const beats = nthOpen(TALKS[npc] || [], done[npc] || 0);
     if (!beats) return;
-    convo = { npc, beats, i: 0 };
+    convo = { npc, beats: beats.slice(), i: 0 };
     showBeat();
   }
 
@@ -144,6 +153,18 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
         press(ev.npc, ev.verb);
         break;
       }
+      // The bonus task is the last thing this person says: what they are
+      // asking for, how far along it is, or what they are paying out. It
+      // arrives with the talk it belongs to, so it lands as one more press
+      // of TALK rather than a box that appears on its own.
+      case "taskGiven":
+      case "taskProgress":
+      case "taskDone": {
+        if (!active || !ev.text) return;
+        if (!convo || convo.npc !== ev.npc) return;
+        convo.beats.push([convo.beats[0][0], { plain: ev.text }]);
+        break;
+      }
       default: break;
     }
   }
@@ -153,7 +174,8 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
     /** Feed every core event; the module ignores what is not its business. */
     handleAll(events) {
       for (const ev of events) {
-        if (!["runStarted", "towerEntered", "arenaEntered", "talk"].includes(ev.type)) continue;
+        if (!["runStarted", "towerEntered", "arenaEntered", "talk",
+              "taskGiven", "taskProgress", "taskDone"].includes(ev.type)) continue;
         if (!canon) pending.push(ev); else handle(ev);
       }
     },

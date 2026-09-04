@@ -287,6 +287,24 @@ on `stageIdx`, so a mechanic can never appear before the card that explains it,
 and the OVERCLOCK card stamps `state.ocFrom` with the live deletion count — the
 decay and its announcement are the same moment.
 
+### Bonus tasks
+
+The people on the towers ask for things. A task is a row in
+`src/core/tasks.js`: an id, the plain sentence the player reads, the counter
+it watches, how much of it is wanted, and what it pays — pulse, points or a
+bomb. Progress is counted from the moment the task was taken, so nothing can
+be claimed by walking up with it already done, and one is open at a time.
+
+The core keeps the counters (`src/core/tasks-count.js` is fed from the places
+where the thing being counted happens) and owns the ledger. Delivery is part
+of a conversation: talking to someone pays out what you have finished, or
+asks for the next thing, or says nothing — once per person, however long you
+talk. The line arrives as the last beat of their conversation, so it is read
+by pressing TALK like everything else, and no box ever opens on its own.
+
+Task text is deliberately not canon. What the game asks you to *do* is
+instructions, and instructions are plain: "Take an arena without being hit."
+
 ### The difficulty curve, and how it was measured
 
 `node tools/curve.mjs` plays the road headlessly and prints what each arena

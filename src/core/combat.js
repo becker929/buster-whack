@@ -9,6 +9,8 @@ import { panel, hitStop, shake, spawnBits, ripple } from "./fx.js";
 import { land } from "./movement.js";
 import { hopTo } from "./waves.js";
 import { enemyDef } from "./enemies.js";
+import { bumpTask } from "./tasks-count.js";
+import { taskExchange } from "./tasks.js";
 
 // dt rather than the clock: bolts move in real time, and the early return
 // freezes them for pause and the interlevel card alike.
@@ -49,6 +51,8 @@ export function contextAction(state, events) {
   ripple(state, n.col, n.row, "#ffd23f", state.clock, 1);
   events.push({ type: "talk", npc: n.id, verb: n.verb || "talk", count: state.talks[n.id], col: n.col, row: n.row,
                 x: p.x + p.w / 2, y: p.y });
+  // and the task half of the same conversation: paid out, asked for, or none
+  taskExchange(state, n.id, events);
 }
 
 export function throwBomb(state, events) {
@@ -153,6 +157,7 @@ export function takeHit(state, events) {
   ripple(state, state.player.col, state.player.row, "#ff5470", now, 3);
   shake(state, C.SHAKE.hurt, now);
   hitStop(state, now, C.HITSTOP.hurt);
+  bumpTask(state, "hurt");
   events.push({
     type: "playerHit", col: state.player.col, row: state.player.row,
     x: p.x + p.w / 2, y: p.y, timePenalty: state.tuning.HIT_TIME_PENALTY,
@@ -210,6 +215,7 @@ export function deleteEnemy(state, target, tierName, land, events) {
   state.chain++;
   if (state.chain > state.bestChain) state.bestChain = state.chain;
   const mult = C.multOf(state.chain);
+  bumpTask(state, "kill", { type: target.type, tier: tierName, chain: state.chain });
   // a wave is "cleared" only when every virus in it was actually deleted
   if (state.wave && target.wave === state.wave.index) state.wave.kills++;
 

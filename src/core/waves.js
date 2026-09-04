@@ -10,6 +10,7 @@ import { panel } from "./fx.js";
 import { updateBombs } from "./combat.js";
 import { updateWorld } from "./flow.js";
 import { enemyDef, hpOf, riseMsOf, shotsOf, inBoard, canRetaliate } from "./enemies.js";
+import { bumpTask } from "./tasks-count.js";
 
 // ---------- waves ----------
 //
@@ -245,6 +246,7 @@ export function endWave(state, events) {
   lull = Math.round(lull);
 
   let timeBonus = 0, points = 0;
+  if (cleared) bumpTask(state, "waveCleared");
   if (cleared) {
     timeBonus = state.tuning.waveClearBonus(wave.virusCount) * state.tuning.pulseScale(state.deletions, advancingMode(state));
     state.timeLeft = Math.min(state.tuning.TIME_CAP, state.timeLeft + timeBonus);
@@ -281,6 +283,7 @@ export function endWave(state, events) {
     const { cleared: a, road, tower, next } = clearArena(state.world, state.rng, { tower: roost || undefined, tuning: state.tuning });
     if (tower) state.routeIdx++;
     state.arenasCleared++;
+    bumpTask(state, "arenaTaken");
     // a bomb on the road: always on the first one so it is found, often after
     if (a.idx === 0 || state.rng() < state.tuning.BOMB_PICKUP_CHANCE) {
       const pc = road.x0 + Math.floor(state.rng() * road.cols);
@@ -437,6 +440,7 @@ export function updateEnemies(state, events) {
               x: p.x + p.w / 2, y: p.y, t0: now,
               text: "spared +" + state.tuning.ALLY_SPARE_BONUS.toFixed(1) + "s", color: "#58c7ff",
             });
+            bumpTask(state, "spared");
             events.push({
               type: "allySpared", col: e.col, row: e.row,
               x: p.x + p.w / 2, y: p.y, timeBonus: state.tuning.ALLY_SPARE_BONUS,

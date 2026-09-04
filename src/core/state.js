@@ -8,6 +8,7 @@
 import { TIERS, layout, makeImpulse, DEFAULT_MODE } from "./constants.js";
 import { resolveTuning } from "./tuning.js";
 import { createWorld } from "./world.js";
+import { newTaskState } from "./tasks.js";
 import { mulberry32 } from "./rng.js";
 
 /**
@@ -60,6 +61,8 @@ export function createState(opts = {}) {
     score: 0,
     best: opts.best || 0,
     deletions: 0,
+    // the bonus-task ledger: counters, what is taken, what has been paid
+    tasks: newTaskState(),
     shots: 0,
     whiffs: 0,
     chain: 0,

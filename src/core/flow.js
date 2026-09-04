@@ -5,6 +5,7 @@
  */
 
 import * as C from "./constants.js";
+import { bumpTask } from "./tasks-count.js";
 import { createWorld, activeArena, segmentAt } from "./world.js";
 import { computeRank } from "./select.js";
 import { shoot } from "./combat.js";
@@ -177,6 +178,7 @@ export function updateWorld(state, events) {
     state.camAnchor = a.x0;
     state.nextSpawnAt = now + state.tuning.ARENA_ENTRY_DELAY_MS;
     state.levelT0 = now;
+    bumpTask(state, "arenaEntered");
     events.push({ type: "arenaEntered", index: a.idx, x0: a.x0 });
     if (a.idx >= state.tuning.ROAD_END) state.unlimited = true;
     // the chapter card, at the arena boundary -- the one moment a pause is

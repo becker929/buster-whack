@@ -285,3 +285,39 @@ test("the view holds a whole tower: walking across it scrolls nothing, leaving i
   for (let i = 0; i < 60; i++) step(s, 16, []);
   assert.ok(s.cam > 0, "past the tower the view follows");
 });
+
+test("a bonus task is the last thing a person says, in plain words", async () => {
+  const said = [];
+  const st = createStory({ say: (who, text) => said.push(text), hush: () => said.push("hush") });
+  await st.ready;
+  st.handleAll([{ type: "runStarted", modeId: "story", story: true }]);
+
+  // the core sends the task line with the talk it belongs to
+  said.length = 0;
+  st.handleAll([
+    { type: "talk", npc: "npc.keeper.01", verb: "talk", count: 1 },
+    { type: "taskGiven", npc: "npc.keeper.01", id: "sweep", text: "Take an arena without being hit." },
+  ]);
+  assert.equal(said.length, 1, "the task does not jump the queue: one press, one beat");
+  const beats = [];
+  for (let i = 0; i < 12 && st.open; i++) {
+    st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: i + 2 }]);
+    if (st.open) beats.push(said[said.length - 1]);
+  }
+  assert.ok(beats.includes("Take an arena without being hit."),
+    "and it is read, in plain words, as the last beat");
+  assert.equal(st.open, false, "then the conversation closes as it always did");
+});
+
+test("a task line meant for someone else is never spoken", async () => {
+  const said = [];
+  const st = createStory({ say: (who, text) => said.push(text), hush: () => said.push("hush") });
+  await st.ready;
+  st.handleAll([{ type: "runStarted", modeId: "story", story: true }]);
+  st.handleAll([{ type: "talk", npc: "npc.keeper.01", verb: "talk", count: 1 }]);
+  const n = said.length;
+  st.handleAll([{ type: "taskGiven", npc: "npc.side.tally", id: "spare", text: "Let three runners past." }]);
+  assert.equal(said.length, n, "nothing is said by a box opening on its own");
+  st.handleAll([{ type: "taskNone", npc: "npc.keeper.01" }]);
+  assert.equal(said.length, n, "and an empty exchange says nothing at all");
+});
