@@ -662,6 +662,35 @@ export const TEMPLATE = `
   .sp-start:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
   @keyframes bwBlink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.45; } }
 
+  /* CONTINUE leads when there is a run to come back to; NEW GAME sits under
+     it, quieter, so the destructive one is never the easy one to hit. */
+  .sp-load { margin-bottom: 10px; animation: none; }
+  .sp-load + .sp-start {
+    animation: none;
+    background: none;
+    color: var(--bw-ink-dim);
+    padding: 9px 22px;
+    box-shadow: 0 0 0 2px #05080f, 0 0 0 3px rgba(138, 150, 184, 0.4);
+  }
+  .sp-saveat {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--bw-accent);
+    margin-top: 10px;
+  }
+
+  /* The build, bottom right: small, always there, never in the way. */
+  .sp-version {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    font: 600 9px/1 var(--bw-mono);
+    letter-spacing: 0.22em;
+    color: var(--bw-ink-dim);
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
   .sp-coin {
     font-size: 9px;
     letter-spacing: 0.28em;
@@ -739,8 +768,11 @@ export const TEMPLATE = `
 
         <div id="spModes" class="sp-modes" role="radiogroup" aria-label="Game mode"></div>
 
+        <button id="spLoad" class="sp-start sp-load" hidden>CONTINUE</button>
         <button id="spStart" class="sp-start">PRESS START</button>
+        <div id="spSaveAt" class="sp-saveat" hidden></div>
         <div class="sp-coin">INSERT COIN &#183; CYBERSPACE 2026</div>
+        <div id="spVersion" class="sp-version">V1.0.0</div>
       </div>
     </div>
 
@@ -774,7 +806,8 @@ export const TEMPLATE = `
 
 const IDS = [
   "bwRoot", "cv", "stage", "overlay", "ovEyebrow", "ovTitle", "ovSub", "ovStats", "ovBtns",
-  "splash", "spBest", "spStart", "spModes", "spModeRule", "dpad", "aUp", "aDown", "aLeft", "aRight",
+  "splash", "spBest", "spStart", "spLoad", "spSaveAt", "spVersion", "spModes", "spModeRule",
+  "dpad", "aUp", "aDown", "aLeft", "aRight",
   "pauseBtn", "fireBtn", "bombBtn", "bombCount", "bombLabel", "muteFlag", "deck",
   "say", "sayWho", "sayText", "place", "stash",
 ];
@@ -851,10 +884,33 @@ export function hideOverlay(els) {
  * The start screen is static markup in TEMPLATE, so showing it is just a
  * high-score refresh.
  */
-export function showSplash(els, best) {
+/**
+ * The start screen. `save` is the manifest header of a readable saved run, or
+ * null: when there is one, CONTINUE leads and PRESS START becomes the quieter
+ * NEW GAME, so the button that throws a run away is never the easy one to hit.
+ */
+export function showSplash(els, best, version = "", save = null) {
   els.spBest.textContent = String(best).padStart(6, "0");
+  if (els.spVersion) els.spVersion.textContent = version ? "V" + version : "";
+  renderSave(els, save);
   hideOverlay(els);
   els.splash.classList.remove("hidden");
+}
+
+/** Show or hide the CONTINUE half of the start screen. */
+export function renderSave(els, save) {
+  if (!els.spLoad) return;
+  const has = !!save;
+  els.spLoad.hidden = !has;
+  els.spStart.textContent = has ? "NEW GAME" : "PRESS START";
+  if (els.spSaveAt) {
+    els.spSaveAt.hidden = !has;
+    if (has) {
+      const at = save.at || {};
+      const where = at.roost ? "ARENA " + at.arena : "ARENA " + (at.arena || 0);
+      els.spSaveAt.textContent = where + " \u00b7 " + String(at.score || 0).padStart(6, "0");
+    }
+  }
 }
 
 /**

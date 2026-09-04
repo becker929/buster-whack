@@ -12,11 +12,18 @@
  */
 export function mulberry32(seed) {
   let a = seed >>> 0;
-  return function rng() {
+  /** @type {any} */
+  const rng = function rng() {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+  // The stream's whole state is this one word. A saved run stores it and puts
+  // it back, so a loaded run draws the numbers it would have drawn -- the seed
+  // alone would rewind it to the beginning.
+  rng.save = () => a;
+  rng.restore = (v) => { a = (Number(v) || 0) >>> 0; };
+  return rng;
 }

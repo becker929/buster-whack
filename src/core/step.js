@@ -18,6 +18,7 @@
 
 import * as C from "./constants.js";
 import { safeZone, activeArena } from "./world.js";
+import { applySave } from "./save.js";
 import { updateBolts, contextAction } from "./combat.js";
 import { firePressed, fireReleased, togglePause, resetGame, gameOver, checkStageGate, resumeFromInterlevel } from "./flow.js";
 import { cullFx } from "./fx.js";
@@ -101,6 +102,9 @@ export function applyIntent(state, action, events) {
       if (state.mode === "playing" && !state.paused) togglePause(state, events);
       break;
     case "startRun":     resetGame(state, events, action.modeId); break;
+    // A saved run, put back. The shell has already read and checked it; the
+    // core only puts it into place. `action.save` is the migrated data.
+    case "loadRun":      if (action.save) applySave(state, action.save, events); break;
     case "bomb":         contextAction(state, events); break;
     case "resume":       resumeFromInterlevel(state, events); break;
     case "endRun":       gameOver(state, events); break;

@@ -343,6 +343,57 @@ async function beginRun(ctx, page, rect, modeId = "story") {
   return t;
 }
 
+test("the start screen names the build, and offers CONTINUE only with a run to come back to", async (ctx) => {
+  const page = await ctx.open("/__tall.html");
+  const { rect, snap } = makePage(page);
+  await parkTallHost(page);
+  const text = (id) => page.evaluate(([h, i]) => {
+    const el = document.getElementById(h).shadowRoot.getElementById(i);
+    return { text: el.textContent, hidden: el.hidden };
+  }, ["game", id]);
+
+  const v = await text("spVersion");
+  assert.match(v.text, /^V\d+\.\d+\.\d+$/, `the build is shown on the start screen (got ${JSON.stringify(v.text)})`);
+
+  // a fresh browser has nothing saved: one button, and it starts a new run
+  assert.equal((await text("spLoad")).hidden, true, "no CONTINUE without a save");
+  assert.equal((await text("spStart")).text, "PRESS START");
+
+  const t = makeTouch(await ctx.cdp(page));
+  const st = await rect("spStart");
+  await t.tap(st.cx, st.cy);
+  await wait(300);
+  assert.equal((await snap()).mode, "playing");
+
+  // the opening tower is a checkpoint: a save is written as the run begins
+  const saved = await page.evaluate(() => {
+    const k = Object.keys(window.localStorage).find((x) => x.endsWith("_save"));
+    return k ? JSON.parse(window.localStorage.getItem(k)) : null;
+  });
+  assert.ok(saved && saved.manifest, "reaching the first tower writes a save");
+  assert.equal(saved.manifest.game, "buster-whack");
+  assert.ok(Number.isInteger(saved.manifest.version), "with a manifest version");
+
+  // reload: the card now leads with CONTINUE, and it resumes rather than restarts
+  await page.reload({ waitUntil: "load" });
+  await wait(400);
+  await parkTallHost(page);
+  const p2 = makePage(page);
+  const text2 = (id) => page.evaluate(([h, i]) => {
+    const el = document.getElementById(h).shadowRoot.getElementById(i);
+    return { text: el.textContent, hidden: el.hidden };
+  }, ["game", id]);
+  assert.equal((await text2("spLoad")).hidden, false, "CONTINUE is offered");
+  assert.equal((await text2("spStart")).text, "NEW GAME", "and the other button says what it does");
+
+  const t2 = makeTouch(await ctx.cdp(page));
+  const ld = await p2.rect("spLoad");
+  await t2.tap(ld.cx, ld.cy);
+  await wait(400);
+  const s2 = await p2.snap();
+  assert.equal(s2.mode, "playing", "CONTINUE puts you back in the run");
+});
+
 test("dragging the ring cancels its touchmoves and never scrolls the host page", async (ctx) => {
   const page = await ctx.open("/__tall.html");
   const { rect, snap } = makePage(page);

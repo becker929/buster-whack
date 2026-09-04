@@ -16,6 +16,8 @@ import { createInput } from "./input.js";
 import { draw } from "./render.js";
 import { createArt, loadArtPack } from "./art.js";
 import { stashView } from "../core/items.js";
+import { toSave, readSave } from "../core/save.js";
+import { VERSION } from "../core/version.js";
 
 const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
 
@@ -24,6 +26,7 @@ const MAX_DT = 50;   // a backgrounded tab must not teleport the simulation
  * @param {HTMLElement} container - element to render into (must have a size).
  * @param {object} [options]
  * @param {string} [options.storageKey="bw_best"] - localStorage key for the best score.
+ * @param {string} [options.saveKey] - localStorage key for the saved run (default: storageKey + "_save").
  * @param {number} [options.seed] - PRNG seed; omit for a fresh random run.
  * @param {object} [options.tuning] - overrides against the tuning schema (core/tuning.js).
  * @param {string} [options.artUrl] - base URL of an art pack (manifest.json + atlas); pack zero is the fallback.
@@ -36,6 +39,9 @@ export function mountBusterWhack(container, options = {}) {
     throw new TypeError("mountBusterWhack: container must be a DOM element");
   }
   const storageKey = options.storageKey || "bw_best";
+  // The saved run lives beside the best score, under its own key so clearing
+  // one never takes the other with it.
+  const saveKey = options.saveKey || storageKey + "_save";
 
   const { root, els } = createUI(container);
   const ctx = els.cv.getContext("2d");
@@ -192,10 +198,48 @@ export function mountBusterWhack(container, options = {}) {
     resize();
   }
 
+  // ---------- the saved run ----------
+  //
+  // A run is written at its checkpoints -- a tower reached, an arena taken --
+  // which are exactly the places where nothing is in the air and the clock is
+  // not running, so a loaded run resumes at rest rather than mid-flight.
+
+  /** What the start screen shows about the saved run, or null. */
+  function saveHeader() {
+    const data = loadSave();
+    return data ? data.manifest : null;
+  }
+
+  /** The whole readable save, migrated to the current manifest version. */
+  function loadSave() {
+    let raw = null;
+    try { raw = storage().getItem(saveKey); } catch (e) { return null; }
+    if (!raw) return null;
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return null; }
+    const read = readSave(parsed);
+    return read.ok ? read.data : null;
+  }
+
+  function writeSave() {
+    if (state.mode !== "playing") return;
+    try {
+      storage().setItem(saveKey, JSON.stringify(toSave(state, story.snapshot())));
+    } catch (e) { /* a full or blocked store is not a reason to stop playing */ }
+  }
+
+  function dropSave() {
+    try { storage().removeItem(saveKey); } catch (e) {}
+  }
+
   function handleEvent(ev) {
     switch (ev.type) {
       case "statsChanged": refreshStats(); break;
-      case "runStarted":   hideOverlay(els); applyControls(ev.modeId); break;
+      case "runStarted":   hideOverlay(els); applyControls(ev.modeId); dropSave(); break;
+      case "runLoaded":    hideOverlay(els); applyControls(ev.modeId); break;
+      // the checkpoints: safe ground, nothing in flight
+      case "towerEntered":
+      case "arenaCleared": writeSave(); break;
       case "resumed":      hideOverlay(els); break;
       case "bombEmpty":    denyBomb(els); break;
       case "talk": {
@@ -209,6 +253,8 @@ export function mountBusterWhack(container, options = {}) {
         if (ev.newBest) {
           try { storage().setItem(storageKey, String(ev.best)); } catch (e) {}
         }
+        // a finished run is not a run to come back to
+        dropSave();
         showOver();
         break;
       case "paused":
@@ -238,10 +284,22 @@ export function mountBusterWhack(container, options = {}) {
     lastFrame = nowRaf;
 
     const actions = queue.splice(0, queue.length);
+    // CONTINUE is the shell's business up to the point where the core takes
+    // over: the shell reads the file and checks it, the core puts it in place,
+    // and the story's own half is restored once the core has said runLoaded.
+    let pendingStory = null;
+    for (let i = 0; i < actions.length; i++) {
+      if (actions[i].type !== "continueRun") continue;
+      const data = loadSave();
+      if (!data) { actions[i] = { type: "startRun", modeId: DEFAULT_MODE }; continue; }
+      pendingStory = data.story || null;
+      actions[i] = { type: "loadRun", save: data };
+    }
     const events = step(state, dt, { actions, hold: input.hold() });
 
     audio.handleAll(events);
     story.handleAll(events);
+    if (pendingStory && events.some((e) => e.type === "runLoaded")) story.restore(pendingStory);
     for (const ev of events) handleEvent(ev);
 
     // the context button reads from where you stand, and from the state of
@@ -264,7 +322,7 @@ export function mountBusterWhack(container, options = {}) {
   // ---------- boot ----------
 
   refreshStats();
-  showSplash(els, state.best);
+  showSplash(els, state.best, VERSION, saveHeader());
   lastFrame = (win.performance || performance).now();
   rafId = raf(frame);
 

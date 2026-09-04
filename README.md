@@ -287,6 +287,39 @@ on `stageIdx`, so a mechanic can never appear before the card that explains it,
 and the OVERCLOCK card stamps `state.ocFrom` with the live deletion count — the
 decay and its announcement are the same moment.
 
+### New game, continue, and the save manifest
+
+The start screen names the build in the corner, and offers **CONTINUE** when
+there is a run to come back to — with **NEW GAME** underneath it, quieter, so
+the button that throws a run away is never the easy one to hit. A bare tap on
+the card continues rather than restarts for the same reason. With no save
+there is one button and it still reads PRESS START.
+
+A run is written at its checkpoints: a tower reached, an arena taken. Those
+are exactly the moments when nothing is in the air and the clock is not
+running, so a loaded run resumes at rest and none of the in-flight state has
+to be captured. Starting a new run drops the save; so does dying.
+
+A save is a **manifest** and three sections (`src/core/save.js`):
+
+```
+manifest  { game, version, build, savedAt, at: { arena, roost, score } }
+run       seed, the rng's exact position, score, clock, ledger, stash, tasks
+world     the road so far, as segments; towers rebuild their people from the route
+story     opaque here — the shell's own gate state. Ids and counters, never text
+```
+
+`manifest.version` is the shape of the save, and it is the gate. A save from a
+**newer** manifest version is always refused rather than guessed at; an older
+one is accepted only if `MIGRATIONS` has a path to the current version.
+Anything unreadable comes back as `{ ok: false, reason }` for the UI to show —
+nothing throws. `manifest.build` is the game version that wrote it, which is
+what the corner of the start screen shows.
+
+Two versions, two jobs: `VERSION` in `src/core/version.js` is the game's, kept
+equal to `package.json` by a test; `SAVE_VERSION` is the manifest's, and only
+moves when the saved shape does.
+
 ### The stash, and the five shards
 
 What you carry is one list with a capacity in slots (`STASH_SLOTS`). The bomb

@@ -449,12 +449,25 @@ export function createInput({ win, host, root, els, on, dispatch, onGesture, onM
     setMode(row.dataset.mode);
     dispatch({ type: "startRun", modeId: modeId() });
   });
-  on(els.splash, "click", () => { onGesture(); dispatch({ type: "startRun", modeId: modeId() }); });
+  // A bare click on the card starts something. With a run to come back to
+  // that is CONTINUE, never NEW GAME: the card is a big target and a stray
+  // tap must not be what throws a saved run away.
+  on(els.splash, "click", () => {
+    onGesture();
+    if (!els.spLoad.hidden) dispatch({ type: "continueRun" });
+    else dispatch({ type: "startRun", modeId: modeId() });
+  });
   on(els.spStart, "pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     onGesture();
     dispatch({ type: "startRun", modeId: modeId() });
+  });
+  on(els.spLoad, "pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onGesture();
+    dispatch({ type: "continueRun" });
   });
 
   // ---------- gesture containment ----------

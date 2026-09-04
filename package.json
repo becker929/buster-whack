@@ -1,6 +1,6 @@
 {
   "name": "buster-whack",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A virus-busting, whack-a-mole arcade minigame you can drop into any page as an ES module.",
   "type": "module",
   "main": "src/buster-whack.js",

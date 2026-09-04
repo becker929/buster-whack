@@ -126,6 +126,13 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
 
   function handle(ev) {
     switch (ev.type) {
+      case "runLoaded": {
+        // a loaded run says where it is; the shell restores the rest itself
+        active = !!ev.story;
+        close();
+        if (place) place("");
+        break;
+      }
       case "runStarted": {
         active = !!ev.story;
         close();
@@ -174,7 +181,7 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
     /** Feed every core event; the module ignores what is not its business. */
     handleAll(events) {
       for (const ev of events) {
-        if (!["runStarted", "towerEntered", "arenaEntered", "talk",
+        if (!["runStarted", "runLoaded", "towerEntered", "arenaEntered", "talk",
               "taskGiven", "taskProgress", "taskDone"].includes(ev.type)) continue;
         if (!canon) pending.push(ev); else handle(ev);
       }
@@ -191,6 +198,24 @@ export function createStory({ say, hush, place, onError, load = Canon.load }) {
     },
     /** Walking away from the person closes the box; it is theirs, not the road's. */
     leave() { if (convo) close(); },
+    /**
+     * The story half of a saved run: the gate state and how many times each
+     * conversation has been finished. Sealed ids and counters only -- never a
+     * line of canon, so a save file is as mute as the repository is.
+     */
+    snapshot() {
+      if (!canon) return null;
+      return { kv: canon.state.snapshot(), done: { ...done }, seen: [...canon.seenOpen] };
+    },
+    /** …and back, when a run is loaded. */
+    restore(snap) {
+      if (!canon || !snap) return false;
+      close();
+      canon.state.restore(snap.kv || {});
+      done = { ...(snap.done || {}) };
+      canon.seenOpen = new Set(snap.seen || []);
+      return true;
+    },
     get open() { return !!convo; },
     /** The canon, once decoded (null before). For tooling; never log its strings. */
     get canon() { return canon; },
